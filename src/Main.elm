@@ -18,6 +18,7 @@ import Graph exposing (Graph, Node)
 import Zoom exposing (Zoom, OnZoom)
 import Task
 import TypedSvg exposing (circle)
+import Browser exposing (element)
 main : Program () Model Msg
 main =
   Browser.element { init = init, update = update, view = view, subscriptions = subscriptions }
@@ -149,8 +150,6 @@ view model =
         , Attrs.height <| Percent 100
         ]
         [ defs [] [ arrowhead ]
-        --- , g [] <| List.indexedMap yGridLine <| Scale.ticks yScale 10
-        -- , g [] <| List.indexedMap xGridLine <| Scale.ticks xScale 20
         , rect
             ([ Attrs.width <| Percent 100
                 , Attrs.height <| Percent 100
@@ -160,11 +159,46 @@ view model =
                 ++ zoomEvents
             )
             []
+        , g []
+            [ renderYGridLine model
+            , renderXGridLine model
+            ]
         , g
             [ zoomTransformAttr ]
-            [ renderGraph model ]
+            [ renderGraph model
+            ]
         ]
 
+renderYGridLine: Model -> Svg Msg
+renderYGridLine model =
+    case model of
+        Init _ ->
+            text ""
+        Ready { element, zoom } ->
+            let
+                { scale } = Zoom.asRecord zoom
+
+                h = element.height / scale
+
+                count = element.height / 30 |> round
+            in
+            g [ ] <| List.indexedMap (yGridLine element.height) <| Scale.ticks (yScale element.height) count
+
+
+renderXGridLine: Model -> Svg Msg
+renderXGridLine model =
+    case model of
+        Init _ ->
+            text ""
+        Ready { element, zoom } ->
+            let
+                { scale } = Zoom.asRecord zoom
+
+                w = element.width / scale
+
+                count = element.width / 30 |> round
+            in
+            g [ ] <| List.indexedMap (xGridLine element.width) <| Scale.ticks (xScale element.width) count
 
 renderGraph : Model -> Svg Msg
 renderGraph model =
@@ -202,26 +236,26 @@ edgeColor =
     Paint <| Color.rgb255 180 180 180
 
 
-xGridLine : Int -> Float -> Svg msg
-xGridLine index tick =
+xGridLine : Float -> Int -> Float -> Svg msg
+xGridLine w index tick =
     line
         [ y1 0
         , Attrs.y2 (percent 100)
-        , x1 (Scale.convert xScale tick)
-        , x2 (Scale.convert xScale tick)
+        , x1 (Scale.convert (xScale w) tick)
+        , x2 (Scale.convert (xScale w) tick)
         , stroke <| Paint Color.black
         , strokeWidth (Basics.max (toFloat (modBy 2 index)) 0.5)
         ]
         []
 
 
-yGridLine : Int -> Float -> Svg msg
-yGridLine index tick =
+yGridLine : Float -> Int -> Float -> Svg msg
+yGridLine h index tick =
     line
         [ x1 0
         , Attrs.x2 (percent 100)
-        , y1 (Scale.convert yScale tick)
-        , y2 (Scale.convert yScale tick)
+        , y1 (Scale.convert (yScale h) tick)
+        , y2 (Scale.convert (yScale h) tick)
         , stroke <| Paint Color.black
         , strokeWidth (Basics.max (toFloat (modBy 2 index)) 0.5)
         ]
@@ -231,20 +265,11 @@ padding : Float
 padding =
     0
 
-w : Float
-w =
-    1920
+xScale : Float -> ContinuousScale Float
+xScale w =
+    Scale.linear ( 0, w ) ( 0, 1 )
 
 
-h : Float
-h =
-    1080
-
-xScale : ContinuousScale Float
-xScale =
-    Scale.linear ( padding, w - padding ) ( 0, 2 )
-
-
-yScale : ContinuousScale Float
-yScale =
-    Scale.linear ( h - padding, padding ) ( 0, 1 )
+yScale : Float -> ContinuousScale Float
+yScale h =
+    Scale.linear ( h, 0 ) ( 0, 1 )
