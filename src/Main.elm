@@ -1,27 +1,23 @@
 module Main exposing (..)
 
-import Browser
+import Browser exposing (element)
 import Browser.Dom as Dom
 import Browser.Events as Events
 import Color
 import SubPath exposing (SubPath)
 import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
-import TypedSvg exposing (rect, svg, defs, marker, polygon, g, line)
-import TypedSvg.Attributes as Attrs exposing (class, cursor, cx, cy, fill, r, stroke, viewBox, points, id, orient, markerWidth, markerHeight, refX, refY)
-import TypedSvg.Attributes.InPx exposing (height, width, x, x1, x2, y, y1, y2, strokeWidth)
-import TypedSvg.Types exposing (Paint(..), px, percent, Length(..), Cursor(..))
+import TypedSvg exposing (rect, svg, defs, marker, polygon, g, pattern)
+import TypedSvg.Attributes as Attrs exposing
+    ( height, width, class, cursor, x, y, cx, cy, fill, r, points, id, orient, markerWidth, markerHeight, refX, refY
+    , strokeWidth, rx)
+import TypedSvg.Types exposing (CoordinateSystem(..), Opacity(..), Paint(..), Length(..), Cursor(..))
 import TypedSvg.Core exposing (Svg, Attribute)
-import Shape
-import Scale exposing (ContinuousScale)
 import Graph exposing (Graph, Node)
 import Zoom exposing (Zoom, OnZoom)
 import Task
 import TypedSvg exposing (circle)
-import Browser exposing (element)
-import Scale exposing (SequentialScale)
-import TypedSvg exposing (pattern)
-import TypedSvg.Types exposing (CoordinateSystem(..))
+
 main : Program () Model Msg
 main =
   Browser.element { init = init, update = update, view = view, subscriptions = subscriptions }
@@ -132,6 +128,23 @@ floatRemainderBy divisor n =
   n - toFloat(truncate (n / divisor)) * divisor
 
 
+{-| The mouse events for drag start, drag at and drag end read the client
+position of the cursor, which is relative to the browser viewport. However,
+the node positions are relative to the svg viewport. This function adjusts the
+coordinates accordingly. It also takes the current zoom level and position
+into consideration.
+-}
+shiftPosition : Zoom -> ( Float, Float ) -> ( Float, Float ) -> ( Float, Float )
+shiftPosition zoom ( elementX, elementY ) ( clientX, clientY ) =
+    let
+        zoomRecord =
+            Zoom.asRecord zoom
+    in
+    ( (clientX - zoomRecord.translate.x - elementX) / zoomRecord.scale
+    , (clientY - zoomRecord.translate.y - elementY) / zoomRecord.scale
+    )
+
+
 type XY
     = X
     | Y
@@ -221,11 +234,13 @@ innerGrid size =
             , Attrs.height <| Percent 100
             , Attrs.fill PaintNone
             , Attrs.stroke <| Paint <| Color.rgb255 204 204 204
-            , strokeWidth 0.5
+            , strokeWidth <| Px 0.5
             ]
             []
         ]
 
+
+-- Grid comes from https://gist.github.com/leonardfischer/fc4d1086c64b2c1324c93dcd0beed004
 gridId : String
 gridId = "grid"
 
@@ -245,7 +260,7 @@ grid x y size =
             , Attrs.height <| Percent 100
             , Attrs.fill <| Reference innerGridId
             , Attrs.stroke <| Paint <| Color.rgb255 204 204 204
-            , strokeWidth 1.5
+            , strokeWidth <| Px 1.5
             ]
             []
         ]
@@ -258,7 +273,11 @@ renderGraph model =
 
         Ready { graph, showGraph } ->
             if showGraph then
-                circle [ cx (px 60), cy (px 60), r (px 50) ] []
+                g []
+                    [ renderElement 0 0
+                    , renderElement 50 50
+                    , renderSystem 200 200
+                    ]
 
             else
                 text ""
@@ -284,3 +303,28 @@ arrowhead =
 edgeColor : Paint
 edgeColor =
     Paint <| Color.rgb255 180 180 180
+
+renderElement : Float -> Float -> Svg msg
+renderElement xValue yValue = 
+    rect
+        [ x <| Px xValue
+        , y <| Px yValue
+        , width <| Px 120
+        , height <| Px 60
+        , rx <| Px 5
+        , Attrs.fill <| Paint <| Color.white
+        , Attrs.stroke <| Paint <| Color.black
+        , Attrs.strokeWidth <| Px 1
+        ] []
+
+
+renderSystem : Float -> Float -> Svg msg
+renderSystem xValue yValue = 
+    circle
+        [ cx <| Px xValue
+        , cy <| Px yValue
+        , r <| Px 60
+        , Attrs.fill <| Paint <| Color.white
+        , Attrs.stroke <| Paint <| Color.black
+        , Attrs.strokeWidth <| Px 1
+        ] []
