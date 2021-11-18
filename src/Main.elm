@@ -131,6 +131,11 @@ floatRemainderBy : Float -> Float -> Float
 floatRemainderBy divisor n =
   n - toFloat(truncate (n / divisor)) * divisor
 
+
+type XY
+    = X
+    | Y
+
 view : Model -> Html Msg
 view model =
     let
@@ -159,25 +164,22 @@ view model =
 
         transform100 = transform10 * 10
 
-        x =
+        getXY xy =
             case model of
-                Init _ -> 10
+                Init _ -> 0
                 Ready { zoom } ->
                     zoom
                         |> Zoom.asRecord
                         |> .translate
-                        |> .x
+                        |> (\t -> case xy of
+                                    X -> t.x
+                                    Y -> t.y
+                            )
                         |> floatRemainderBy transform100
 
-        y =
-            case model of
-                Init _ -> 10
-                Ready { zoom } ->
-                    zoom
-                        |> Zoom.asRecord
-                        |> .translate
-                        |> .y
-                        |> floatRemainderBy transform100
+        x = getXY X
+
+        y = getXY Y
     in
     svg
         [ id elementId
