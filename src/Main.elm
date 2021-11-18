@@ -13,21 +13,36 @@ import TypedSvg.Attributes as Attrs exposing
     , strokeWidth, rx)
 import TypedSvg.Types exposing (CoordinateSystem(..), Opacity(..), Paint(..), Length(..), Cursor(..))
 import TypedSvg.Core exposing (Svg, Attribute)
-import Graph exposing (Graph, Node)
+import Graph exposing (Graph, Node, Edge)
 import Zoom exposing (Zoom, OnZoom)
 import Task
 import TypedSvg exposing (circle)
+import Html exposing (source)
+import TypedSvg exposing (line)
+import TypedSvg.Attributes exposing (x1)
+import TypedSvg.Attributes exposing (y1)
+import TypedSvg.Attributes exposing (x2)
+import TypedSvg.Attributes exposing (y2)
+import TypedSvg.Attributes exposing (stroke)
+import TypedSvg.Attributes exposing (markerEnd)
 
 main : Program () Model Msg
 main =
   Browser.element { init = init, update = update, view = view, subscriptions = subscriptions }
 
 type Model
-    = Init (Graph (Node String) ())
+    = Init (Graph Container ())
     | Ready ReadyState
 
+type alias Container =
+    { x : Float
+    , y : Float
+    , name : String
+    , description : String
+    }
+
 type alias ReadyState =
-    { graph : Graph (Node String) ()
+    { graph : Graph Container ()
     , zoom : Zoom
 
     -- The position and dimensions of the svg element.
@@ -48,6 +63,8 @@ type alias Element =
     , y : Float
     }
 
+zeroContainer = Container 0 0 "" ""
+
 type Msg
     = ZoomMsg OnZoom
     | Resize Int Int
@@ -63,7 +80,10 @@ getElementPosition =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Init (Graph.fromNodeLabelsAndEdgePairs [Node 1 "1"] []), getElementPosition )
+    ( Init (Graph.fromNodeLabelsAndEdgePairs
+            [Container 200 200 "" ""
+            , Container 200 500 "" ""
+            ] [(0,1)]), getElementPosition )
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -273,15 +293,50 @@ renderGraph model =
 
         Ready { graph, showGraph } ->
             if showGraph then
-                g []
-                    [ renderElement 0 0
-                    , renderElement 50 50
-                    , renderSystem 200 200
+                g
+                    []
+                    [ Graph.edges graph
+                        |> List.map (linkElement graph)
+                        |> g [ class [ "links" ] ]
+                    , Graph.nodes graph
+                        |> List.map nodeElement
+                        |> g [ class [ "nodes" ] ]
                     ]
 
             else
                 text ""
-                
+
+
+nodeElement : Node Container -> Svg Msg
+nodeElement node =
+    let
+        {x, y} = node.label
+    in
+    renderElement x y
+
+linkElement : Graph Container () -> Edge () -> Svg msg
+linkElement graph edge =
+    let
+        source =
+            Graph.get edge.from graph
+
+        target =
+            Graph.get edge.to graph
+    in
+    case (source, target) of
+        (Just sourceNode, Just targetNode) ->
+            line
+                [ x1 <| Px sourceNode.node.label.x
+                , y1 <| Px sourceNode.node.label.y
+                , x2 <| Px targetNode.node.label.x
+                , y2 <| Px targetNode.node.label.y
+                , strokeWidth <| Px 1
+                , stroke <| Paint <| Color.black
+                , markerEnd "url(#arrowhead)"
+                ]
+                []
+        _ -> text ""
+   
 
 arrowhead : Svg msg
 arrowhead =
@@ -290,12 +345,12 @@ arrowhead =
         , orient "auto"
         , markerWidth <| Px 8.0
         , markerHeight <| Px 6.0
-        , refX "29"
+        , refX "39"
         , refY "3"
         ]
         [ polygon
             [ points [ ( 0, 0 ), ( 8, 3 ), ( 0, 6 ) ]
-            , fill edgeColor
+            , fill <| Paint <| Color.black
             ]
             []
         ]
@@ -305,7 +360,11 @@ edgeColor =
     Paint <| Color.rgb255 180 180 180
 
 renderElement : Float -> Float -> Svg msg
-renderElement xValue yValue = 
+renderElement xCenter yCenter = 
+    let
+        xValue = xCenter - 60
+        yValue = yCenter - 30
+    in
     rect
         [ x <| Px xValue
         , y <| Px yValue

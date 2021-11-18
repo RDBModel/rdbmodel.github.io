@@ -3,7 +3,8 @@
 [X] set up grid
 [X] set up scale
 [x] draw rect
-[ ] connect rect by curve
+[x] connect rect by curve
 [ ] select rect
 [ ] move rect
 [ ] add points to curve
+[ ] support arrow at the end of curve
