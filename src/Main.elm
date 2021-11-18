@@ -9,7 +9,7 @@ import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
 import TypedSvg exposing (rect, svg, defs, marker, polygon, g, line)
 import TypedSvg.Attributes as Attrs exposing (class, cursor, cx, cy, fill, r, stroke, viewBox, points, id, orient, markerWidth, markerHeight, refX, refY)
-import TypedSvg.Attributes.InPx exposing (height, strokeWidth, width, x, x1, x2, y, y1, y2, strokeWidth)
+import TypedSvg.Attributes.InPx exposing (height, width, x, x1, x2, y, y1, y2, strokeWidth)
 import TypedSvg.Types exposing (Paint(..), px, percent, Length(..), Cursor(..))
 import TypedSvg.Core exposing (Svg, Attribute)
 import Shape
@@ -19,6 +19,9 @@ import Zoom exposing (Zoom, OnZoom)
 import Task
 import TypedSvg exposing (circle)
 import Browser exposing (element)
+import Scale exposing (SequentialScale)
+import TypedSvg exposing (pattern)
+import TypedSvg.Types exposing (CoordinateSystem(..))
 main : Program () Model Msg
 main =
   Browser.element { init = init, update = update, view = view, subscriptions = subscriptions }
@@ -124,6 +127,10 @@ initZoom element =
         |> Zoom.scaleExtent 0.1 2
 
 
+floatRemainderBy : Float -> Float -> Float
+floatRemainderBy divisor n =
+  n - toFloat(truncate (n / divisor)) * divisor
+
 view : Model -> Html Msg
 view model =
     let
@@ -143,62 +150,103 @@ view model =
 
                 Ready { zoom } ->
                     Zoom.transform zoom
+
+        transform10 = 
+            case model of
+                Init _ -> 10
+                Ready { zoom } ->
+                    zoom |> Zoom.asRecord |> .scale |> (*) 10
+
+        transform100 = transform10 * 10
+
+        x =
+            case model of
+                Init _ -> 10
+                Ready { zoom } ->
+                    zoom
+                        |> Zoom.asRecord
+                        |> .translate
+                        |> .x
+                        |> floatRemainderBy transform100
+
+        y =
+            case model of
+                Init _ -> 10
+                Ready { zoom } ->
+                    zoom
+                        |> Zoom.asRecord
+                        |> .translate
+                        |> .y
+                        |> floatRemainderBy transform100
     in
     svg
         [ id elementId
         , Attrs.width <| Percent 100
         , Attrs.height <| Percent 100
         ]
-        [ defs [] [ arrowhead ]
+        [ defs []
+            [ arrowhead
+            , innerGrid transform10
+            , grid x y transform100
+            ]
         , rect
             ([ Attrs.width <| Percent 100
-                , Attrs.height <| Percent 100
-                , fill <| Paint <| Color.rgba 0 0 0 0
-                , cursor CursorMove
-                ]
-                ++ zoomEvents
-            )
-            []
-        , g []
-            [ renderYGridLine model
-            , renderXGridLine model
-            ]
+            , Attrs.height <| Percent 100
+            , fill <| Reference gridId
+            , cursor CursorMove
+            ] ++ zoomEvents) []
         , g
             [ zoomTransformAttr ]
             [ renderGraph model
             ]
         ]
 
-renderYGridLine: Model -> Svg Msg
-renderYGridLine model =
-    case model of
-        Init _ ->
-            text ""
-        Ready { element, zoom } ->
-            let
-                { scale } = Zoom.asRecord zoom
-
-                h = element.height / scale
-
-                count = element.height / 30 |> round
-            in
-            g [ ] <| List.indexedMap (yGridLine element.height) <| Scale.ticks (yScale element.height) count
+innerGridId : String
+innerGridId = "inner-grid"
 
 
-renderXGridLine: Model -> Svg Msg
-renderXGridLine model =
-    case model of
-        Init _ ->
-            text ""
-        Ready { element, zoom } ->
-            let
-                { scale } = Zoom.asRecord zoom
+innerGrid : Float -> Svg msg
+innerGrid size =
+    pattern
+        [ id innerGridId
+        , Attrs.width <| Px size
+        , Attrs.height <| Px size
+        , Attrs.patternUnits CoordinateSystemUserSpaceOnUse
+        ]
+        [
+            rect
+            [ Attrs.width <| Percent 100
+            , Attrs.height <| Percent 100
+            , Attrs.fill PaintNone
+            , Attrs.stroke <| Paint <| Color.rgb255 204 204 204
+            , strokeWidth 0.5
+            ]
+            []
+        ]
 
-                w = element.width / scale
+gridId : String
+gridId = "grid"
 
-                count = element.width / 30 |> round
-            in
-            g [ ] <| List.indexedMap (xGridLine element.width) <| Scale.ticks (xScale element.width) count
+grid : Float -> Float -> Float -> Svg msg
+grid x y size =
+    pattern
+        [ id gridId
+        , Attrs.width <| Px size
+        , Attrs.height <| Px size
+        , Attrs.x <| Px x
+        , Attrs.y <| Px y
+        , Attrs.patternUnits CoordinateSystemUserSpaceOnUse
+        ]
+        [
+            rect
+            [ Attrs.width <| Percent 100
+            , Attrs.height <| Percent 100
+            , Attrs.fill <| Reference innerGridId
+            , Attrs.stroke <| Paint <| Color.rgb255 204 204 204
+            , strokeWidth 1.5
+            ]
+            []
+        ]
 
 renderGraph : Model -> Svg Msg
 renderGraph model =
@@ -234,42 +282,3 @@ arrowhead =
 edgeColor : Paint
 edgeColor =
     Paint <| Color.rgb255 180 180 180
-
-
-xGridLine : Float -> Int -> Float -> Svg msg
-xGridLine w index tick =
-    line
-        [ y1 0
-        , Attrs.y2 (percent 100)
-        , x1 (Scale.convert (xScale w) tick)
-        , x2 (Scale.convert (xScale w) tick)
-        , stroke <| Paint Color.black
-        , strokeWidth (Basics.max (toFloat (modBy 2 index)) 0.5)
-        ]
-        []
-
-
-yGridLine : Float -> Int -> Float -> Svg msg
-yGridLine h index tick =
-    line
-        [ x1 0
-        , Attrs.x2 (percent 100)
-        , y1 (Scale.convert (yScale h) tick)
-        , y2 (Scale.convert (yScale h) tick)
-        , stroke <| Paint Color.black
-        , strokeWidth (Basics.max (toFloat (modBy 2 index)) 0.5)
-        ]
-        []
-
-padding : Float
-padding =
-    0
-
-xScale : Float -> ContinuousScale Float
-xScale w =
-    Scale.linear ( 0, w ) ( 0, 1 )
-
-
-yScale : Float -> ContinuousScale Float
-yScale h =
-    Scale.linear ( h, 0 ) ( 0, 1 )
