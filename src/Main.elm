@@ -7,6 +7,7 @@ import Color
 import SubPath exposing (SubPath)
 import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
+import Html.Events.Extra.Mouse as Mouse
 import TypedSvg exposing (rect, svg, defs, marker, polygon, g, pattern)
 import TypedSvg.Attributes as Attrs exposing
     ( height, width, class, cursor, x, y, cx, cy, fill, r, points, id, orient, markerWidth, markerHeight, refX, refY
@@ -25,6 +26,7 @@ import TypedSvg.Attributes exposing (x2)
 import TypedSvg.Attributes exposing (y2)
 import TypedSvg.Attributes exposing (stroke)
 import TypedSvg.Attributes exposing (markerEnd)
+import Graph exposing (NodeId)
 
 main : Program () Model Msg
 main =
@@ -42,7 +44,8 @@ type alias Container =
     }
 
 type alias ReadyState =
-    { graph : Graph Container ()
+    { drag : Maybe Drag
+    , graph : Graph Container ()
     , zoom : Zoom
 
     -- The position and dimensions of the svg element.
@@ -54,6 +57,12 @@ type alias ReadyState =
     -- `showGraph` is initialized with `False` and set to `True` with the first
     -- `Tick`.
     , showGraph : Bool
+    }
+
+type alias Drag =
+    { current : ( Float, Float )
+    , index : NodeId
+    , start : ( Float, Float )
     }
 
 type alias Element =
@@ -69,6 +78,9 @@ type Msg
     = ZoomMsg OnZoom
     | Resize Int Int
     | ReceiveElementPosition (Result Dom.Error Dom.Element)
+    | DragStart NodeId ( Float, Float )
+    | DragAt ( Float, Float )
+    | DragEnd ( Float, Float )
 
 elementId : String
 elementId =
@@ -82,7 +94,7 @@ init : () -> ( Model, Cmd Msg )
 init _ =
     ( Init (Graph.fromNodeLabelsAndEdgePairs
             [Container 200 200 "" ""
-            , Container 200 500 "" ""
+            , Container 500 200 "" ""
             ] [(0,1)]), getElementPosition )
 
 subscriptions : Model -> Sub Msg
@@ -116,7 +128,8 @@ update msg model =
         -- ready to initialize the simulation and the zoom, but we cannot
         -- show the graph yet. If we did, we would see a noticable jump.
         ( Ready
-            { element = element
+            { drag = Nothing
+            , element = element
             , graph = graph
             , showGraph = True
             , zoom = initZoom element
@@ -126,7 +139,8 @@ update msg model =
 
     ( ReceiveElementPosition (Ok { element }), Ready state ) ->
         ( Ready
-            { element = element
+            { drag = Nothing
+            , element = element
             , graph = state.graph
             , showGraph = True
             , zoom = initZoom element
@@ -135,6 +149,44 @@ update msg model =
         )
 
     ( ReceiveElementPosition (Err _), _ ) ->
+        ( model, Cmd.none )
+
+    ( DragStart index xy, Ready state ) ->
+            ( Ready
+                { state
+                    | drag =
+                        Just
+                            { start = xy
+                            , current = xy
+                            , index = index
+                            }
+                }
+            , Cmd.none
+            )
+
+    ( DragStart _ _, Init _ ) ->
+        ( model, Cmd.none )
+
+    ( DragAt xy, Ready state ) ->
+        ( model, Cmd.none )
+
+    ( DragAt _, Init _ ) ->
+        ( model, Cmd.none )
+
+    ( DragEnd xy, Ready state ) ->
+        case state.drag of
+            Just { index } ->
+                ( Ready
+                    { state
+                        | drag = Nothing
+                    }
+                , Cmd.none
+                )
+
+            Nothing ->
+                ( Ready state, Cmd.none )
+
+    ( DragEnd _, Init _ ) ->
         ( model, Cmd.none )
 
 initZoom : Element -> Zoom
@@ -291,7 +343,7 @@ renderGraph model =
         Init _ ->
             text ""
 
-        Ready { graph, showGraph } ->
+        Ready { drag, graph, showGraph } ->
             if showGraph then
                 g
                     []
@@ -299,7 +351,13 @@ renderGraph model =
                         |> List.map (linkElement graph)
                         |> g [ class [ "links" ] ]
                     , Graph.nodes graph
-                        |> List.map nodeElement
+                        |> List.map (\n -> 
+                            case drag of
+                                Just { index } ->
+                                    nodeElement (index == n.id) n
+                                Nothing ->
+                                    nodeElement False n
+                        )
                         |> g [ class [ "nodes" ] ]
                     ]
 
@@ -307,12 +365,12 @@ renderGraph model =
                 text ""
 
 
-nodeElement : Node Container -> Svg Msg
-nodeElement node =
+nodeElement : Bool -> Node Container -> Svg Msg
+nodeElement selected node =
     let
         {x, y} = node.label
     in
-    renderElement x y
+    renderContainer node.id selected x y
 
 linkElement : Graph Container () -> Edge () -> Svg msg
 linkElement graph edge =
@@ -345,7 +403,7 @@ arrowhead =
         , orient "auto"
         , markerWidth <| Px 8.0
         , markerHeight <| Px 6.0
-        , refX "39"
+        , refX "69"
         , refY "3"
         ]
         [ polygon
@@ -359,30 +417,54 @@ edgeColor : Paint
 edgeColor =
     Paint <| Color.rgb255 180 180 180
 
-renderElement : Float -> Float -> Svg msg
-renderElement xCenter yCenter = 
+
+containerWidth : Float
+containerWidth = 120
+containerHeight : Float
+containerHeight = 60
+systemRadius : Float
+systemRadius = 60
+
+{-| This is the event handler that handles clicks on the vertices (nodes).
+
+The event catches the `clientPos`, which is a tuple with the
+`MouseEvent.clientX` and `MouseEvent.clientY` values. These coordinates are
+relative to the client area (browser viewport).
+
+If the graph is positioned anywhere else than at the coordinates `(0, 0)`, the
+svg element position must be subtracted when setting the node position. This is
+handled in the update function by calling the `shiftPosition` function.
+
+-}
+onMouseDown : NodeId -> Attribute Msg
+onMouseDown index =
+    Mouse.onDown (.clientPos >> DragStart index)
+
+renderContainer : NodeId -> Bool -> Float -> Float -> Svg Msg
+renderContainer nodeId selected xCenter yCenter = 
     let
-        xValue = xCenter - 60
-        yValue = yCenter - 30
+        xValue = xCenter - containerWidth / 2
+        yValue = yCenter - containerHeight / 2
     in
     rect
         [ x <| Px xValue
         , y <| Px yValue
-        , width <| Px 120
-        , height <| Px 60
+        , width <| Px containerWidth
+        , height <| Px containerHeight
         , rx <| Px 5
         , Attrs.fill <| Paint <| Color.white
-        , Attrs.stroke <| Paint <| Color.black
+        , Attrs.stroke <| Paint <| if selected then Color.blue else Color.black
         , Attrs.strokeWidth <| Px 1
+        , onMouseDown nodeId
         ] []
 
 
-renderSystem : Float -> Float -> Svg msg
+renderSystem : Float -> Float -> Svg Msg
 renderSystem xValue yValue = 
     circle
         [ cx <| Px xValue
         , cy <| Px yValue
-        , r <| Px 60
+        , r <| Px systemRadius
         , Attrs.fill <| Paint <| Color.white
         , Attrs.stroke <| Paint <| Color.black
         , Attrs.strokeWidth <| Px 1
