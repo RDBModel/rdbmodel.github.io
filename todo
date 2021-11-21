@@ -4,7 +4,9 @@
 [X] set up scale
 [x] draw rect
 [x] connect rect by curve
-[ ] select rect
-[ ] move rect
+[x] select rect
+[x] move rect
 [ ] add points to curve
 [ ] support arrow at the end of curve
+[ ] select multiply rect
+[ ] move multiply rect

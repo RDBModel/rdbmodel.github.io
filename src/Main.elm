@@ -4,29 +4,21 @@ import Browser exposing (element)
 import Browser.Dom as Dom
 import Browser.Events as Events
 import Color
+import Json.Decode as Decode
 import SubPath exposing (SubPath)
 import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
 import Html.Events.Extra.Mouse as Mouse
-import TypedSvg exposing (rect, svg, defs, marker, polygon, g, pattern)
+import TypedSvg exposing (rect, svg, defs, marker, polygon, g, pattern, line, circle)
 import TypedSvg.Attributes as Attrs exposing
     ( height, width, class, cursor, x, y, cx, cy, fill, r, points, id, orient, markerWidth, markerHeight, refX, refY
-    , strokeWidth, rx)
+    , strokeWidth, rx, x1, y1, x2, y2, stroke, markerEnd)
 import TypedSvg.Types exposing (CoordinateSystem(..), Opacity(..), Paint(..), Length(..), Cursor(..))
 import TypedSvg.Core exposing (Svg, Attribute)
-import Graph exposing (Graph, Node, Edge)
+import Graph exposing (Graph, Node, Edge, NodeContext, NodeId)
 import Zoom exposing (Zoom, OnZoom)
 import Task
-import TypedSvg exposing (circle)
 import Html exposing (source)
-import TypedSvg exposing (line)
-import TypedSvg.Attributes exposing (x1)
-import TypedSvg.Attributes exposing (y1)
-import TypedSvg.Attributes exposing (x2)
-import TypedSvg.Attributes exposing (y2)
-import TypedSvg.Attributes exposing (stroke)
-import TypedSvg.Attributes exposing (markerEnd)
-import Graph exposing (NodeId)
 
 main : Program () Model Msg
 main =
@@ -99,13 +91,35 @@ init _ =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
+    let
+        dragSubscriptions : Sub Msg
+        dragSubscriptions =
+            Sub.batch
+                [ Events.onMouseMove
+                    (Decode.map (.clientPos >> DragAt) Mouse.eventDecoder)
+                , Events.onMouseUp
+                    (Decode.map (.clientPos >> DragEnd) Mouse.eventDecoder)
+                ]
+
+        readySubscriptions : ReadyState -> Sub Msg
+        readySubscriptions { drag, zoom } =
+            Sub.batch
+                [ Zoom.subscriptions zoom ZoomMsg
+                , case drag of
+                    Nothing ->
+                        Sub.none
+
+                    Just _ ->
+                        dragSubscriptions
+                ]
+    in
     Sub.batch
         [ case model of
             Init _ ->
                 Sub.none
 
             Ready state ->
-                Zoom.subscriptions state.zoom ZoomMsg
+                readySubscriptions state
         , Events.onResize Resize
         ]
 
@@ -168,7 +182,7 @@ update msg model =
         ( model, Cmd.none )
 
     ( DragAt xy, Ready state ) ->
-        ( model, Cmd.none )
+        handleDragAt xy state
 
     ( DragAt _, Init _ ) ->
         ( model, Cmd.none )
@@ -198,6 +212,71 @@ initZoom element =
 floatRemainderBy : Float -> Float -> Float
 floatRemainderBy divisor n =
   n - toFloat(truncate (n / divisor)) * divisor
+
+
+handleDragAt : ( Float, Float ) -> ReadyState -> ( Model, Cmd Msg )
+handleDragAt xy ({ drag } as state) =
+    case drag of
+        Just { start, index } ->
+            ( Ready
+                { state
+                    | drag =
+                        Just
+                            { start = start
+                            , current = xy
+                            , index = index
+                            }
+                    , graph = updateNodePosition start index xy state
+                }
+            , Cmd.none
+            )
+
+        Nothing ->
+            ( Ready state, Cmd.none )
+
+
+updateNodePosition : (Float, Float) -> NodeId -> ( Float, Float ) -> ReadyState -> Graph Container ()
+updateNodePosition start index xy state =
+    let
+        shiftedStartXY = shiftPosition state.zoom ( state.element.x, state.element.y ) start
+    in
+    Graph.update
+        index
+        (Maybe.map (
+            \nodeCtx ->
+                (updateNode
+                    shiftedStartXY
+                    (shiftPosition
+                        state.zoom
+                        ( state.element.x, state.element.y )
+                        xy
+                    )
+                    nodeCtx
+                )
+            )
+        )
+        state.graph
+
+
+updateNode : ( Float, Float ) -> ( Float, Float ) -> NodeContext Container () -> NodeContext Container ()
+updateNode (startX, startY) ( x, y ) nodeCtx =
+    let
+        nodeValue =
+            nodeCtx.node.label
+
+
+        
+    in
+    updateContextWithValue nodeCtx { nodeValue | x = x, y = y }
+
+
+updateContextWithValue : NodeContext Container () -> Container -> NodeContext Container ()
+updateContextWithValue nodeCtx value =
+    let
+        node =
+            nodeCtx.node
+    in
+    { nodeCtx | node = { node | label = value } }
 
 
 {-| The mouse events for drag start, drag at and drag end read the client
