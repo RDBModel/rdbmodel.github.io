@@ -501,7 +501,6 @@ linkElement graph edge =
                 distanceXY = sqrt (x * x + y * y)
 
                 -- magic offset for ➤ symbol
-
                 magicOffset = 13
 
                 -- offset based on aspect ratio
@@ -543,7 +542,7 @@ containerWidth = 100
 containerHeight : Float
 containerHeight = 50
 containerRadius : Float
-containerRadius = 3
+containerRadius = 0
 systemRadius : Float
 systemRadius = 50
 
