@@ -510,19 +510,23 @@ linkElement graph edge =
                         distanceXY - distanceXY * ry / y - magicOffset
                     else
                         distanceXY - distanceXY * rx / x - magicOffset
+
+                idValue =
+                    "from-" ++ String.fromInt (sourceNode.node.id) ++ "-to-" ++ String.fromInt (targetNode.node.id)
             in
                 g []
                 [ SubPath.element curve
-                    [ id "1asdf"
+                    [ id idValue
                     , strokeWidth <| Px 1
                     , stroke <| Paint <| Color.black
                     ]
                 , TypedSvg.text_ []
                     [
                         TypedSvg.textPath
-                            [ Attrs.xlinkHref "#1asdf"
+                            [ Attrs.xlinkHref ("#" ++ idValue)
                             , Attrs.startOffset <| String.fromFloat offset
                             , Attrs.dominantBaseline DominantBaselineCentral
+                            , Attrs.fontSize <| Px 15
                             ]
                             [ text "➤" ]
                     ]
@@ -535,13 +539,13 @@ edgeColor =
 
 
 containerWidth : Float
-containerWidth = 120
+containerWidth = 100
 containerHeight : Float
-containerHeight = 60
+containerHeight = 50
 containerRadius : Float
 containerRadius = 3
 systemRadius : Float
-systemRadius = 60
+systemRadius = 50
 
 {-| This is the event handler that handles clicks on the vertices (nodes).
 
