@@ -19,6 +19,7 @@ import Graph exposing (Graph, Node, Edge, NodeContext, NodeId)
 import Zoom exposing (Zoom, OnZoom)
 import Task
 import Html exposing (source)
+import Force exposing (State)
 
 main : Program () Model Msg
 main =
@@ -55,6 +56,7 @@ type alias Drag =
     { current : ( Float, Float )
     , index : NodeId
     , start : ( Float, Float )
+    , delta : ( Float, Float )
     }
 
 type alias Element =
@@ -166,17 +168,33 @@ update msg model =
         ( model, Cmd.none )
 
     ( DragStart index xy, Ready state ) ->
-            ( Ready
-                { state
-                    | drag =
-                        Just
-                            { start = xy
-                            , current = xy
-                            , index = index
-                            }
-                }
-            , Cmd.none
-            )
+        let
+            nodeCtx = Graph.get index state.graph
+
+            (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
+
+            delta =
+                case nodeCtx of
+                    Just ctx ->
+                        ( shiftedStartX - ctx.node.label.x
+                        , shiftedStartY - ctx.node.label.y
+                        )
+
+                    Nothing ->
+                        (0, 0)
+        in
+        ( Ready
+            { state
+                | drag =
+                    Just
+                        { start = xy
+                        , current = xy
+                        , index = index
+                        , delta = delta
+                        }
+            }
+        , Cmd.none
+        )
 
     ( DragStart _ _, Init _ ) ->
         ( model, Cmd.none )
@@ -217,7 +235,7 @@ floatRemainderBy divisor n =
 handleDragAt : ( Float, Float ) -> ReadyState -> ( Model, Cmd Msg )
 handleDragAt xy ({ drag } as state) =
     case drag of
-        Just { start, index } ->
+        Just { start, index, delta } ->
             ( Ready
                 { state
                     | drag =
@@ -225,8 +243,9 @@ handleDragAt xy ({ drag } as state) =
                             { start = start
                             , current = xy
                             , index = index
+                            , delta = delta
                             }
-                    , graph = updateNodePosition start index xy state
+                    , graph = updateNodePosition delta index xy state
                 }
             , Cmd.none
             )
@@ -236,16 +255,13 @@ handleDragAt xy ({ drag } as state) =
 
 
 updateNodePosition : (Float, Float) -> NodeId -> ( Float, Float ) -> ReadyState -> Graph Container ()
-updateNodePosition start index xy state =
-    let
-        shiftedStartXY = shiftPosition state.zoom ( state.element.x, state.element.y ) start
-    in
+updateNodePosition delta index xy state =
     Graph.update
         index
         (Maybe.map (
             \nodeCtx ->
                 (updateNode
-                    shiftedStartXY
+                    delta
                     (shiftPosition
                         state.zoom
                         ( state.element.x, state.element.y )
@@ -259,15 +275,12 @@ updateNodePosition start index xy state =
 
 
 updateNode : ( Float, Float ) -> ( Float, Float ) -> NodeContext Container () -> NodeContext Container ()
-updateNode (startX, startY) ( x, y ) nodeCtx =
+updateNode (dx, dy) ( x, y ) nodeCtx =
     let
         nodeValue =
             nodeCtx.node.label
-
-
-        
     in
-    updateContextWithValue nodeCtx { nodeValue | x = x, y = y }
+    updateContextWithValue nodeCtx { nodeValue | x = x - dx, y = y - dy }
 
 
 updateContextWithValue : NodeContext Container () -> Container -> NodeContext Container ()
