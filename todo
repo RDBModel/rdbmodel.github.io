@@ -7,6 +7,9 @@
 [x] select rect
 [x] move rect
 [ ] add points to curve
-[ ] support arrow at the end of curve
+[x] support arrow at the end of curve (https://stackoverflow.com/questions/41105713/svg-marker-mid-on-specific-point-on-path)
 [ ] select multiply rect
 [ ] move multiply rect
+[ ] text inside rect
+[ ] undo/redo support
+[ ] add yaml editor (https://package.elm-lang.org/packages/mdgriffith/elm-markup/latest/)

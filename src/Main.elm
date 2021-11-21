@@ -13,13 +13,14 @@ import TypedSvg exposing (rect, svg, defs, marker, polygon, g, pattern, line, ci
 import TypedSvg.Attributes as Attrs exposing
     ( height, width, class, cursor, x, y, cx, cy, fill, r, points, id, orient, markerWidth, markerHeight, refX, refY
     , strokeWidth, rx, x1, y1, x2, y2, stroke, markerEnd)
-import TypedSvg.Types exposing (CoordinateSystem(..), Opacity(..), Paint(..), Length(..), Cursor(..))
+import TypedSvg.Types exposing (CoordinateSystem(..), Opacity(..), Paint(..), Length(..), Cursor(..), DominantBaseline(..))
 import TypedSvg.Core exposing (Svg, Attribute)
 import Graph exposing (Graph, Node, Edge, NodeContext, NodeId)
 import Zoom exposing (Zoom, OnZoom)
 import Task
 import Html exposing (source)
 import Force exposing (State)
+import Shape exposing (linearCurve)
 
 main : Program () Model Msg
 main =
@@ -367,8 +368,7 @@ view model =
         , Attrs.height <| Percent 100
         ]
         [ defs []
-            [ arrowhead
-            , innerGrid transform10
+            [ innerGrid transform10
             , grid x y transform100
             ]
         , rect
@@ -478,35 +478,56 @@ linkElement graph edge =
     in
     case (source, target) of
         (Just sourceNode, Just targetNode) ->
-            line
-                [ x1 <| Px sourceNode.node.label.x
-                , y1 <| Px sourceNode.node.label.y
-                , x2 <| Px targetNode.node.label.x
-                , y2 <| Px targetNode.node.label.y
-                , strokeWidth <| Px 1
-                , stroke <| Paint <| Color.black
-                , markerEnd "url(#arrowhead)"
-                ]
-                []
-        _ -> text ""
-   
+            let
+                curve =
+                    linearCurve
+                        [ (sourceNode.node.label.x, sourceNode.node.label.y)
+                        , (targetNode.node.label.x, targetNode.node.label.y)
+                        ]
 
-arrowhead : Svg msg
-arrowhead =
-    marker
-        [ id "arrowhead"
-        , orient "auto"
-        , markerWidth <| Px 8.0
-        , markerHeight <| Px 6.0
-        , refX "69"
-        , refY "3"
-        ]
-        [ polygon
-            [ points [ ( 0, 0 ), ( 8, 3 ), ( 0, 6 ) ]
-            , fill <| Paint <| Color.black
-            ]
-            []
-        ]
+                -- half of rect
+                ry = containerHeight / 2
+                rx = containerWidth / 2
+
+                -- size of sides of big triangle create by dots
+                x = (sourceNode.node.label.x - targetNode.node.label.x) |> abs
+                y = (sourceNode.node.label.y - targetNode.node.label.y) |> abs
+
+                -- if the line crosses the rect in the top or bottom
+                -- otherwise it crosses left or right borders or rect
+                topBottom = y / x > ry / rx
+
+                -- distance between start and end dots
+                distanceXY = sqrt (x * x + y * y)
+
+                -- magic offset for ➤ symbol
+
+                magicOffset = 13
+
+                -- offset based on aspect ratio
+                offset =
+                    if topBottom then
+                        distanceXY - distanceXY * ry / y - magicOffset
+                    else
+                        distanceXY - distanceXY * rx / x - magicOffset
+            in
+                g []
+                [ SubPath.element curve
+                    [ id "1asdf"
+                    , strokeWidth <| Px 1
+                    , stroke <| Paint <| Color.black
+                    ]
+                , TypedSvg.text_ []
+                    [
+                        TypedSvg.textPath
+                            [ Attrs.xlinkHref "#1asdf"
+                            , Attrs.startOffset <| String.fromFloat offset
+                            , Attrs.dominantBaseline DominantBaselineCentral
+                            ]
+                            [ text "➤" ]
+                    ]
+                ]
+        _ -> text ""
 
 edgeColor : Paint
 edgeColor =
@@ -517,6 +538,8 @@ containerWidth : Float
 containerWidth = 120
 containerHeight : Float
 containerHeight = 60
+containerRadius : Float
+containerRadius = 3
 systemRadius : Float
 systemRadius = 60
 
@@ -546,7 +569,7 @@ renderContainer nodeId selected xCenter yCenter =
         , y <| Px yValue
         , width <| Px containerWidth
         , height <| Px containerHeight
-        , rx <| Px 5
+        , rx <| Px containerRadius
         , Attrs.fill <| Paint <| Color.white
         , Attrs.stroke <| Paint <| if selected then Color.blue else Color.black
         , Attrs.strokeWidth <| Px 1
