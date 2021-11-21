@@ -52,13 +52,16 @@ type alias ReadyState =
     , showGraph : Bool
     }
 
+-- Select information
 type alias Drag =
-    { current : ( Float, Float )
-    , index : NodeId
-    , start : ( Float, Float )
-    , delta : ( Float, Float )
+    { current : ( Float, Float ) -- current mouse position
+    , index : NodeId -- selected node id
+    , start : ( Float, Float ) -- start mouse position
+    , delta : ( Float, Float ) -- delta between start and node center to do ajustment during movement
     }
 
+
+-- SVG element position and size in DOM
 type alias Element =
     { height : Float
     , width : Float
