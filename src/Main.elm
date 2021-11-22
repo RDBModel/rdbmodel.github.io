@@ -21,25 +21,30 @@ import Task
 import Html exposing (source)
 import Force exposing (State)
 import Shape exposing (linearCurve)
+import SubPath exposing (arcLengthParameterized)
+import SubPath exposing (arcLength)
 
 main : Program () Model Msg
 main =
   Browser.element { init = init, update = update, view = view, subscriptions = subscriptions }
 
 type Model
-    = Init (Graph Container ())
+    = Init (Graph Container SubPathEdge)
     | Ready ReadyState
 
 type alias Container =
-    { x : Float
-    , y : Float
-    , name : String
-    , description : String
+    { name : String
+    , xy : (Float, Float)
     }
+
+type alias SubPathEdge = 
+    { points : List (Float, Float)
+    }
+
 
 type alias ReadyState =
     { drag : Maybe Drag
-    , graph : Graph Container ()
+    , graph : Graph Container SubPathEdge
     , zoom : Zoom
 
     -- The position and dimensions of the svg element.
@@ -70,13 +75,13 @@ type alias Element =
     , y : Float
     }
 
-zeroContainer = Container 0 0 "" ""
 
 type Msg
     = ZoomMsg OnZoom
     | Resize Int Int
     | ReceiveElementPosition (Result Dom.Error Dom.Element)
     | DragStart NodeId ( Float, Float )
+    | DragSubPathStart ( Float, Float )
     | DragAt ( Float, Float )
     | DragEnd ( Float, Float )
 
@@ -90,10 +95,12 @@ getElementPosition =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Init (Graph.fromNodeLabelsAndEdgePairs
-            [Container 200 200 "" ""
-            , Container 500 200 "" ""
-            ] [(0,1)]), getElementPosition )
+    ( Init (Graph.fromNodesAndEdges
+            [ Node 0 <| Container "" (150, 125)
+            , Node 1 <| Container "" (550, 125)
+            ]
+            [ Edge 0 1 <| SubPathEdge [(350, 150)]
+            ]), getElementPosition )
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -180,8 +187,11 @@ update msg model =
             delta =
                 case nodeCtx of
                     Just ctx ->
-                        ( shiftedStartX - ctx.node.label.x
-                        , shiftedStartY - ctx.node.label.y
+                        let
+                            (x, y) = ctx.node.label.xy
+                        in
+                        ( shiftedStartX - x
+                        , shiftedStartY - y
                         )
 
                     Nothing ->
@@ -201,6 +211,12 @@ update msg model =
         )
 
     ( DragStart _ _, Init _ ) ->
+        ( model, Cmd.none )
+
+    ( DragSubPathStart xy, Ready state ) ->
+        ( model, Cmd.none )
+
+    ( DragSubPathStart _, Init _ ) ->
         ( model, Cmd.none )
 
     ( DragAt xy, Ready state ) ->
@@ -258,7 +274,7 @@ handleDragAt xy ({ drag } as state) =
             ( Ready state, Cmd.none )
 
 
-updateNodePosition : (Float, Float) -> NodeId -> ( Float, Float ) -> ReadyState -> Graph Container ()
+updateNodePosition : (Float, Float) -> NodeId -> ( Float, Float ) -> ReadyState -> Graph Container SubPathEdge
 updateNodePosition delta index xy state =
     Graph.update
         index
@@ -278,16 +294,16 @@ updateNodePosition delta index xy state =
         state.graph
 
 
-updateNode : ( Float, Float ) -> ( Float, Float ) -> NodeContext Container () -> NodeContext Container ()
+updateNode : ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
 updateNode (dx, dy) ( x, y ) nodeCtx =
     let
         nodeValue =
             nodeCtx.node.label
     in
-    updateContextWithValue nodeCtx { nodeValue | x = x - dx, y = y - dy }
+    updateContextWithValue nodeCtx {nodeValue | xy = (x - dx, y - dy)}
 
 
-updateContextWithValue : NodeContext Container () -> Container -> NodeContext Container ()
+updateContextWithValue : NodeContext Container SubPathEdge -> Container -> NodeContext Container SubPathEdge
 updateContextWithValue nodeCtx value =
     let
         node =
@@ -339,7 +355,7 @@ view model =
 
         transform10 = 
             case model of
-                Init _ -> 10
+                Init _ -> gridCellSize
                 Ready { zoom } ->
                     zoom |> Zoom.asRecord |> .scale |> (*) 10
 
@@ -463,11 +479,11 @@ renderGraph model =
 nodeElement : Bool -> Node Container -> Svg Msg
 nodeElement selected node =
     let
-        {x, y} = node.label
+        (x , y) = node.label.xy
     in
     renderContainer node.id selected x y
 
-linkElement : Graph Container () -> Edge () -> Svg msg
+linkElement : Graph Container SubPathEdge -> Edge SubPathEdge -> Svg Msg
 linkElement graph edge =
     let
         source =
@@ -479,19 +495,25 @@ linkElement graph edge =
     case (source, target) of
         (Just sourceNode, Just targetNode) ->
             let
+                points = edge.label.points
+                (sx, sy) = sourceNode.node.label.xy
+                (tx, ty) = targetNode.node.label.xy
+
+                (cx, cy) = points
+                    |> List.reverse
+                    |> List.head
+                    |> Maybe.withDefault sourceNode.node.label.xy
                 curve =
                     linearCurve
-                        [ (sourceNode.node.label.x, sourceNode.node.label.y)
-                        , (targetNode.node.label.x, targetNode.node.label.y)
-                        ]
+                        <| (sx, sy) :: points ++ [ (tx, ty) ]
 
                 -- half of rect
                 ry = containerHeight / 2
                 rx = containerWidth / 2
 
                 -- size of sides of big triangle create by dots
-                x = (sourceNode.node.label.x - targetNode.node.label.x) |> abs
-                y = (sourceNode.node.label.y - targetNode.node.label.y) |> abs
+                x = (cx - tx) |> abs
+                y = (cy - ty) |> abs
 
                 -- if the line crosses the rect in the top or bottom
                 -- otherwise it crosses left or right borders or rect
@@ -501,14 +523,16 @@ linkElement graph edge =
                 distanceXY = sqrt (x * x + y * y)
 
                 -- magic offset for ➤ symbol
-                magicOffset = 13
+                magicOffset = 9
+
+                curveLength = curve |> arcLengthParameterized 1e-4 |> arcLength
 
                 -- offset based on aspect ratio
                 offset =
                     if topBottom then
-                        distanceXY - distanceXY * ry / y - magicOffset
+                        curveLength - distanceXY * ry / y - magicOffset
                     else
-                        distanceXY - distanceXY * rx / x - magicOffset
+                        curveLength - distanceXY * rx / x - magicOffset
 
                 idValue =
                     "from-" ++ String.fromInt (sourceNode.node.id) ++ "-to-" ++ String.fromInt (targetNode.node.id)
@@ -518,6 +542,8 @@ linkElement graph edge =
                     [ id idValue
                     , strokeWidth <| Px 1
                     , stroke <| Paint <| Color.black
+                    , fill <| PaintNone
+                    , onMouseDownSubPath 
                     ]
                 , TypedSvg.text_ []
                     [
@@ -525,12 +551,16 @@ linkElement graph edge =
                             [ Attrs.xlinkHref ("#" ++ idValue)
                             , Attrs.startOffset <| String.fromFloat offset
                             , Attrs.dominantBaseline DominantBaselineCentral
-                            , Attrs.fontSize <| Px 15
+                            , Attrs.fontSize <| Px 10
                             ]
                             [ text "➤" ]
                     ]
                 ]
         _ -> text ""
+
+onMouseDownSubPath : Attribute Msg
+onMouseDownSubPath =
+    Mouse.onDown (.clientPos >> DragSubPathStart)
 
 edgeColor : Paint
 edgeColor =
@@ -545,6 +575,8 @@ containerRadius : Float
 containerRadius = 0
 systemRadius : Float
 systemRadius = 50
+gridCellSize : Float
+gridCellSize = 10
 
 {-| This is the event handler that handles clicks on the vertices (nodes).
 
@@ -563,13 +595,9 @@ onMouseDown index =
 
 renderContainer : NodeId -> Bool -> Float -> Float -> Svg Msg
 renderContainer nodeId selected xCenter yCenter = 
-    let
-        xValue = xCenter - containerWidth / 2
-        yValue = yCenter - containerHeight / 2
-    in
     rect
-        [ x <| Px xValue
-        , y <| Px yValue
+        [ x <| Px <| xCenter - containerWidth / 2
+        , y <| Px <| yCenter - containerHeight / 2
         , width <| Px containerWidth
         , height <| Px containerHeight
         , rx <| Px containerRadius
