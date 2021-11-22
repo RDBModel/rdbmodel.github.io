@@ -6,7 +6,10 @@
 [x] connect rect by curve
 [x] select rect
 [x] move rect
-[ ] add points to curve
+[x] add points to curve
+[ ] add point dynamically
+[ ] remove point dynamically
+[ ] draw a circle for point
 [x] support arrow at the end of curve (https://stackoverflow.com/questions/41105713/svg-marker-mid-on-specific-point-on-path)
 [ ] select multiply rect
 [ ] move multiply rect
