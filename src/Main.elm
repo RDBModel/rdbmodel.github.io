@@ -23,6 +23,7 @@ import Force exposing (State)
 import Shape exposing (linearCurve)
 import SubPath exposing (arcLengthParameterized)
 import SubPath exposing (arcLength)
+import Math.Vector2 as Vec
 
 main : Program () Model Msg
 main =
@@ -81,7 +82,7 @@ type Msg
     | Resize Int Int
     | ReceiveElementPosition (Result Dom.Error Dom.Element)
     | DragStart NodeId ( Float, Float )
-    | DragSubPathStart ( Float, Float )
+    | DragSubPathStart (Edge SubPathEdge) ( Float, Float )
     | DragAt ( Float, Float )
     | DragEnd ( Float, Float )
 
@@ -213,10 +214,61 @@ update msg model =
     ( DragStart _ _, Init _ ) ->
         ( model, Cmd.none )
 
-    ( DragSubPathStart xy, Ready state ) ->
-        ( model, Cmd.none )
+    ( DragSubPathStart edge xy, Ready state ) ->
+        let
+            spxy = shiftPosition state.zoom (state.element.x, state.element.y) xy
+            sourceXY = Graph.get edge.from state.graph |> Maybe.map (\ctx -> ctx.node.label.xy)
+            targetXY = Graph.get edge.to state.graph |> Maybe.map (\ctx -> ctx.node.label.xy)
 
-    ( DragSubPathStart _, Init _ ) ->
+        in
+        case (sourceXY, targetXY) of
+            (Just sxy, Just txy) ->
+                let
+                    allPoints = sxy :: edge.label.points ++ [ txy ]
+
+                    (_ , (insertAfterValue, _)) = 
+                        List.foldr
+                        (\a -> \(prev, (insertAfter, val)) ->
+                            let
+                                z = dist spxy (a , prev) |> Debug.log "distance"
+                            in
+                            if not (isNaN z) && z < val then
+                                (a, (a, z)) |> Debug.log "change"
+                            else 
+                                (a, (insertAfter, val)) |> Debug.log "keep"
+                        )
+                        (txy, (txy, 10000))
+                        allPoints
+                        |> Debug.log "insertBeforeValue"
+
+                    updatedList = List.foldr
+                        (\a -> \b ->
+                            if insertAfterValue == a then
+                                 a :: spxy :: b
+                            else
+                                a :: b
+                        )
+                        []
+                        allPoints
+                        |> List.drop 1
+                        |> List.reverse
+                        |> List.drop 1
+                        |> List.reverse
+
+                    updatedGraph = Graph.mapEdges
+                        (\e ->
+                            if e == edge.label then
+                                SubPathEdge updatedList
+                            else
+                                e
+                        )
+                        state.graph
+
+                in
+                ( Ready { state | graph = updatedGraph }, Cmd.none )
+            _ -> ( model, Cmd.none )
+
+    ( DragSubPathStart _ _, Init _ ) ->
         ( model, Cmd.none )
 
     ( DragAt xy, Ready state ) ->
@@ -240,6 +292,45 @@ update msg model =
 
     ( DragEnd _, Init _ ) ->
         ( model, Cmd.none )
+
+
+dist : (Float, Float) -> ((Float, Float), (Float, Float)) -> Float
+dist (x, y) ((x1, y1), (x2, y2)) =
+    abs ((x2 - x1) * (y1 - y) - (x1 - x) * (y2 - y1)) / sqrt ((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))
+
+{-| check if point on segment. First parameter - point coordinates,
+second is coordinates of segment (start, end)
+-}
+checkPointOnSegment : (Float, Float) -> ((Float, Float), (Float, Float)) -> Float
+checkPointOnSegment (x, y) ((x1, y1), (x2, y2)) =
+    let
+        cross a b = Vec.getX a * Vec.getY b - Vec.getY a * Vec.getX b
+
+        vecC = Vec.vec2 x y
+        vecA = Vec.vec2 x1 y1
+        vecB = Vec.vec2 x2 y2
+
+        vecAC = Vec.sub vecC vecA
+        vecAB = Vec.sub vecB vecA
+    in
+    cross vecAB vecAC
+    -- if not collinear then return false as point cannot be on segment
+    -- if cross vecAB vecAC == 0 |> Debug.log "cross" then
+    --     let
+    --         -- calculate the dotproduct of (AB, AC) and (AB, AB) to see point is now on the segment
+    --         dotAB = Vec.dot vecAB vecAB
+    --         dotAC = Vec.dot vecAB vecAC
+    --     in
+    --     if dotAC == 0 || dotAC == dotAB then
+    --         -- on end points of segment
+    --         True
+    --     else if dotAC > 0 && dotAC < dotAB then
+    --         -- on segment
+    --         True
+    --     else
+    --         False
+    -- else
+    --     False
 
 initZoom : Element -> Zoom
 initZoom element =
@@ -543,7 +634,7 @@ linkElement graph edge =
                     , strokeWidth <| Px 1
                     , stroke <| Paint <| Color.black
                     , fill <| PaintNone
-                    , onMouseDownSubPath 
+                    , onMouseDownSubPath edge
                     ]
                 , TypedSvg.text_ []
                     [
@@ -558,9 +649,9 @@ linkElement graph edge =
                 ]
         _ -> text ""
 
-onMouseDownSubPath : Attribute Msg
-onMouseDownSubPath =
-    Mouse.onDown (.clientPos >> DragSubPathStart)
+onMouseDownSubPath : Edge SubPathEdge -> Attribute Msg
+onMouseDownSubPath edge =
+    Mouse.onDown (.clientPos >> DragSubPathStart edge)
 
 edgeColor : Paint
 edgeColor =

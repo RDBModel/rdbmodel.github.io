@@ -7,7 +7,8 @@
 [x] select rect
 [x] move rect
 [x] add points to curve
-[ ] add point dynamically
+[x] add point dynamically
+[ ] move point
 [ ] remove point dynamically
 [ ] draw a circle for point
 [x] support arrow at the end of curve (https://stackoverflow.com/questions/41105713/svg-marker-mid-on-specific-point-on-path)
