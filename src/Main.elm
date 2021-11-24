@@ -232,16 +232,15 @@ update msg model =
                         List.foldr
                         (\a -> \(prev, (insertAfter, val)) ->
                             let
-                                z = distanceToLine spxy (a , prev) |> Debug.log "distance"
+                                z = distanceToLine spxy (a , prev)
                             in
-                            if not (isNaN z) && z < val then
-                                (a, (a, z)) |> Debug.log "change"
+                            if not (isNaN z) && betweenPoints spxy (a, prev) && z < val then
+                                (a, (a, z))
                             else 
-                                (a, (insertAfter, val)) |> Debug.log "keep"
+                                (a, (insertAfter, val))
                         )
                         (txy, (txy, 10000))
                         allPoints
-                        |> Debug.log "insertBeforeValue"
 
                     updatedList = List.foldr
                         (\a -> \b ->
@@ -294,6 +293,21 @@ update msg model =
 
     ( DragEnd _, Init _ ) ->
         ( model, Cmd.none )
+
+{-| is it enough to put the point
+-}
+betweenPoints : (Float, Float) -> ((Float, Float), (Float, Float)) -> Bool
+betweenPoints (x, y) ((x1, y1), (x2, y2)) =
+    if x1 < x2 then
+        if y1 < y2 then
+            x1 < x && x < x2 && y1 < y && y < y2
+        else
+            x1 < x && x < x2 && y2 < y && y < y1
+    else
+        if y1 < y2 then
+            x2 < x && x < x1 && y1 < y && y < y2
+        else
+            x2 < x && x < x1 && y2 < y && y < y1
 
 {-| calculate distance to the line created by two points
 it is not work good as it is required to calculcate distance to line segment
@@ -683,7 +697,15 @@ linkElement graph edge =
                                 ]
                                 [ text "➤" ]
                         ]
-                    , g [] <| List.map (\( dx, dy ) -> Path.element circleDot [ fill (Paint Color.white), stroke (Paint Color.black), transform [ Translate dx dy ] ]) points
+                    , g [] <| List.map
+                        (\( dx, dy ) ->
+                            Path.element circleDot
+                                [ fill (Paint Color.white)
+                                , stroke (Paint Color.black)
+                                , transform [ Translate dx dy ]
+                                , onMouseDownPoint edge
+                                ]) points
+
                     ]
         _ -> text ""
 
@@ -701,6 +723,11 @@ circleDot =
 
 onMouseDownSubPath : Edge SubPathEdge -> Attribute Msg
 onMouseDownSubPath edge =
+    Mouse.onDown (.clientPos >> DragSubPathStart edge)
+
+
+onMouseDownPoint : Edge SubPathEdge -> Attribute Msg
+onMouseDownPoint edge =
     Mouse.onDown (.clientPos >> DragSubPathStart edge)
 
 edgeColor : Paint
