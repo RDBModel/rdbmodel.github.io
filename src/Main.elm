@@ -5,6 +5,7 @@ import Browser.Dom as Dom
 import Browser.Events as Events
 import Color
 import Json.Decode as Decode
+import Path exposing (Path)
 import SubPath exposing (SubPath)
 import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
@@ -12,14 +13,15 @@ import Html.Events.Extra.Mouse as Mouse
 import TypedSvg exposing (rect, svg, defs, marker, polygon, g, pattern, line, circle)
 import TypedSvg.Attributes as Attrs exposing
     ( height, width, class, cursor, x, y, cx, cy, fill, r, points, id, orient, markerWidth, markerHeight, refX, refY
-    , strokeWidth, rx, x1, y1, x2, y2, stroke, markerEnd)
-import TypedSvg.Types exposing (CoordinateSystem(..), Opacity(..), Paint(..), Length(..), Cursor(..), DominantBaseline(..))
+    , strokeWidth, rx, x1, y1, x2, y2, stroke, markerEnd, transform)
+import TypedSvg.Types exposing
+    ( CoordinateSystem(..), Transform(..), Opacity(..), Paint(..), Length(..)
+    , Cursor(..), DominantBaseline(..))
 import TypedSvg.Core exposing (Svg, Attribute)
 import Graph exposing (Graph, Node, Edge, NodeContext, NodeId)
 import Zoom exposing (Zoom, OnZoom)
 import Task
 import Html exposing (source)
-import Force exposing (State)
 import Shape exposing (linearCurve)
 import SubPath exposing (arcLengthParameterized)
 import SubPath exposing (arcLength)
@@ -230,7 +232,7 @@ update msg model =
                         List.foldr
                         (\a -> \(prev, (insertAfter, val)) ->
                             let
-                                z = dist spxy (a , prev) |> Debug.log "distance"
+                                z = distanceToLine spxy (a , prev) |> Debug.log "distance"
                             in
                             if not (isNaN z) && z < val then
                                 (a, (a, z)) |> Debug.log "change"
@@ -293,10 +295,20 @@ update msg model =
     ( DragEnd _, Init _ ) ->
         ( model, Cmd.none )
 
-
-dist : (Float, Float) -> ((Float, Float), (Float, Float)) -> Float
-dist (x, y) ((x1, y1), (x2, y2)) =
+{-| calculate distance to the line created by two points
+it is not work good as it is required to calculcate distance to line segment
+not line
+TODO
+-}
+distanceToLine : (Float, Float) -> ((Float, Float), (Float, Float)) -> Float
+distanceToLine (x, y) ((x1, y1), (x2, y2)) =
+    -- distance to the line
     abs ((x2 - x1) * (y1 - y) - (x1 - x) * (y2 - y1)) / sqrt ((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))
+    -- distance to the middle of a segment
+    -- let
+    --     (xm, ym) = ((x1 + x2) / 2, (y1 + y2) / 2)
+    -- in
+    -- sqrt ((x - xm) * (x - xm) + (y - ym) * (y - ym))
 
 {-| check if point on segment. First parameter - point coordinates,
 second is coordinates of segment (start, end)
@@ -477,6 +489,7 @@ view model =
         [ defs []
             [ innerGrid transform10
             , grid x y transform100
+            , markerDot
             ]
         , rect
             ([ Attrs.width <| Percent 100
@@ -488,6 +501,30 @@ view model =
             [ zoomTransformAttr ]
             [ renderGraph model
             ]
+        ]
+
+pointDotId : String
+pointDotId = "dot"
+
+markerDot : Svg msg
+markerDot =
+    marker
+        [ id pointDotId
+        , Attrs.refX "5"
+        , Attrs.refY "5"
+        , Attrs.markerWidth <| Px 10
+        , Attrs.markerHeight <| Px 10
+        ]
+        [
+            circle
+                [ cx <| Px 5
+                , cy <| Px 5
+                , r <| Px 3
+                , Attrs.fill <| Paint <| Color.white
+                , Attrs.stroke <| Paint <| Color.black
+                , Attrs.strokeWidth <| Px 1
+                ]
+                []
         ]
 
 innerGridId : String
@@ -594,9 +631,9 @@ linkElement graph edge =
                     |> List.reverse
                     |> List.head
                     |> Maybe.withDefault sourceNode.node.label.xy
-                curve =
-                    linearCurve
-                        <| (sx, sy) :: points ++ [ (tx, ty) ]
+
+                preparedPoints = (sx, sy) :: points ++ [ (tx, ty) ]
+                curve = linearCurve preparedPoints
 
                 -- half of rect
                 ry = containerHeight / 2
@@ -629,25 +666,38 @@ linkElement graph edge =
                     "from-" ++ String.fromInt (sourceNode.node.id) ++ "-to-" ++ String.fromInt (targetNode.node.id)
             in
                 g []
-                [ SubPath.element curve
-                    [ id idValue
-                    , strokeWidth <| Px 1
-                    , stroke <| Paint <| Color.black
-                    , fill <| PaintNone
-                    , onMouseDownSubPath edge
-                    ]
-                , TypedSvg.text_ []
-                    [
-                        TypedSvg.textPath
-                            [ Attrs.xlinkHref ("#" ++ idValue)
-                            , Attrs.startOffset <| String.fromFloat offset
-                            , Attrs.dominantBaseline DominantBaselineCentral
-                            , Attrs.fontSize <| Px 10
+                    [ SubPath.element curve
+                            [ id idValue
+                            , strokeWidth <| Px 1
+                            , stroke <| Paint <| Color.black
+                            , fill <| PaintNone
+                            , onMouseDownSubPath edge
                             ]
-                            [ text "➤" ]
+                    , TypedSvg.text_ []
+                        [
+                            TypedSvg.textPath
+                                [ Attrs.xlinkHref ("#" ++ idValue)
+                                , Attrs.startOffset <| String.fromFloat offset
+                                , Attrs.dominantBaseline DominantBaselineCentral
+                                , Attrs.fontSize <| Px 10
+                                ]
+                                [ text "➤" ]
+                        ]
+                    , g [] <| List.map (\( dx, dy ) -> Path.element circleDot [ fill (Paint Color.white), stroke (Paint Color.black), transform [ Translate dx dy ] ]) points
                     ]
-                ]
         _ -> text ""
+
+circleDot : Path
+circleDot =
+    Shape.arc
+        { innerRadius = 0
+        , outerRadius = 3
+        , cornerRadius = 0
+        , startAngle = 0
+        , endAngle = 2 * pi
+        , padAngle = 0
+        , padRadius = 0
+        }
 
 onMouseDownSubPath : Edge SubPathEdge -> Attribute Msg
 onMouseDownSubPath edge =

@@ -8,12 +8,16 @@
 [x] move rect
 [x] add points to curve
 [x] add point dynamically
+[x] support arrow at the end of curve (https://stackoverflow.com/questions/41105713/svg-marker-mid-on-specific-point-on-path)
+
+[x] draw a circle for point
 [ ] move point
 [ ] remove point dynamically
-[ ] draw a circle for point
-[x] support arrow at the end of curve (https://stackoverflow.com/questions/41105713/svg-marker-mid-on-specific-point-on-path)
+[ ] clean logic of adding points
+
 [ ] select multiply rect
 [ ] move multiply rect
+
 [ ] text inside rect
 [ ] undo/redo support
 [ ] add yaml editor (https://package.elm-lang.org/packages/mdgriffith/elm-markup/latest/)
