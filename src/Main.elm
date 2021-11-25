@@ -804,6 +804,7 @@ linkElement graph edge =
                                 , Attrs.startOffset <| String.fromFloat offset
                                 , Attrs.dominantBaseline DominantBaselineCentral
                                 , Attrs.fontSize <| Px 10
+                                , Attrs.style "user-select: none;" --forbid to select arrow as text
                                 ]
                                 [ text "➤" ]
                         ]
