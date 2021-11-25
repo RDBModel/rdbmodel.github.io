@@ -472,22 +472,6 @@ updatePointPosition delta (fromId, toId, index) xy state =
                     )
                 )
             )
-        -- |> Graph.update
-        --     toId
-        --     (Maybe.map (
-        --         \nodeCtx ->
-        --             (updateIncomingEdges
-        --                 (fromId, index)
-        --                 delta
-        --                 (shiftPosition
-        --                     state.zoom
-        --                     ( state.element.x, state.element.y )
-        --                     xy
-        --                 )
-        --                 nodeCtx
-        --             )
-        --         )
-        --     )
 
 updateNodePosition : (Float, Float) -> NodeId -> ( Float, Float ) -> ReadyState -> Graph Container SubPathEdge
 updateNodePosition delta index xy state =
@@ -510,16 +494,9 @@ updateNodePosition delta index xy state =
 
 
 updateOutgoingEdges : (NodeId, Int) -> ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
-updateOutgoingEdges = updateEdges True
-
-updateIncomingEdges : (NodeId, Int) -> ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
-updateIncomingEdges = updateEdges False
-
-updateEdges : Bool -> (NodeId, Int) -> ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
-updateEdges isOutgoing (nodeId, index) (dx, dy) ( x, y ) nodeCtx =
+updateOutgoingEdges (nodeId, index) (dx, dy) ( x, y ) nodeCtx =
     let
-        edges =
-            if isOutgoing then nodeCtx.outgoing else nodeCtx.incoming
+        edges = nodeCtx.outgoing
 
         updatedEdges =
             IntDict.update nodeId
@@ -541,10 +518,7 @@ updateEdges isOutgoing (nodeId, index) (dx, dy) ( x, y ) nodeCtx =
                 )
                 edges
     in
-    if isOutgoing then
-        updateContextWithOutgoing nodeCtx updatedEdges
-    else
-        updateContextWithIncoming nodeCtx updatedEdges
+    updateContextWithOutgoing nodeCtx updatedEdges
 
 
 updateNode : ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
@@ -562,14 +536,6 @@ updateContextWithOutgoing nodeCtx value =
             nodeCtx.node
     in
     { nodeCtx | outgoing = value }
-
-updateContextWithIncoming : NodeContext Container SubPathEdge -> (Adjacency SubPathEdge) -> NodeContext Container SubPathEdge
-updateContextWithIncoming nodeCtx value =
-    let
-        node =
-            nodeCtx.node
-    in
-    { nodeCtx | incoming = value }
 
 updateContextWithValue : NodeContext Container SubPathEdge -> Container -> NodeContext Container SubPathEdge
 updateContextWithValue nodeCtx value =
