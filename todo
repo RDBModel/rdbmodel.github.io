@@ -11,7 +11,7 @@
 [x] support arrow at the end of curve (https://stackoverflow.com/questions/41105713/svg-marker-mid-on-specific-point-on-path)
 
 [x] draw a circle for point
-[ ] move point
+[x] move point
 [ ] remove point dynamically
 [ ] clean logic of adding points
 

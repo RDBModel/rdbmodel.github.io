@@ -496,29 +496,22 @@ updateNodePosition delta index xy state =
 updateOutgoingEdges : (NodeId, Int) -> ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
 updateOutgoingEdges (nodeId, index) (dx, dy) ( x, y ) nodeCtx =
     let
-        edges = nodeCtx.outgoing
-
         updatedEdges =
             IntDict.update nodeId
-                (\e ->
-                    case e of
-                        Just spe ->
-                            let
-                                updatedPoints = List.indexedMap
-                                    (\i -> \p ->
-                                        if i == index then
-                                            (x - dx, y - dy)
-                                        else
-                                            p
-                                    )
-                                    spe.points
-                            in
-                            Just { spe | points = updatedPoints }
-                        Nothing -> e
+                (Maybe.map
+                    (\spe ->
+                        let
+                            updateXy i currentXY =
+                                if i == index then
+                                    (x - dx, y - dy)
+                                else
+                                    currentXY
+                        in
+                        { spe | points = List.indexedMap updateXy spe.points }
+                    )
                 )
-                edges
     in
-    updateContextWithOutgoing nodeCtx updatedEdges
+    nodeCtx.outgoing |> updatedEdges |> updateContextWithOutgoing nodeCtx
 
 
 updateNode : ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
