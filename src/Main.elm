@@ -1,6 +1,7 @@
 module Main exposing (..)
 
 import Browser exposing (element)
+import IntDict
 import Browser.Dom as Dom
 import Browser.Events as Events
 import Color
@@ -18,7 +19,7 @@ import TypedSvg.Types exposing
     ( CoordinateSystem(..), Transform(..), Opacity(..), Paint(..), Length(..)
     , Cursor(..), DominantBaseline(..))
 import TypedSvg.Core exposing (Svg, Attribute)
-import Graph exposing (Graph, Node, Edge, NodeContext, NodeId)
+import Graph exposing (Graph, Node, Edge, NodeContext, NodeId, Adjacency)
 import Zoom exposing (Zoom, OnZoom)
 import Task
 import Html exposing (source)
@@ -44,9 +45,9 @@ type alias SubPathEdge =
     { points : List (Float, Float)
     }
 
-
 type alias ReadyState =
-    { drag : Maybe Drag
+    { drag : Maybe (Drag NodeId)
+    , pointDrag : Maybe (Drag (NodeId, NodeId, Int))
     , graph : Graph Container SubPathEdge
     , zoom : Zoom
 
@@ -62,9 +63,9 @@ type alias ReadyState =
     }
 
 -- Select information
-type alias Drag =
+type alias Drag a =
     { current : ( Float, Float ) -- current mouse position
-    , index : NodeId -- selected node id
+    , index : a -- selected node id orpoint index
     , start : ( Float, Float ) -- start mouse position
     , delta : ( Float, Float ) -- delta between start and node center to do ajustment during movement
     }
@@ -85,6 +86,7 @@ type Msg
     | ReceiveElementPosition (Result Dom.Error Dom.Element)
     | DragStart NodeId ( Float, Float )
     | DragSubPathStart (Edge SubPathEdge) ( Float, Float )
+    | DragPointStart Int (Edge SubPathEdge) ( Float, Float )
     | DragAt ( Float, Float )
     | DragEnd ( Float, Float )
 
@@ -118,15 +120,18 @@ subscriptions model =
                 ]
 
         readySubscriptions : ReadyState -> Sub Msg
-        readySubscriptions { drag, zoom } =
+        readySubscriptions { drag, pointDrag, zoom } =
             Sub.batch
                 [ Zoom.subscriptions zoom ZoomMsg
-                , case drag of
-                    Nothing ->
-                        Sub.none
-
-                    Just _ ->
+                , case (drag, pointDrag) of
+                    (Just _, Nothing) ->
                         dragSubscriptions
+
+                    (Nothing, Just _) ->
+                        dragSubscriptions
+
+                    _ ->
+                        Sub.none
                 ]
     in
     Sub.batch
@@ -159,6 +164,7 @@ update msg model =
         -- show the graph yet. If we did, we would see a noticable jump.
         ( Ready
             { drag = Nothing
+            , pointDrag = Nothing
             , element = element
             , graph = graph
             , showGraph = True
@@ -170,6 +176,7 @@ update msg model =
     ( ReceiveElementPosition (Ok { element }), Ready state ) ->
         ( Ready
             { drag = Nothing
+            , pointDrag = Nothing
             , element = element
             , graph = state.graph
             , showGraph = True
@@ -213,7 +220,41 @@ update msg model =
         , Cmd.none
         )
 
+    ( DragPointStart index edge xy, Ready state ) ->
+        let
+            points = edge.label.points
+
+            targetPoint = List.drop index points |> List.head
+
+            (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
+
+            delta =
+                case targetPoint of
+                    Just (x, y) ->
+                        ( shiftedStartX - x
+                        , shiftedStartY - y
+                        )
+
+                    Nothing ->
+                        (0, 0)
+        in
+        ( Ready
+            { state
+                | pointDrag =
+                    Just
+                        { start = xy
+                        , current = xy
+                        , index = (edge.from, edge.to, index)
+                        , delta = delta
+                        }
+            }
+        , Cmd.none
+        )
+
     ( DragStart _ _, Init _ ) ->
+        ( model, Cmd.none )
+
+    ( DragPointStart _ _ _, Init _ ) ->
         ( model, Cmd.none )
 
     ( DragSubPathStart edge xy, Ready state ) ->
@@ -221,7 +262,6 @@ update msg model =
             spxy = shiftPosition state.zoom (state.element.x, state.element.y) xy
             sourceXY = Graph.get edge.from state.graph |> Maybe.map (\ctx -> ctx.node.label.xy)
             targetXY = Graph.get edge.to state.graph |> Maybe.map (\ctx -> ctx.node.label.xy)
-
         in
         case (sourceXY, targetXY) of
             (Just sxy, Just txy) ->
@@ -279,16 +319,23 @@ update msg model =
         ( model, Cmd.none )
 
     ( DragEnd xy, Ready state ) ->
-        case state.drag of
-            Just { index } ->
+        case (state.drag, state.pointDrag) of
+            (Just _, Nothing) ->
                 ( Ready
                     { state
                         | drag = Nothing
                     }
                 , Cmd.none
                 )
+            (Nothing, Just _) ->
+                ( Ready
+                    { state
+                        | pointDrag = Nothing
+                    }
+                , Cmd.none
+                )
 
-            Nothing ->
+            _ ->
                 ( Ready state, Cmd.none )
 
     ( DragEnd _, Init _ ) ->
@@ -370,9 +417,9 @@ floatRemainderBy divisor n =
 
 
 handleDragAt : ( Float, Float ) -> ReadyState -> ( Model, Cmd Msg )
-handleDragAt xy ({ drag } as state) =
-    case drag of
-        Just { start, index, delta } ->
+handleDragAt xy ({ drag, pointDrag } as state) =
+    case (drag, pointDrag) of
+        (Just { start, index, delta }, Nothing) ->
             ( Ready
                 { state
                     | drag =
@@ -387,9 +434,60 @@ handleDragAt xy ({ drag } as state) =
             , Cmd.none
             )
 
-        Nothing ->
+        (Nothing, Just { start, index, delta }) ->
+            ( Ready
+                { state
+                    | pointDrag =
+                        Just
+                            { start = start
+                            , current = xy
+                            , index = index
+                            , delta = delta
+                            }
+                    , graph = updatePointPosition delta index xy state
+                }
+            , Cmd.none
+            )
+
+        _ ->
             ( Ready state, Cmd.none )
 
+
+updatePointPosition : (Float, Float) -> (NodeId, NodeId, Int) -> ( Float, Float ) -> ReadyState -> Graph Container SubPathEdge
+updatePointPosition delta (fromId, toId, index) xy state =
+    state.graph
+        |> Graph.update
+            fromId
+            (Maybe.map (
+                \nodeCtx ->
+                    (updateOutgoingEdges
+                        (toId, index)
+                        delta
+                        (shiftPosition
+                            state.zoom
+                            ( state.element.x, state.element.y )
+                            xy
+                        )
+                        nodeCtx
+                    )
+                )
+            )
+        -- |> Graph.update
+        --     toId
+        --     (Maybe.map (
+        --         \nodeCtx ->
+        --             (updateIncomingEdges
+        --                 (fromId, index)
+        --                 delta
+        --                 (shiftPosition
+        --                     state.zoom
+        --                     ( state.element.x, state.element.y )
+        --                     xy
+        --                 )
+        --                 nodeCtx
+        --             )
+        --         )
+        --     )
 
 updateNodePosition : (Float, Float) -> NodeId -> ( Float, Float ) -> ReadyState -> Graph Container SubPathEdge
 updateNodePosition delta index xy state =
@@ -411,6 +509,44 @@ updateNodePosition delta index xy state =
         state.graph
 
 
+updateOutgoingEdges : (NodeId, Int) -> ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
+updateOutgoingEdges = updateEdges True
+
+updateIncomingEdges : (NodeId, Int) -> ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
+updateIncomingEdges = updateEdges False
+
+updateEdges : Bool -> (NodeId, Int) -> ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
+updateEdges isOutgoing (nodeId, index) (dx, dy) ( x, y ) nodeCtx =
+    let
+        edges =
+            if isOutgoing then nodeCtx.outgoing else nodeCtx.incoming
+
+        updatedEdges =
+            IntDict.update nodeId
+                (\e ->
+                    case e of
+                        Just spe ->
+                            let
+                                updatedPoints = List.indexedMap
+                                    (\i -> \p ->
+                                        if i == index then
+                                            (x - dx, y - dy)
+                                        else
+                                            p
+                                    )
+                                    spe.points
+                            in
+                            Just { spe | points = updatedPoints }
+                        Nothing -> e
+                )
+                edges
+    in
+    if isOutgoing then
+        updateContextWithOutgoing nodeCtx updatedEdges
+    else
+        updateContextWithIncoming nodeCtx updatedEdges
+
+
 updateNode : ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
 updateNode (dx, dy) ( x, y ) nodeCtx =
     let
@@ -419,6 +555,21 @@ updateNode (dx, dy) ( x, y ) nodeCtx =
     in
     updateContextWithValue nodeCtx {nodeValue | xy = (x - dx, y - dy)}
 
+updateContextWithOutgoing : NodeContext Container SubPathEdge -> (Adjacency SubPathEdge) -> NodeContext Container SubPathEdge
+updateContextWithOutgoing nodeCtx value =
+    let
+        node =
+            nodeCtx.node
+    in
+    { nodeCtx | outgoing = value }
+
+updateContextWithIncoming : NodeContext Container SubPathEdge -> (Adjacency SubPathEdge) -> NodeContext Container SubPathEdge
+updateContextWithIncoming nodeCtx value =
+    let
+        node =
+            nodeCtx.node
+    in
+    { nodeCtx | incoming = value }
 
 updateContextWithValue : NodeContext Container SubPathEdge -> Container -> NodeContext Container SubPathEdge
 updateContextWithValue nodeCtx value =
@@ -697,13 +848,13 @@ linkElement graph edge =
                                 ]
                                 [ text "➤" ]
                         ]
-                    , g [] <| List.map
-                        (\( dx, dy ) ->
+                    , g [] <| List.indexedMap
+                        (\i -> \(dx, dy ) ->
                             Path.element circleDot
                                 [ fill (Paint Color.white)
                                 , stroke (Paint Color.black)
                                 , transform [ Translate dx dy ]
-                                , onMouseDownPoint edge
+                                , onMouseDownPoint i edge
                                 ]) points
 
                     ]
@@ -726,9 +877,9 @@ onMouseDownSubPath edge =
     Mouse.onDown (.clientPos >> DragSubPathStart edge)
 
 
-onMouseDownPoint : Edge SubPathEdge -> Attribute Msg
-onMouseDownPoint edge =
-    Mouse.onDown (.clientPos >> DragSubPathStart edge)
+onMouseDownPoint : Int -> Edge SubPathEdge -> Attribute Msg
+onMouseDownPoint index edge =
+    Mouse.onDown (.clientPos >> DragPointStart index edge)
 
 edgeColor : Paint
 edgeColor =
