@@ -12,7 +12,8 @@
 
 [x] draw a circle for point
 [x] move point
-[ ] remove point dynamically
+[x] remove point dynamically
+[ ] block menu on right click
 [ ] clean logic of adding points
 
 [ ] select multiply rect

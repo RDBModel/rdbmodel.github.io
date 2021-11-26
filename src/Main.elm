@@ -87,8 +87,10 @@ type Msg
     | DragStart NodeId ( Float, Float )
     | DragSubPathStart (Edge SubPathEdge) ( Float, Float )
     | DragPointStart Int (Edge SubPathEdge) ( Float, Float )
+    | RemovePoint Int (Edge SubPathEdge)
     | DragAt ( Float, Float )
     | DragEnd ( Float, Float )
+    | NoOp
 
 elementId : String
 elementId =
@@ -251,6 +253,29 @@ update msg model =
         , Cmd.none
         )
 
+    (RemovePoint index edge, Ready state ) ->
+        let
+            updatedGraph = Graph.mapEdges
+                (\e ->
+                    if e == edge.label then
+                        let
+                            updatedList =
+                                List.take index e.points
+                                ++
+                                List.drop (index + 1) e.points
+                        in
+                        SubPathEdge updatedList
+                    else
+                        e
+                )
+                state.graph
+
+        in
+        ( Ready { state | graph = updatedGraph }, Cmd.none )
+
+    (RemovePoint _ _, Init _ ) ->
+        ( model, Cmd.none )
+
     ( DragStart _ _, Init _ ) ->
         ( model, Cmd.none )
 
@@ -340,6 +365,8 @@ update msg model =
 
     ( DragEnd _, Init _ ) ->
         ( model, Cmd.none )
+
+    ( NoOp, _) -> ( model, Cmd.none )
 
 {-| is it enough to put the point
 -}
@@ -839,7 +866,14 @@ onMouseDownSubPath edge =
 
 onMouseDownPoint : Int -> Edge SubPathEdge -> Attribute Msg
 onMouseDownPoint index edge =
-    Mouse.onDown (.clientPos >> DragPointStart index edge)
+    Mouse.onDown
+        (\e ->
+            case e.button of
+                Mouse.MainButton -> DragPointStart index edge e.clientPos
+                Mouse.SecondButton -> RemovePoint index edge
+                _ -> NoOp
+        )
+
 
 edgeColor : Paint
 edgeColor =
