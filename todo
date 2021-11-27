@@ -19,9 +19,16 @@
 [x] clean logic of adding points
 [x] make point path is more wider
 
+[ ] fix adding points logic
+
 [ ] select multiply rect
 [ ] move multiply rect
 
+[x] add monaco editor (https://github.com/vanillawc/wc-monaco-editor) (https://elmprogramming.com/interacting-with-web-components.html)
+[ ] add splitter between monaco and svg
+
+[ ] set up document structure
+
 [ ] text inside rect
-[ ] undo/redo support
+[ ] undo/redo support (https://package.elm-lang.org/packages/elm-community/undo-redo)
 [ ] add yaml editor (https://package.elm-lang.org/packages/mdgriffith/elm-markup/latest/)

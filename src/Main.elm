@@ -602,27 +602,30 @@ view model =
 
         y = getXY Y
     in
-    svg
-        [ id elementId
-        , Attrs.width <| Percent 100
-        , Attrs.height <| Percent 100
-        , Mouse.onContextMenu (\e -> NoOp)
-        ]
-        [ defs []
-            [ innerGrid transform10
-            , grid x y transform100
-            , markerDot -- for circle in edges
-            ]
-        , rect
-            ([ Attrs.width <| Percent 100
+    div []
+        [ svg
+            [ id elementId
+            , Attrs.width <| Percent 100
             , Attrs.height <| Percent 100
-            , fill <| Reference gridId
-            --, cursor CursorMove
-            ] ++ zoomEvents) []
-        , g
-            [ zoomTransformAttr ]
-            [ renderGraph model
+            , Mouse.onContextMenu (\e -> NoOp)
             ]
+            [ defs []
+                [ innerGrid transform10
+                , grid x y transform100
+                , markerDot -- for circle in edges
+                ]
+            , rect
+                ([ Attrs.width <| Percent 100
+                , Attrs.height <| Percent 100
+                , fill <| Reference gridId
+                --, cursor CursorMove
+                ] ++ zoomEvents) []
+            , g
+                [ zoomTransformAttr ]
+                [ renderGraph model
+                ]
+            ]
+        , monaco [] []
         ]
 
 pointDotId : String
@@ -923,3 +926,8 @@ renderSystem xValue yValue =
         , Attrs.stroke <| Paint <| Color.black
         , Attrs.strokeWidth <| Px 1
         ] []
+
+
+monaco : List (Attribute a) -> List (Html a) -> Html a
+monaco =
+    Html.node "wc-monaco-editor"

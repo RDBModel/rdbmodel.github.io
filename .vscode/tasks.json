@@ -6,8 +6,8 @@
         {
             "label": "Run",
             "type": "shell",
-            "command": "elm-live src/Main.elm '--' --debug",
+            "command": "elm-live src/Main.elm '--' --debug --output=main.js",
             "problemMatcher": []
         }
     ]
-}
+}//--start-page=index.html
