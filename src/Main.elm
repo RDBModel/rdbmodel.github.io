@@ -3,6 +3,7 @@ module Main exposing (..)
 import Browser exposing (element)
 import IntDict
 import Browser.Dom as Dom
+import Basics.Extra exposing (maxSafeInteger)
 import Browser.Events as Events
 import Color
 import Json.Decode as Decode
@@ -27,6 +28,7 @@ import Shape exposing (linearCurve)
 import SubPath exposing (arcLengthParameterized)
 import SubPath exposing (arcLength)
 import Math.Vector2 as Vec
+import TypedSvg.Attributes exposing (strokeOpacity)
 
 main : Program () Model Msg
 main =
@@ -291,20 +293,37 @@ update msg model =
         case (sourceXY, targetXY) of
             (Just sxy, Just txy) ->
                 let
+                    magicIntMax = maxSafeInteger
                     allPoints = sxy :: edge.label.points ++ [ txy ]
+
+                    -- as the actual edge is wider then visible, we are extending the search area
+                    extendPoints (x1, y1) (x2, y2) =
+                        let
+                            extend v1 v2 =
+                                if v1 < v2 || v1 == v2 then
+                                    (v1 - edgeStrokeWidthExtend, v2 + edgeStrokeWidthExtend)
+                                else
+                                    (v2 - edgeStrokeWidthExtend, v1 + edgeStrokeWidthExtend)
+
+                            (ux1, ux2) = extend x1 x2
+                            (uy1, uy2) = extend y1 y2
+                        in
+                        ((ux1, uy1), (ux2, uy2))
 
                     (_ , (insertAfterValue, _)) = 
                         List.foldr
-                        (\a -> \(prev, (insertAfter, val)) ->
+                        (\currentPoint -> \(previousPoint, (insertAfterPoint, val)) ->
                             let
-                                z = distanceToLine spxy (a , prev)
+                                z = distanceToLine spxy (currentPoint , previousPoint)
+
+                                (extendedA, extendedPrev) = extendPoints currentPoint previousPoint
                             in
-                            if not (isNaN z) && betweenPoints spxy (a, prev) && z < val then
-                                (a, (a, z))
+                            if not (isNaN z) && betweenPoints spxy (extendedA, extendedPrev) && z < val then
+                                (currentPoint, (currentPoint, z))
                             else 
-                                (a, (insertAfter, val))
+                                (currentPoint, (insertAfterPoint, val))
                         )
-                        (txy, (txy, 10000))
+                        (txy, (txy, magicIntMax))
                         allPoints
 
                     updatedList = List.foldr
@@ -346,20 +365,10 @@ update msg model =
     ( DragEnd xy, Ready state ) ->
         case (state.drag, state.pointDrag) of
             (Just _, Nothing) ->
-                ( Ready
-                    { state
-                        | drag = Nothing
-                    }
-                , Cmd.none
-                )
+                ( Ready { state| drag = Nothing }, Cmd.none)
             (Nothing, Just _) ->
                 ( Ready
-                    { state
-                        | pointDrag = Nothing
-                    }
-                , Cmd.none
-                )
-
+                    { state | pointDrag = Nothing }, Cmd.none)
             _ ->
                 ( Ready state, Cmd.none )
 
@@ -372,27 +381,16 @@ update msg model =
 -}
 betweenPoints : (Float, Float) -> ((Float, Float), (Float, Float)) -> Bool
 betweenPoints (x, y) ((x1, y1), (x2, y2)) =
-    if x1 < x2 then
-        if y1 < y2 then
-            x1 < x && x < x2 && y1 < y && y < y2
-        else if y1 == y2 then
-            x1 < x && x < x2 && y1 == y && y == y2
-        else
-            x1 < x && x < x2 && y2 < y && y < y1
-    else if x1 == x2 then
-        if y1 < y2 then
-            x1 == x && x == x2 && y1 < y && y < y2
-        else if y1 == y2 then
-            x1 == x && x == x2 && y1 == y && y == y2
-        else
-            x1 == x && x == x2 && y2 < y && y < y1
-    else
-        if y1 < y2 then
-            x2 < x && x < x1 && y1 < y && y < y2
-        else if y1 == y2 then
-            x2 < x && x < x1 && y1 == y && y == y2
-        else 
-            x2 < x && x < x1 && y2 < y && y < y1
+    let
+        isBetween v v1 v2 =
+            if v1 < v2 then
+                v1 < v && v < v2
+            else if v1 == v2 then
+                v1 == v && v == v2
+            else
+                v2 < v && v < v1
+    in
+    isBetween x x1 x2 && isBetween y y1 y2
 
 {-| calculate distance to the line created by two points
 it is not work good as it is required to calculcate distance to line segment
@@ -403,11 +401,6 @@ distanceToLine : (Float, Float) -> ((Float, Float), (Float, Float)) -> Float
 distanceToLine (x, y) ((x1, y1), (x2, y2)) =
     -- distance to the line
     abs ((x2 - x1) * (y1 - y) - (x1 - x) * (y2 - y1)) / sqrt ((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))
-    -- distance to the middle of a segment
-    -- let
-    --     (xm, ym) = ((x1 + x2) / 2, (y1 + y2) / 2)
-    -- in
-    -- sqrt ((x - xm) * (x - xm) + (y - ym) * (y - ym))
 
 initZoom : Element -> Zoom
 initZoom element =
@@ -756,11 +749,7 @@ nodeElement selected node =
 linkElement : Maybe Int -> Graph Container SubPathEdge -> Edge SubPathEdge -> Svg Msg
 linkElement selectedIndex graph edge =
     let
-        source =
-            Graph.get edge.from graph
-
-        target =
-            Graph.get edge.to graph
+        (source, target) = (Graph.get edge.from graph, Graph.get edge.to graph)
     in
     case (source, target) of
         (Just sourceNode, Just targetNode) ->
@@ -778,12 +767,10 @@ linkElement selectedIndex graph edge =
                 curve = linearCurve preparedPoints
 
                 -- half of rect
-                ry = containerHeight / 2
-                rx = containerWidth / 2
+                (rx, ry) = (containerWidth / 2, containerHeight / 2)
 
                 -- size of sides of big triangle create by dots
-                x = (cx - tx) |> abs
-                y = (cy - ty) |> abs
+                (x, y) = ((cx - tx) |> abs, (cy - ty) |> abs)
 
                 -- if the line crosses the rect in the top or bottom
                 -- otherwise it crosses left or right borders or rect
@@ -799,19 +786,28 @@ linkElement selectedIndex graph edge =
 
                 -- offset based on aspect ratio
                 offset =
-                    if topBottom then
-                        curveLength - distanceXY * ry / y - magicOffset
-                    else
-                        curveLength - distanceXY * rx / x - magicOffset
+                    let
+                        temp = if topBottom then ry / y else rx / x
+                    in
+                    curveLength - distanceXY * temp - magicOffset
 
                 idValue =
                     "from-" ++ String.fromInt (sourceNode.node.id) ++ "-to-" ++ String.fromInt (targetNode.node.id)
+
+                strokeWidthValue = 1
             in
                 g []
                     [ SubPath.element curve
                             [ id idValue
-                            , strokeWidth <| Px 1
+                            , strokeWidth <| Px strokeWidthValue
                             , stroke <| Paint <| Color.black
+                            , fill <| PaintNone
+                            --, onMouseDownSubPath edge
+                            ]
+                    , SubPath.element curve
+                            [ strokeWidth <| Px (strokeWidthValue + edgeStrokeWidthExtend)
+                            , stroke <| Paint <| Color.black
+                            , strokeOpacity <| Opacity 0
                             , fill <| PaintNone
                             , onMouseDownSubPath edge
                             ]
@@ -853,6 +849,8 @@ circleDot =
         , padAngle = 0
         , padRadius = 0
         }
+
+edgeStrokeWidthExtend = 3
 
 onMouseDownSubPath : Edge SubPathEdge -> Attribute Msg
 onMouseDownSubPath edge =
