@@ -611,13 +611,13 @@ view model =
         [ defs []
             [ innerGrid transform10
             , grid x y transform100
-            , markerDot
+            , markerDot -- for circle in edges
             ]
         , rect
             ([ Attrs.width <| Percent 100
             , Attrs.height <| Percent 100
             , fill <| Reference gridId
-            , cursor CursorMove
+            --, cursor CursorMove
             ] ++ zoomEvents) []
         , g
             [ zoomTransformAttr ]
@@ -706,8 +706,7 @@ renderGraph model =
 
         Ready { drag, pointDrag, graph, showGraph } ->
             if showGraph then
-                g
-                    []
+                g []
                     [ Graph.edges graph
                         |> List.map
                             (\e ->
