@@ -375,12 +375,23 @@ betweenPoints (x, y) ((x1, y1), (x2, y2)) =
     if x1 < x2 then
         if y1 < y2 then
             x1 < x && x < x2 && y1 < y && y < y2
+        else if y1 == y2 then
+            x1 < x && x < x2 && y1 == y && y == y2
         else
             x1 < x && x < x2 && y2 < y && y < y1
+    else if x1 == x2 then
+        if y1 < y2 then
+            x1 == x && x == x2 && y1 < y && y < y2
+        else if y1 == y2 then
+            x1 == x && x == x2 && y1 == y && y == y2
+        else
+            x1 == x && x == x2 && y2 < y && y < y1
     else
         if y1 < y2 then
             x2 < x && x < x1 && y1 < y && y < y2
-        else
+        else if y1 == y2 then
+            x2 < x && x < x1 && y1 == y && y == y2
+        else 
             x2 < x && x < x1 && y2 < y && y < y1
 
 {-| calculate distance to the line created by two points
@@ -397,40 +408,6 @@ distanceToLine (x, y) ((x1, y1), (x2, y2)) =
     --     (xm, ym) = ((x1 + x2) / 2, (y1 + y2) / 2)
     -- in
     -- sqrt ((x - xm) * (x - xm) + (y - ym) * (y - ym))
-
-{-| check if point on segment. First parameter - point coordinates,
-second is coordinates of segment (start, end)
--}
-checkPointOnSegment : (Float, Float) -> ((Float, Float), (Float, Float)) -> Float
-checkPointOnSegment (x, y) ((x1, y1), (x2, y2)) =
-    let
-        cross a b = Vec.getX a * Vec.getY b - Vec.getY a * Vec.getX b
-
-        vecC = Vec.vec2 x y
-        vecA = Vec.vec2 x1 y1
-        vecB = Vec.vec2 x2 y2
-
-        vecAC = Vec.sub vecC vecA
-        vecAB = Vec.sub vecB vecA
-    in
-    cross vecAB vecAC
-    -- if not collinear then return false as point cannot be on segment
-    -- if cross vecAB vecAC == 0 |> Debug.log "cross" then
-    --     let
-    --         -- calculate the dotproduct of (AB, AC) and (AB, AB) to see point is now on the segment
-    --         dotAB = Vec.dot vecAB vecAB
-    --         dotAC = Vec.dot vecAB vecAC
-    --     in
-    --     if dotAC == 0 || dotAC == dotAB then
-    --         -- on end points of segment
-    --         True
-    --     else if dotAC > 0 && dotAC < dotAB then
-    --         -- on segment
-    --         True
-    --     else
-    --         False
-    -- else
-    --     False
 
 initZoom : Element -> Zoom
 initZoom element =

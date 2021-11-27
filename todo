@@ -14,6 +14,7 @@
 [x] move point
 [x] remove point dynamically
 [x] block menu on right click
+[x] fix bug on adding point (remove existing one, and add a new one)
 [ ] clean logic of adding points
 [ ] make point path is more wider
 
