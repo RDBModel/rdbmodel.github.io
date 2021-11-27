@@ -711,12 +711,25 @@ renderGraph model =
         Init _ ->
             text ""
 
-        Ready { drag, graph, showGraph } ->
+        Ready { drag, pointDrag, graph, showGraph } ->
             if showGraph then
                 g
                     []
                     [ Graph.edges graph
-                        |> List.map (linkElement graph)
+                        |> List.map
+                            (\e ->
+                                case pointDrag of
+                                    Just { index } ->
+                                        let
+                                            (from, to, i) = index
+                                        in
+                                        if e.to == to && e.from == from then
+                                            linkElement (Just i) graph e
+                                        else
+                                            linkElement Nothing graph e
+                                    Nothing ->
+                                        linkElement Nothing graph e
+                            )
                         |> g [ class [ "links" ] ]
                     , Graph.nodes graph
                         |> List.map (\n -> 
@@ -740,8 +753,8 @@ nodeElement selected node =
     in
     renderContainer node.id selected x y
 
-linkElement : Graph Container SubPathEdge -> Edge SubPathEdge -> Svg Msg
-linkElement graph edge =
+linkElement : Maybe Int -> Graph Container SubPathEdge -> Edge SubPathEdge -> Svg Msg
+linkElement selectedIndex graph edge =
     let
         source =
             Graph.get edge.from graph
@@ -817,7 +830,11 @@ linkElement graph edge =
                         (\i -> \(dx, dy ) ->
                             Path.element circleDot
                                 [ fill (Paint Color.white)
-                                , stroke (Paint Color.black)
+                                , stroke (Paint <| case selectedIndex of
+                                    Just ind ->
+                                        if ind == i then Color.blue else Color.black
+                                    Nothing -> Color.black
+                                )
                                 , transform [ Translate dx dy ]
                                 , onMouseDownPoint i edge
                                 ]) points
