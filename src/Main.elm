@@ -623,8 +623,8 @@ view model =
                         |> Zoom.asRecord
                         |> .translate
                         |> (\t -> case xy of
-                                    X -> t.x
-                                    Y -> t.y
+                                X -> t.x
+                                Y -> t.y
                             )
                         |> floatRemainderBy transform100
 
@@ -636,6 +636,7 @@ view model =
         [ id elementId
         , Attrs.width <| Percent 100
         , Attrs.height <| Percent 100
+        , Mouse.onContextMenu (\e -> NoOp)
         ]
         [ defs []
             [ innerGrid transform10
