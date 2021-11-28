@@ -29,6 +29,7 @@ import SubPath exposing (arcLengthParameterized)
 import SubPath exposing (arcLength)
 import Math.Vector2 as Vec
 import TypedSvg.Attributes exposing (strokeOpacity)
+import TypedSvg.Attributes exposing (offset)
 
 main : Program () Model Msg
 main =
@@ -196,7 +197,7 @@ update msg model =
         let
             nodeCtx = Graph.get index state.graph
 
-            (shiftedStartX, shiftedStartY) = xy
+            (shiftedStartX, shiftedStartY) = shiftPosition state.zoom xy
 
             delta =
                 case nodeCtx of
@@ -230,7 +231,7 @@ update msg model =
 
             targetPoint = List.drop index points |> List.head
 
-            (shiftedStartX, shiftedStartY) = xy
+            (shiftedStartX, shiftedStartY) = shiftPosition state.zoom xy
 
             delta =
                 case targetPoint of
@@ -286,6 +287,7 @@ update msg model =
 
     ( DragSubPathStart edge xy, Ready state ) ->
         let
+            spxy = shiftPosition state.zoom xy
             sourceXY = Graph.get edge.from state.graph |> Maybe.map (\ctx -> ctx.node.label.xy)
             targetXY = Graph.get edge.to state.graph |> Maybe.map (\ctx -> ctx.node.label.xy)
         in
@@ -313,11 +315,11 @@ update msg model =
                         List.foldr
                         (\currentPoint -> \(previousPoint, (insertAfterPoint, val)) ->
                             let
-                                z = distanceToLine xy (currentPoint , previousPoint)
+                                z = distanceToLine spxy (currentPoint , previousPoint)
 
                                 (extendedA, extendedPrev) = extendPoints currentPoint previousPoint
                             in
-                            if not (isNaN z) && betweenPoints xy (extendedA, extendedPrev) && z < val then
+                            if not (isNaN z) && betweenPoints spxy (extendedA, extendedPrev) && z < val then
                                 (currentPoint, (currentPoint, z))
                             else 
                                 (currentPoint, (insertAfterPoint, val))
@@ -328,12 +330,13 @@ update msg model =
                     updatedList = List.foldr
                         (\a -> \b ->
                             if insertAfterValue == a then
-                                 a :: xy :: b
+                                 a :: spxy :: b
                             else
                                 a :: b
                         )
                         []
                         allPoints
+                        |> Debug.log "updated"
                         |> List.drop 1
                         |> List.reverse
                         |> List.drop 1
@@ -459,7 +462,10 @@ updatePointPosition delta (fromId, toId, index) xy state =
                     (updateOutgoingEdges
                         (toId, index)
                         delta
-                        xy
+                        (shiftPosition
+                            state.zoom
+                            xy
+                        )
                         nodeCtx
                     )
                 )
@@ -473,7 +479,10 @@ updateNodePosition delta index xy state =
             \nodeCtx ->
                 (updateNode
                     delta
-                    xy
+                    (shiftPosition
+                        state.zoom
+                        xy
+                    )
                     nodeCtx
                 )
             )
@@ -525,6 +534,23 @@ updateContextWithValue nodeCtx value =
             nodeCtx.node
     in
     { nodeCtx | node = { node | label = value } }
+
+
+{-| The mouse events for drag start, drag at and drag end read the client
+position of the cursor, which is relative to the browser viewport. However,
+the node positions are relative to the svg viewport. This function adjusts the
+coordinates accordingly. It also takes the current zoom level and position
+into consideration.
+-}
+shiftPosition : Zoom -> ( Float, Float ) -> ( Float, Float )
+shiftPosition zoom ( clientX, clientY ) =
+    let
+        zoomRecord =
+            Zoom.asRecord zoom
+    in
+    ( (clientX - zoomRecord.translate.x) / zoomRecord.scale
+    , (clientY - zoomRecord.translate.y) / zoomRecord.scale
+    )
 
 
 type XY
@@ -784,7 +810,7 @@ linkElement selectedIndex graph edge =
                             , stroke <| Paint <| Color.black
                             , strokeOpacity <| Opacity 0
                             , fill <| PaintNone
-                            , onMouseDownSubPath edge
+                            , Mouse.onDown (.offsetPos >> DragSubPathStart edge)
                             ]
                     , TypedSvg.text_ []
                         [
@@ -827,11 +853,6 @@ circleDot =
 
 edgeStrokeWidthExtend = 3
 
-onMouseDownSubPath : Edge SubPathEdge -> Attribute Msg
-onMouseDownSubPath edge =
-    Mouse.onDown (.offsetPos >> DragSubPathStart edge)
-
-
 onMouseDownPoint : Int -> Edge SubPathEdge -> Attribute Msg
 onMouseDownPoint index edge =
     Mouse.onDown
@@ -859,21 +880,6 @@ systemRadius = 50
 gridCellSize : Float
 gridCellSize = 10
 
-{-| This is the event handler that handles clicks on the vertices (nodes).
-
-The event catches the `clientPos`, which is a tuple with the
-`MouseEvent.clientX` and `MouseEvent.clientY` values. These coordinates are
-relative to the client area (browser viewport).
-
-If the graph is positioned anywhere else than at the coordinates `(0, 0)`, the
-svg element position must be subtracted when setting the node position. This is
-handled in the update function by calling the `shiftPosition` function.
-
--}
-onMouseDown : NodeId -> Attribute Msg
-onMouseDown index =
-    Mouse.onDown (.offsetPos >> DragStart index)
-
 renderContainer : NodeId -> Bool -> Float -> Float -> Svg Msg
 renderContainer nodeId selected xCenter yCenter = 
     rect
@@ -885,7 +891,7 @@ renderContainer nodeId selected xCenter yCenter =
         , Attrs.fill <| Paint <| Color.white
         , Attrs.stroke <| Paint <| if selected then Color.blue else Color.black
         , Attrs.strokeWidth <| Px 1
-        , onMouseDown nodeId
+        , Mouse.onDown (.offsetPos >> DragStart nodeId)
         ] []
 
 
