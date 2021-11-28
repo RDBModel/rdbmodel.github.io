@@ -127,9 +127,9 @@ subscriptions model =
         dragSubscriptions =
             Sub.batch
                 [ Events.onMouseMove
-                    (Decode.map (.offsetPos >> DragAt) Mouse.eventDecoder)
+                    (Decode.map (.clientPos >> DragAt) Mouse.eventDecoder)
                 , Events.onMouseUp
-                    (Decode.map (.offsetPos >> DragEnd) Mouse.eventDecoder)
+                    (Decode.map (.clientPos >> DragEnd) Mouse.eventDecoder)
                 ]
 
         readySubscriptions : ReadyState -> Sub Msg
@@ -211,7 +211,7 @@ update msg model =
             let
                 nodeCtx = Graph.get index state.graph
 
-                (shiftedStartX, shiftedStartY) = shiftPosition state.zoom xy
+                (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
 
                 delta =
                     case nodeCtx of
@@ -246,7 +246,7 @@ update msg model =
 
                 targetPoint = List.drop index points |> List.head
 
-                (shiftedStartX, shiftedStartY) = shiftPosition state.zoom xy
+                (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
 
                 delta =
                     case targetPoint of
@@ -303,7 +303,7 @@ update msg model =
 
         ( DragSubPathStart edge xy, Ready state ) ->
             let
-                spxy = shiftPosition state.zoom xy
+                spxy = shiftPosition state.zoom (state.element.x, state.element.y) xy
                 sourceXY = Graph.get edge.from state.graph |> Maybe.map (\ctx -> ctx.node.label.xy)
                 targetXY = Graph.get edge.to state.graph |> Maybe.map (\ctx -> ctx.node.label.xy)
             in
@@ -484,6 +484,7 @@ updatePointPosition delta (fromId, toId, index) xy state =
                         delta
                         (shiftPosition
                             state.zoom
+                            (state.element.x, state.element.y)
                             xy
                         )
                         nodeCtx
@@ -501,6 +502,7 @@ updateNodePosition delta index xy state =
                     delta
                     (shiftPosition
                         state.zoom
+                        (state.element.x, state.element.y)
                         xy
                     )
                     nodeCtx
@@ -562,14 +564,14 @@ the node positions are relative to the svg viewport. This function adjusts the
 coordinates accordingly. It also takes the current zoom level and position
 into consideration.
 -}
-shiftPosition : Zoom -> ( Float, Float ) -> ( Float, Float )
-shiftPosition zoom ( clientX, clientY ) =
+shiftPosition : Zoom -> ( Float, Float ) -> ( Float, Float ) -> ( Float, Float )
+shiftPosition zoom (elementX, elementY) ( clientX, clientY ) =
     let
         zoomRecord =
             Zoom.asRecord zoom
     in
-    ( (clientX - zoomRecord.translate.x) / zoomRecord.scale
-    , (clientY - zoomRecord.translate.y) / zoomRecord.scale
+    ( (clientX - zoomRecord.translate.x - elementX) / zoomRecord.scale
+    , (clientY - zoomRecord.translate.y - elementY) / zoomRecord.scale
     )
 
 
@@ -838,7 +840,7 @@ linkElement selectedIndex graph edge =
                             , stroke <| Paint <| Color.black
                             , strokeOpacity <| Opacity 0
                             , fill <| PaintNone
-                            , Mouse.onDown (.offsetPos >> DragSubPathStart edge)
+                            , Mouse.onDown (.clientPos >> DragSubPathStart edge)
                             ]
                     , TypedSvg.text_ []
                         [
@@ -886,7 +888,7 @@ onMouseDownPoint index edge =
     Mouse.onDown
         (\e ->
             case e.button of
-                Mouse.MainButton -> DragPointStart index edge e.offsetPos
+                Mouse.MainButton -> DragPointStart index edge e.clientPos
                 Mouse.SecondButton -> RemovePoint index edge
                 _ -> NoOp
         )
@@ -919,7 +921,7 @@ renderContainer nodeId selected xCenter yCenter =
         , Attrs.fill <| Paint <| Color.white
         , Attrs.stroke <| Paint <| if selected then Color.blue else Color.black
         , Attrs.strokeWidth <| Px 1
-        , Mouse.onDown (.offsetPos >> DragStart nodeId)
+        , Mouse.onDown (.clientPos >> DragStart nodeId)
         ] []
 
 
