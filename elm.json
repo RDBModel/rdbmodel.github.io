@@ -18,7 +18,8 @@
             "elm-explorations/linear-algebra": "1.0.3",
             "folkertdev/one-true-path-experiment": "6.0.0",
             "gampleman/elm-visualization": "2.3.0",
-            "mpizenberg/elm-pointer-events": "4.0.2"
+            "mpizenberg/elm-pointer-events": "4.0.2",
+            "whale9490/elm-split-pane": "1.0.0"
         },
         "indirect": {
             "avh4/elm-fifo": "1.0.4",

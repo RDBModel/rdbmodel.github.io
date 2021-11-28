@@ -25,7 +25,9 @@
 [ ] move multiply rect
 
 [x] add monaco editor (https://github.com/vanillawc/wc-monaco-editor) (https://elmprogramming.com/interacting-with-web-components.html)
-[ ] add splitter between monaco and svg
+[x] add splitter between monaco and svg
+[ ] fix issue with dragging elements on monaco
+[ ] fix icons in monaco editor
 
 [ ] set up document structure
 
