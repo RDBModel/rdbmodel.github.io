@@ -336,7 +336,6 @@ update msg model =
                         )
                         []
                         allPoints
-                        |> Debug.log "updated"
                         |> List.drop 1
                         |> List.reverse
                         |> List.drop 1
