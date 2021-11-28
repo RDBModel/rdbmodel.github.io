@@ -118,9 +118,9 @@ subscriptions model =
         dragSubscriptions =
             Sub.batch
                 [ Events.onMouseMove
-                    (Decode.map (.clientPos >> DragAt) Mouse.eventDecoder)
+                    (Decode.map (.offsetPos >> DragAt) Mouse.eventDecoder)
                 , Events.onMouseUp
-                    (Decode.map (.clientPos >> DragEnd) Mouse.eventDecoder)
+                    (Decode.map (.offsetPos >> DragEnd) Mouse.eventDecoder)
                 ]
 
         readySubscriptions : ReadyState -> Sub Msg
@@ -196,7 +196,7 @@ update msg model =
         let
             nodeCtx = Graph.get index state.graph
 
-            (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
+            (shiftedStartX, shiftedStartY) = xy
 
             delta =
                 case nodeCtx of
@@ -230,7 +230,7 @@ update msg model =
 
             targetPoint = List.drop index points |> List.head
 
-            (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
+            (shiftedStartX, shiftedStartY) = xy
 
             delta =
                 case targetPoint of
@@ -286,7 +286,6 @@ update msg model =
 
     ( DragSubPathStart edge xy, Ready state ) ->
         let
-            spxy = shiftPosition state.zoom (state.element.x, state.element.y) xy
             sourceXY = Graph.get edge.from state.graph |> Maybe.map (\ctx -> ctx.node.label.xy)
             targetXY = Graph.get edge.to state.graph |> Maybe.map (\ctx -> ctx.node.label.xy)
         in
@@ -314,11 +313,11 @@ update msg model =
                         List.foldr
                         (\currentPoint -> \(previousPoint, (insertAfterPoint, val)) ->
                             let
-                                z = distanceToLine spxy (currentPoint , previousPoint)
+                                z = distanceToLine xy (currentPoint , previousPoint)
 
                                 (extendedA, extendedPrev) = extendPoints currentPoint previousPoint
                             in
-                            if not (isNaN z) && betweenPoints spxy (extendedA, extendedPrev) && z < val then
+                            if not (isNaN z) && betweenPoints xy (extendedA, extendedPrev) && z < val then
                                 (currentPoint, (currentPoint, z))
                             else 
                                 (currentPoint, (insertAfterPoint, val))
@@ -329,7 +328,7 @@ update msg model =
                     updatedList = List.foldr
                         (\a -> \b ->
                             if insertAfterValue == a then
-                                 a :: spxy :: b
+                                 a :: xy :: b
                             else
                                 a :: b
                         )
@@ -460,11 +459,7 @@ updatePointPosition delta (fromId, toId, index) xy state =
                     (updateOutgoingEdges
                         (toId, index)
                         delta
-                        (shiftPosition
-                            state.zoom
-                            ( state.element.x, state.element.y )
-                            xy
-                        )
+                        xy
                         nodeCtx
                     )
                 )
@@ -478,11 +473,7 @@ updateNodePosition delta index xy state =
             \nodeCtx ->
                 (updateNode
                     delta
-                    (shiftPosition
-                        state.zoom
-                        ( state.element.x, state.element.y )
-                        xy
-                    )
+                    xy
                     nodeCtx
                 )
             )
@@ -534,23 +525,6 @@ updateContextWithValue nodeCtx value =
             nodeCtx.node
     in
     { nodeCtx | node = { node | label = value } }
-
-
-{-| The mouse events for drag start, drag at and drag end read the client
-position of the cursor, which is relative to the browser viewport. However,
-the node positions are relative to the svg viewport. This function adjusts the
-coordinates accordingly. It also takes the current zoom level and position
-into consideration.
--}
-shiftPosition : Zoom -> ( Float, Float ) -> ( Float, Float ) -> ( Float, Float )
-shiftPosition zoom ( elementX, elementY ) ( clientX, clientY ) =
-    let
-        zoomRecord =
-            Zoom.asRecord zoom
-    in
-    ( (clientX - zoomRecord.translate.x - elementX) / zoomRecord.scale
-    , (clientY - zoomRecord.translate.y - elementY) / zoomRecord.scale
-    )
 
 
 type XY
@@ -804,7 +778,6 @@ linkElement selectedIndex graph edge =
                             , strokeWidth <| Px strokeWidthValue
                             , stroke <| Paint <| Color.black
                             , fill <| PaintNone
-                            --, onMouseDownSubPath edge
                             ]
                     , SubPath.element curve
                             [ strokeWidth <| Px (strokeWidthValue + edgeStrokeWidthExtend)
@@ -856,7 +829,7 @@ edgeStrokeWidthExtend = 3
 
 onMouseDownSubPath : Edge SubPathEdge -> Attribute Msg
 onMouseDownSubPath edge =
-    Mouse.onDown (.clientPos >> DragSubPathStart edge)
+    Mouse.onDown (.offsetPos >> DragSubPathStart edge)
 
 
 onMouseDownPoint : Int -> Edge SubPathEdge -> Attribute Msg
@@ -864,7 +837,7 @@ onMouseDownPoint index edge =
     Mouse.onDown
         (\e ->
             case e.button of
-                Mouse.MainButton -> DragPointStart index edge e.clientPos
+                Mouse.MainButton -> DragPointStart index edge e.offsetPos
                 Mouse.SecondButton -> RemovePoint index edge
                 _ -> NoOp
         )
@@ -899,7 +872,7 @@ handled in the update function by calling the `shiftPosition` function.
 -}
 onMouseDown : NodeId -> Attribute Msg
 onMouseDown index =
-    Mouse.onDown (.clientPos >> DragStart index)
+    Mouse.onDown (.offsetPos >> DragStart index)
 
 renderContainer : NodeId -> Bool -> Float -> Float -> Svg Msg
 renderContainer nodeId selected xCenter yCenter = 
