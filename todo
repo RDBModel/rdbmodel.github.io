@@ -29,6 +29,8 @@
 [x] fix issue with dragging elements on monaco
 [x] fix icons in monaco editor
 
+[ ] create parser for rgb
+
 [ ] set up document structure
 
 [ ] text inside rect
