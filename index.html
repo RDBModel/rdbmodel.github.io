@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <script type="module" src="./monaco.js"></script>
+        <script type="module" src="./index.js"></script>
         <script src="./main.js"></script>
         <style>
             html,
@@ -10,12 +10,14 @@
             }
           </style>
     </head>
-    <body>
+    <body onload="initElm()">
         <div id="elm-node"></div>
         <script>
-            const app = Elm.Main.init({
-                node: document.getElementById("elm-node")
-            });
+            function initElm() {
+                const app = Elm.Main.init({
+                    node: document.getElementById("elm-node")
+                });
+            }
         </script>
     </body>
 </html>

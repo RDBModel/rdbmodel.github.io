@@ -6,6 +6,7 @@ import SplitPane exposing (Orientation(..), ViewConfig, createViewConfig)
 import Browser.Dom as Dom
 import Basics.Extra exposing (maxSafeInteger)
 import Browser.Events as Events
+import Json.Encode as Encode
 import Color
 import Json.Decode as Decode
 import Path exposing (Path)
@@ -582,7 +583,12 @@ type XY
 view : Model -> Html Msg
 view { pane, graph } =
     div []
-        [ SplitPane.view viewConfig (svgView graph) (monaco [ language "yaml" ] []) pane ]
+        [ SplitPane.view
+            viewConfig
+            (svgView graph)
+            (monaco [ language "yaml", tabSize 2, valueMonaco "testValue" ] [])
+            pane
+        ]
 
 viewConfig : ViewConfig Msg
 viewConfig =
@@ -945,3 +951,13 @@ monaco =
 language : String -> Attribute msg
 language =
     Html.Attributes.attribute "language"
+
+
+tabSize : Int -> Attribute Msg
+tabSize size =
+    Html.Attributes.attribute "tab-size" <| String.fromInt size
+
+
+valueMonaco : String -> Attribute Msg
+valueMonaco =
+    Encode.string >> Html.Attributes.property "value"
