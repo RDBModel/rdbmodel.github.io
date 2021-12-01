@@ -846,7 +846,7 @@ linkElement selectedIndex graph edge =
                             , stroke <| Paint <| Color.black
                             , strokeOpacity <| Opacity 0
                             , fill <| PaintNone
-                            , Mouse.onDown (.clientPos >> DragSubPathStart edge)
+                            , Mouse.onDown <| onlyMainButton >> Maybe.map (DragSubPathStart edge) >> Maybe.withDefault NoOp
                             ]
                     , TypedSvg.text_ []
                         [
@@ -874,6 +874,12 @@ linkElement selectedIndex graph edge =
 
                     ]
         _ -> text ""
+
+
+onlyMainButton e =
+    case e.button of
+        Mouse.MainButton -> Just e.clientPos
+        _ -> Nothing
 
 circleDot : Path
 circleDot =

@@ -24,10 +24,14 @@
 [ ] select multiply rect
 [ ] move multiply rect
 
+[x] add points only on left click
+
 [x] add monaco editor (https://github.com/vanillawc/wc-monaco-editor) (https://elmprogramming.com/interacting-with-web-components.html)
 [x] add splitter between monaco and svg
 [x] fix issue with dragging elements on monaco
 [x] fix icons in monaco editor
+[ ] add custom monaco editor
+[ ] remove line numbers
 
 [ ] create parser for rgb
 
