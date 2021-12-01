@@ -30,7 +30,7 @@
 [x] add splitter between monaco and svg
 [x] fix issue with dragging elements on monaco
 [x] fix icons in monaco editor
-[ ] add custom monaco editor
+[x] add custom monaco editor
 [ ] remove line numbers
 
 [ ] create parser for rgb

@@ -1,10 +1,3 @@
-var require = {
-    paths: {
-        'vs': '/node_modules/monaco-editor/min/vs',
-    }
-};
-
-
 const app = Elm.Main.init({
     node: document.getElementById("root")
 });
