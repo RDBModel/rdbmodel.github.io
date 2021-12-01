@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <script type="module" src="./index.js"></script>
-        <script src="./main.js"></script>
+        
         <style>
             html,
             body {
@@ -10,14 +9,34 @@
             }
           </style>
     </head>
-    <body onload="initElm()">
-        <div id="elm-node"></div>
+    <body>
+        <div id="root"></div>
+        <script src="./main.js"></script>
+        <script src="./index.js"></script>
         <script>
-            function initElm() {
-                const app = Elm.Main.init({
-                    node: document.getElementById("elm-node")
+            var require = {
+                paths: {
+                    'vs': '/node_modules/monaco-editor/min/vs',
+                }
+            };
+        </script>
+        <script src="node_modules/monaco-editor/min/vs/loader.js"></script>
+        <script>
+            require(['vs/editor/editor.main'], () => {
+                // Initialize the editor
+                const editor = monaco.editor.create(document.getElementById("monaco"), {
+                    theme: 'vs-dark',
+                    model: monaco.editor.createModel("# Sample markdown", "markdown"),
+                    wordWrap: 'on',
+                    automaticLayout: true,
+                    minimap: {
+                        enabled: false
+                    },
+                    scrollbar: {
+                        vertical: 'auto'
+                    }
                 });
-            }
+            });
         </script>
     </body>
 </html>

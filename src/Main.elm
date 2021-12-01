@@ -586,7 +586,7 @@ view { pane, graph } =
         [ SplitPane.view
             viewConfig
             (svgView graph)
-            (monaco [ language "yaml", tabSize 2, valueMonaco "testValue" ] [])
+            (div [ id "monaco", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%"] [])
             pane
         ]
 
@@ -947,23 +947,3 @@ renderSystem xValue yValue =
         , Attrs.stroke <| Paint <| Color.black
         , Attrs.strokeWidth <| Px 1
         ] []
-
-
-monaco : List (Attribute a) -> List (Html a) -> Html a
-monaco =
-    Html.node "wc-monaco-editor"
-
-
-language : String -> Attribute msg
-language =
-    Html.Attributes.attribute "language"
-
-
-tabSize : Int -> Attribute Msg
-tabSize size =
-    Html.Attributes.attribute "tab-size" <| String.fromInt size
-
-
-valueMonaco : String -> Attribute Msg
-valueMonaco =
-    Encode.string >> Html.Attributes.property "value"
