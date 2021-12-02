@@ -31,7 +31,9 @@
 [x] fix issue with dragging elements on monaco
 [x] fix icons in monaco editor
 [x] add custom monaco editor
-[ ] remove line numbers
+[x] remove line numbers
+
+[x] path value from/to editor via ports
 
 [ ] create parser for rgb
 

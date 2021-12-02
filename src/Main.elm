@@ -1,4 +1,4 @@
-module Main exposing (..)
+port module Main exposing (..)
 
 import Browser exposing (element)
 import IntDict
@@ -29,10 +29,13 @@ import Html exposing (source)
 import Shape exposing (linearCurve)
 import SubPath exposing (arcLengthParameterized)
 import SubPath exposing (arcLength)
-import Math.Vector2 as Vec
 import TypedSvg.Attributes exposing (strokeOpacity)
 import TypedSvg.Attributes exposing (offset)
 import Html.Attributes
+
+port messageReceiver : (String -> msg) -> Sub msg
+
+port sendMessage : String -> Cmd msg
 
 main : Program () Model Msg
 main =
@@ -41,6 +44,7 @@ main =
 type alias Model =
     { pane : SplitPane.State
     , graph : GraphModel
+    , value : String
     }
     
 type GraphModel
@@ -102,6 +106,8 @@ type Msg
     | DragAt ( Float, Float )
     | DragEnd ( Float, Float )
     | PaneMsg SplitPane.Msg
+    | MonacoEditorValueChanged String
+    | MonacoSendValue String
     | NoOp
 
 elementId : String
@@ -114,12 +120,17 @@ getElementPosition =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    (Model (SplitPane.init Horizontal) ( Init (Graph.fromNodesAndEdges
-            [ Node 0 <| Container "" (150, 125)
-            , Node 1 <| Container "" (550, 125)
-            ]
-            [ Edge 0 1 <| SubPathEdge [(350, 150)]
-            ])), getElementPosition )
+    let
+        splitPanelState = SplitPane.init Horizontal
+        initModel = Init
+            <| Graph.fromNodesAndEdges
+                [ Node 0 <| Container "" (150, 125)
+                , Node 1 <| Container "" (550, 125)
+                ]
+                [ Edge 0 1 <| SubPathEdge [(350, 150)]
+                ]
+    in
+    (Model splitPanelState initModel "", getElementPosition)
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -157,6 +168,7 @@ subscriptions model =
                 readySubscriptions state
         , Events.onResize Resize
         , Sub.map PaneMsg <| SplitPane.subscriptions model.pane
+        , messageReceiver MonacoEditorValueChanged
         ]
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -165,6 +177,11 @@ update msg model =
         graphModel = model.graph
     in
     case ( msg, graphModel ) of
+        ( MonacoEditorValueChanged val, _) ->
+            ( { model | value = val }, Cmd.none )
+        ( MonacoSendValue val, _) ->
+            ( model, sendMessage val )
+
         ( Resize _ _, _ ) ->
                 ( model, getElementPosition )
 
@@ -933,7 +950,10 @@ renderContainer nodeId selected xCenter yCenter =
         , Attrs.fill <| Paint <| Color.white
         , Attrs.stroke <| Paint <| if selected then Color.blue else Color.black
         , Attrs.strokeWidth <| Px 1
-        , Mouse.onDown (.clientPos >> DragStart nodeId)
+        , Mouse.onDown
+            <| onlyMainButton
+            >> Maybe.map (DragStart nodeId)
+            >> Maybe.withDefault NoOp
         ] []
 
 
