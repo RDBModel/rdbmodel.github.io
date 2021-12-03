@@ -6,18 +6,12 @@ import SplitPane exposing (Orientation(..), ViewConfig, createViewConfig)
 import Browser.Dom as Dom
 import Basics.Extra exposing (maxSafeInteger)
 import Browser.Events as Events
-import Json.Encode as Encode
-import Color
 import Json.Decode as Decode
-import Path exposing (Path)
-import SubPath exposing (SubPath)
 import Html exposing (Html, button, div, text)
-import Html.Events exposing (onClick)
 import Html.Events.Extra.Mouse as Mouse
-import TypedSvg exposing (rect, svg, defs, marker, polygon, g, pattern, line, circle)
+import TypedSvg exposing (svg, defs, g)
 import TypedSvg.Attributes as Attrs exposing
-    ( height, width, class, cursor, x, y, cx, cy, fill, r, points, id, orient, markerWidth, markerHeight, refX, refY
-    , strokeWidth, rx, x1, y1, x2, y2, stroke, markerEnd, transform)
+    ( class,  x, y, points, id, x1, y1, x2, y2)
 import TypedSvg.Types exposing
     ( CoordinateSystem(..), Transform(..), Opacity(..), Paint(..), Length(..)
     , Cursor(..), DominantBaseline(..))
@@ -32,6 +26,11 @@ import SubPath exposing (arcLength)
 import TypedSvg.Attributes exposing (strokeOpacity)
 import TypedSvg.Attributes exposing (offset)
 import Html.Attributes
+import Elements exposing
+    ( containerWidth, containerHeight, renderContainer, renderContainerSelected, circleDot
+    , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, edgeStrokeWidthExtend, gridCellSize
+    )
+import Html.Events.Extra.Mouse exposing (Event)
 
 port messageReceiver : (String -> msg) -> Sub msg
 
@@ -173,12 +172,10 @@ subscriptions model =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    let
-        graphModel = model.graph
-    in
-    case ( msg, graphModel ) of
+    case ( msg, model.graph ) of
         ( MonacoEditorValueChanged val, _) ->
             ( { model | value = val }, Cmd.none )
+
         ( MonacoSendValue val, _) ->
             ( model, sendMessage val )
 
@@ -562,16 +559,14 @@ updateNode (dx, dy) ( x, y ) nodeCtx =
 updateContextWithOutgoing : NodeContext Container SubPathEdge -> (Adjacency SubPathEdge) -> NodeContext Container SubPathEdge
 updateContextWithOutgoing nodeCtx value =
     let
-        node =
-            nodeCtx.node
+        node = nodeCtx.node
     in
     { nodeCtx | outgoing = value }
 
 updateContextWithValue : NodeContext Container SubPathEdge -> Container -> NodeContext Container SubPathEdge
 updateContextWithValue nodeCtx value =
     let
-        node =
-            nodeCtx.node
+        node = nodeCtx.node
     in
     { nodeCtx | node = { node | label = value } }
 
@@ -593,10 +588,6 @@ shiftPosition zoom (elementX, elementY) ( clientX, clientY ) =
     )
 
 
-type XY
-    = X
-    | Y
-
 view : Model -> Html Msg
 view { pane, graph } =
     div []
@@ -614,6 +605,7 @@ viewConfig =
         , customSplitter = Nothing
         }
 
+svgView : GraphModel -> Html Msg
 svgView model =
     let
         zoomEvents : List (Attribute Msg)
@@ -641,118 +633,38 @@ svgView model =
 
         transform100 = transform10 * 10
 
-        getXY xy =
+        getXY =
             case model of
-                Init _ -> 0
+                Init _ -> ( 0, 0 )
                 Ready { zoom } ->
                     zoom
                         |> Zoom.asRecord
                         |> .translate
-                        |> (\t -> case xy of
-                                X -> t.x
-                                Y -> t.y
-                            )
-                        |> floatRemainderBy transform100
+                        |> (\t -> (floatRemainderBy transform100 t.x, floatRemainderBy transform100 t.y))
 
-        x = getXY X
-
-        y = getXY Y
+        ( x, y ) = getXY
     in
     svg
         [ id elementId
         , Attrs.width <| Percent 100
         , Attrs.height <| Percent 100
-        , Mouse.onContextMenu (\e -> NoOp)
+        , Mouse.onContextMenu (\_ -> NoOp)
         ]
         [ defs []
             [ innerGrid transform10
             , grid x y transform100
             , markerDot -- for circle in edges
             ]
-        , rect
-            ([ Attrs.width <| Percent 100
-            , Attrs.height <| Percent 100
-            , fill <| Reference gridId
-            --, cursor CursorMove
-            ] ++ zoomEvents) []
+        , gridRect zoomEvents
         , g
             [ zoomTransformAttr ]
             [ renderGraph model
             ]
         ]
 
-pointDotId : String
-pointDotId = "dot"
-
-markerDot : Svg msg
-markerDot =
-    marker
-        [ id pointDotId
-        , Attrs.refX "5"
-        , Attrs.refY "5"
-        , Attrs.markerWidth <| Px 10
-        , Attrs.markerHeight <| Px 10
-        ]
-        [
-            circle
-                [ cx <| Px 5
-                , cy <| Px 5
-                , r <| Px 3
-                , Attrs.fill <| Paint <| Color.white
-                , Attrs.stroke <| Paint <| Color.black
-                , Attrs.strokeWidth <| Px 1
-                ]
-                []
-        ]
-
-innerGridId : String
-innerGridId = "inner-grid"
-
-
-innerGrid : Float -> Svg msg
-innerGrid size =
-    pattern
-        [ id innerGridId
-        , Attrs.width <| Px size
-        , Attrs.height <| Px size
-        , Attrs.patternUnits CoordinateSystemUserSpaceOnUse
-        ]
-        [
-            rect
-            [ Attrs.width <| Percent 100
-            , Attrs.height <| Percent 100
-            , Attrs.fill PaintNone
-            , Attrs.stroke <| Paint <| Color.rgb255 204 204 204
-            , strokeWidth <| Px 0.5
-            ]
-            []
-        ]
-
 
 -- Grid comes from https://gist.github.com/leonardfischer/fc4d1086c64b2c1324c93dcd0beed004
-gridId : String
-gridId = "grid"
 
-grid : Float -> Float -> Float -> Svg msg
-grid x y size =
-    pattern
-        [ id gridId
-        , Attrs.width <| Px size
-        , Attrs.height <| Px size
-        , Attrs.x <| Px x
-        , Attrs.y <| Px y
-        , Attrs.patternUnits CoordinateSystemUserSpaceOnUse
-        ]
-        [
-            rect
-            [ Attrs.width <| Percent 100
-            , Attrs.height <| Percent 100
-            , Attrs.fill <| Reference innerGridId
-            , Attrs.stroke <| Paint <| Color.rgb255 204 204 204
-            , strokeWidth <| Px 1.5
-            ]
-            []
-        ]
 
 renderGraph : GraphModel -> Svg Msg
 renderGraph model =
@@ -780,13 +692,7 @@ renderGraph model =
                             )
                         |> g [ class [ "links" ] ]
                     , Graph.nodes graph
-                        |> List.map (\n -> 
-                            case drag of
-                                Just { index } ->
-                                    nodeElement (index == n.id) n
-                                Nothing ->
-                                    nodeElement False n
-                        )
+                        |> List.map (drawContainer drag)
                         |> g [ class [ "nodes" ] ]
                     ]
 
@@ -794,12 +700,24 @@ renderGraph model =
                 text ""
 
 
-nodeElement : Bool -> Node Container -> Svg Msg
-nodeElement selected node =
+drawContainer : Maybe (Drag NodeId) -> { id : NodeId, label : { name : String, xy : (Float, Float) } } -> Svg Msg
+drawContainer drag n =
     let
-        (x , y) = node.label.xy
+        mouseDownAttr
+            = Mouse.onDown
+            <| onlyMainButton
+            >> Maybe.map (DragStart n.id)
+            >> Maybe.withDefault NoOp
     in
-    renderContainer node.id selected x y
+    case drag of
+        Just { index } ->
+            if index == n.id then
+                renderContainerSelected n.label.xy mouseDownAttr
+            else
+                renderContainer n.label.xy mouseDownAttr
+        Nothing ->
+            renderContainer n.label.xy mouseDownAttr
+
 
 linkElement : Maybe Int -> Graph Container SubPathEdge -> Edge SubPathEdge -> Svg Msg
 linkElement selectedIndex graph edge =
@@ -808,112 +726,23 @@ linkElement selectedIndex graph edge =
     in
     case (source, target) of
         (Just sourceNode, Just targetNode) ->
-            let
-                points = edge.label.points
-                (sx, sy) = sourceNode.node.label.xy
-                (tx, ty) = targetNode.node.label.xy
-
-                (cx, cy) = points
-                    |> List.reverse
-                    |> List.head
-                    |> Maybe.withDefault sourceNode.node.label.xy
-
-                preparedPoints = (sx, sy) :: points ++ [ (tx, ty) ]
-                curve = linearCurve preparedPoints
-
-                -- half of rect
-                (rx, ry) = (containerWidth / 2, containerHeight / 2)
-
-                -- size of sides of big triangle create by dots
-                (x, y) = ((cx - tx) |> abs, (cy - ty) |> abs)
-
-                -- if the line crosses the rect in the top or bottom
-                -- otherwise it crosses left or right borders or rect
-                topBottom = y / x > ry / rx
-
-                -- distance between start and end dots
-                distanceXY = sqrt (x * x + y * y)
-
-                -- magic offset for ➤ symbol
-                magicOffset = 9
-
-                curveLength = curve |> arcLengthParameterized 1e-4 |> arcLength
-
-                -- offset based on aspect ratio
-                offset =
-                    let
-                        temp = if topBottom then ry / y else rx / x
-                    in
-                    curveLength - distanceXY * temp - magicOffset
-
-                idValue =
-                    "from-" ++ String.fromInt (sourceNode.node.id) ++ "-to-" ++ String.fromInt (targetNode.node.id)
-
-                strokeWidthValue = 1
-            in
-                g []
-                    [ SubPath.element curve
-                            [ id idValue
-                            , strokeWidth <| Px strokeWidthValue
-                            , stroke <| Paint <| Color.black
-                            , fill <| PaintNone
-                            ]
-                    , SubPath.element curve
-                            [ strokeWidth <| Px (strokeWidthValue + edgeStrokeWidthExtend)
-                            , stroke <| Paint <| Color.black
-                            , strokeOpacity <| Opacity 0
-                            , fill <| PaintNone
-                            , Mouse.onDown <| onlyMainButton >> Maybe.map (DragSubPathStart edge) >> Maybe.withDefault NoOp
-                            ]
-                    , TypedSvg.text_ []
-                        [
-                            TypedSvg.textPath
-                                [ Attrs.xlinkHref ("#" ++ idValue)
-                                , Attrs.startOffset <| String.fromFloat offset
-                                , Attrs.dominantBaseline DominantBaselineCentral
-                                , Attrs.fontSize <| Px 10
-                                , Attrs.style "user-select: none;" --forbid to select arrow as text
-                                ]
-                                [ text "➤" ]
-                        ]
-                    , g [] <| List.indexedMap
-                        (\i -> \(dx, dy ) ->
-                            Path.element circleDot
-                                [ fill (Paint Color.white)
-                                , stroke (Paint <| case selectedIndex of
-                                    Just ind ->
-                                        if ind == i then Color.blue else Color.black
-                                    Nothing -> Color.black
-                                )
-                                , transform [ Translate dx dy ]
-                                , onMouseDownPoint i edge
-                                ]) points
-
-                    ]
+            edgeBetweenContainers
+                (sourceNode, targetNode, edge)
+                selectedIndex
+                (Mouse.onDown <| onlyMainButton >> Maybe.map (DragSubPathStart edge) >> Maybe.withDefault NoOp)
+                (onMouseDownPoint edge)
         _ -> text ""
 
 
+onlyMainButton : Event -> Maybe (Float, Float)
 onlyMainButton e =
     case e.button of
         Mouse.MainButton -> Just e.clientPos
         _ -> Nothing
 
-circleDot : Path
-circleDot =
-    Shape.arc
-        { innerRadius = 0
-        , outerRadius = 3
-        , cornerRadius = 0
-        , startAngle = 0
-        , endAngle = 2 * pi
-        , padAngle = 0
-        , padRadius = 0
-        }
 
-edgeStrokeWidthExtend = 3
-
-onMouseDownPoint : Int -> Edge SubPathEdge -> Attribute Msg
-onMouseDownPoint index edge =
+onMouseDownPoint : Edge SubPathEdge -> Int -> Attribute Msg
+onMouseDownPoint edge index =
     Mouse.onDown
         (\e ->
             case e.button of
@@ -921,49 +750,3 @@ onMouseDownPoint index edge =
                 Mouse.SecondButton -> RemovePoint index edge
                 _ -> NoOp
         )
-
-
-edgeColor : Paint
-edgeColor =
-    Paint <| Color.rgb255 180 180 180
-
-
-containerWidth : Float
-containerWidth = 100
-containerHeight : Float
-containerHeight = 50
-containerRadius : Float
-containerRadius = 0
-systemRadius : Float
-systemRadius = 50
-gridCellSize : Float
-gridCellSize = 10
-
-renderContainer : NodeId -> Bool -> Float -> Float -> Svg Msg
-renderContainer nodeId selected xCenter yCenter = 
-    rect
-        [ x <| Px <| xCenter - containerWidth / 2
-        , y <| Px <| yCenter - containerHeight / 2
-        , width <| Px containerWidth
-        , height <| Px containerHeight
-        , rx <| Px containerRadius
-        , Attrs.fill <| Paint <| Color.white
-        , Attrs.stroke <| Paint <| if selected then Color.blue else Color.black
-        , Attrs.strokeWidth <| Px 1
-        , Mouse.onDown
-            <| onlyMainButton
-            >> Maybe.map (DragStart nodeId)
-            >> Maybe.withDefault NoOp
-        ] []
-
-
-renderSystem : Float -> Float -> Svg Msg
-renderSystem xValue yValue = 
-    circle
-        [ cx <| Px xValue
-        , cy <| Px yValue
-        , r <| Px systemRadius
-        , Attrs.fill <| Paint <| Color.white
-        , Attrs.stroke <| Paint <| Color.black
-        , Attrs.strokeWidth <| Px 1
-        ] []
