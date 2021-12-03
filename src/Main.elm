@@ -530,20 +530,15 @@ updateNodePosition delta index xy state =
 updateOutgoingEdges : (NodeId, Int) -> ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
 updateOutgoingEdges (nodeId, index) (dx, dy) ( x, y ) nodeCtx =
     let
-        updatedEdges =
-            IntDict.update nodeId
-                (Maybe.map
-                    (\spe ->
-                        let
-                            updateXy i currentXY =
-                                if i == index then
-                                    (x - dx, y - dy)
-                                else
-                                    currentXY
-                        in
-                        { spe | points = List.indexedMap updateXy spe.points }
-                    )
-                )
+        updateXY i currentXY =
+            if i == index then
+                (x - dx, y - dy)
+            else
+                currentXY
+
+        updateEdgePoints spe = { spe | points = List.indexedMap updateXY spe.points }
+
+        updatedEdges =  IntDict.update nodeId ( Maybe.map updateEdgePoints )
     in
     nodeCtx.outgoing |> updatedEdges |> updateContextWithOutgoing nodeCtx
 
@@ -551,16 +546,12 @@ updateOutgoingEdges (nodeId, index) (dx, dy) ( x, y ) nodeCtx =
 updateNode : ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
 updateNode (dx, dy) ( x, y ) nodeCtx =
     let
-        nodeValue =
-            nodeCtx.node.label
+        nodeValue = nodeCtx.node.label
     in
-    updateContextWithValue nodeCtx {nodeValue | xy = (x - dx, y - dy)}
+    updateContextWithValue nodeCtx { nodeValue | xy = (x - dx, y - dy) }
 
 updateContextWithOutgoing : NodeContext Container SubPathEdge -> (Adjacency SubPathEdge) -> NodeContext Container SubPathEdge
 updateContextWithOutgoing nodeCtx value =
-    let
-        node = nodeCtx.node
-    in
     { nodeCtx | outgoing = value }
 
 updateContextWithValue : NodeContext Container SubPathEdge -> Container -> NodeContext Container SubPathEdge
