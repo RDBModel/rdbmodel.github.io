@@ -1,5 +1,5 @@
 module Elements exposing
-     ( circleDot, containerWidth, containerHeight, renderContainerSelected, renderContainer, renderSystem
+     ( renderContainerSelected, renderContainer
      , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, edgeStrokeWidthExtend, gridCellSize
      )
 import TypedSvg.Core exposing (Svg, text)
@@ -23,8 +23,8 @@ containerHeight : Float
 containerHeight = 50
 containerRadius : Float
 containerRadius = 0
-systemRadius : Float
-systemRadius = 50
+-- systemRadius : Float
+-- systemRadius = 50
 gridCellSize : Float
 gridCellSize = 10
 
@@ -49,16 +49,16 @@ renderContainerInternal selected (xCenter, yCenter) event =
         , event
         ] []
 
-renderSystem : Float -> Float -> Svg msg
-renderSystem xValue yValue = 
-    circle
-        [ cx <| Px xValue
-        , cy <| Px yValue
-        , r <| Px systemRadius
-        , Attrs.fill <| Paint <| Color.white
-        , Attrs.stroke <| Paint <| Color.black
-        , Attrs.strokeWidth <| Px 1
-        ] []
+-- renderSystem : Float -> Float -> Svg msg
+-- renderSystem xValue yValue = 
+--     circle
+--         [ cx <| Px xValue
+--         , cy <| Px yValue
+--         , r <| Px systemRadius
+--         , Attrs.fill <| Paint <| Color.white
+--         , Attrs.stroke <| Paint <| Color.black
+--         , Attrs.strokeWidth <| Px 1
+--         ] []
 
 circleDot : Path
 circleDot =

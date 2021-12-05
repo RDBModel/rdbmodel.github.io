@@ -1,33 +1,25 @@
 port module Main exposing (..)
 
-import Browser exposing (element)
+import Browser
 import IntDict
 import SplitPane exposing (Orientation(..), ViewConfig, createViewConfig)
 import Browser.Dom as Dom
 import Basics.Extra exposing (maxSafeInteger)
 import Browser.Events as Events
 import Json.Decode as Decode
-import Html exposing (Html, button, div, text)
+import Html exposing (Html, div, text)
 import Html.Events.Extra.Mouse as Mouse
 import TypedSvg exposing (svg, defs, g)
-import TypedSvg.Attributes as Attrs exposing
-    ( class,  x, y, points, id, x1, y1, x2, y2)
-import TypedSvg.Types exposing
-    ( CoordinateSystem(..), Transform(..), Opacity(..), Paint(..), Length(..)
-    , Cursor(..), DominantBaseline(..))
+import TypedSvg.Attributes as Attrs exposing ( class,  x, y, id)
+import TypedSvg.Types exposing ( Length(..))
 import TypedSvg.Core exposing (Svg, Attribute)
 import Graph exposing (Graph, Node, Edge, NodeContext, NodeId, Adjacency)
 import Zoom exposing (Zoom, OnZoom)
 import Task
 import Html exposing (source)
-import Shape exposing (linearCurve)
-import SubPath exposing (arcLengthParameterized)
-import SubPath exposing (arcLength)
-import TypedSvg.Attributes exposing (strokeOpacity)
-import TypedSvg.Attributes exposing (offset)
 import Html.Attributes
 import Elements exposing
-    ( containerWidth, containerHeight, renderContainer, renderContainerSelected, circleDot
+    ( renderContainer, renderContainerSelected
     , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, edgeStrokeWidthExtend, gridCellSize
     )
 import Html.Events.Extra.Mouse exposing (Event)
@@ -89,14 +81,14 @@ type alias Element =
 
 type Msg
     = ZoomMsg OnZoom
-    | Resize Int Int
+    | Resize
     | ReceiveElementPosition (Result Dom.Error Dom.Element)
     | DragStart NodeId ( Float, Float )
     | DragSubPathStart (Edge SubPathEdge) ( Float, Float )
     | DragPointStart Int (Edge SubPathEdge) ( Float, Float )
     | RemovePoint Int (Edge SubPathEdge)
     | DragAt ( Float, Float )
-    | DragEnd ( Float, Float )
+    | DragEnd
     | PaneMsg SplitPane.Msg
     | MonacoEditorValueChanged String
     | MonacoSendValue String
@@ -133,7 +125,7 @@ subscriptions model =
                 [ Events.onMouseMove
                     (Decode.map (.clientPos >> DragAt) Mouse.eventDecoder)
                 , Events.onMouseUp
-                    (Decode.map (.clientPos >> DragEnd) Mouse.eventDecoder)
+                    (Decode.map (\_ -> DragEnd) Mouse.eventDecoder)
                 ]
 
         readySubscriptions : ReadyState -> Sub Msg
@@ -158,7 +150,7 @@ subscriptions model =
 
             Ready state ->
                 readySubscriptions state
-        , Events.onResize Resize
+        , Events.onResize (\_ -> \_ -> Resize)
         , Sub.map PaneMsg <| SplitPane.subscriptions model.pane
         , messageReceiver MonacoEditorValueChanged
         ]
@@ -172,8 +164,8 @@ update msg model =
         ( MonacoSendValue val, _) ->
             ( model, sendMessage val )
 
-        ( Resize _ _, _ ) ->
-                ( model, getElementPosition )
+        ( Resize , _ ) ->
+            ( model, getElementPosition )
 
         ( ZoomMsg zoomMsg, Ready state ) ->
             ( { model | graph = Ready { state | zoom = Zoom.update zoomMsg state.zoom } }
@@ -378,16 +370,16 @@ update msg model =
         ( DragAt _, Init _ ) ->
             ( model, Cmd.none )
 
-        ( DragEnd _, Ready state ) ->
+        ( DragEnd, Ready state ) ->
             case (state.drag, state.pointDrag) of
                 (Just _, Nothing) ->
-                    ( { model | graph = Ready { state| drag = Nothing } }, Cmd.none)
+                    ( { model | graph = Ready { state | drag = Nothing } }, Cmd.none)
                 (Nothing, Just _) ->
                     ( { model | graph = Ready { state | pointDrag = Nothing } }, Cmd.none)
                 _ ->
                     ( { model | graph = Ready state }, Cmd.none )
 
-        ( DragEnd _, Init _ ) ->
+        ( DragEnd, Init _ ) ->
             ( model, Cmd.none )
 
         (PaneMsg paneMsg, _ ) ->
