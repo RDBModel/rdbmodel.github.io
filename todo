@@ -35,10 +35,12 @@
 
 [x] path value from/to editor via ports
 
+[x] set up document structure
+[x] create example for yaml
+
+
 [ ] create parser for rgb
 
-[ ] set up document structure
 
 [ ] text inside rect
 [ ] undo/redo support (https://package.elm-lang.org/packages/elm-community/undo-redo)
-[ ] add yaml editor (https://package.elm-lang.org/packages/mdgriffith/elm-markup/latest/)

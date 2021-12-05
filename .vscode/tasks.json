@@ -8,6 +8,12 @@
             "type": "shell",
             "command": "elm-live src/Main.elm '--' --debug --output=main.js",
             "problemMatcher": []
+        },
+        {
+            "label": "Review",
+            "type": "shell",
+            "command": "npx elm-review --template jfmengels/elm-review-unused/example",
+            "problemMatcher": []
         }
     ]
 }//--start-page=index.html

@@ -1,0 +1,72 @@
+model:
+  name: Name
+  description: Description
+  documentation: []
+  actors:
+    actor-1:
+      name: Actor
+      description: Description
+      relations:
+        - uses - container-1
+  systems:
+    system-1:
+      name: System name
+      description: Description
+      relations: []
+    system-2:
+      name: System name
+      description: Description
+      relations: []
+      containers:
+        container-1:
+          name: Container 1
+          description: Description
+          relations:
+            - calls - container-2
+            - uses - system-1
+          components:
+            container-1--component-1:
+              name: Component 1
+              description: Description
+              relations:
+                - uses - container-1--component-2
+                - calls - container-2--component-1
+                - uses - system-1
+            container-1--component-2:
+              name: Component 2
+              description: Description
+              relations:
+                []
+        container-2:
+          name: Container 2
+          description: Description
+          relations:
+            []
+          components:
+            container-2--component-1:
+              name: Component 1
+              description: Description
+              relations:
+                - uses - container-2--component-2
+            container-2--component-2:
+              name: Component 2
+              description: Description
+              relations:
+                []
+views:
+  view-1:
+    elements:
+      system-1:
+        x: 100
+        y: 100
+      container-1:
+        x: 200
+        y: 200
+        relations:
+          calls-container-2:
+            - x: 280
+              y: 280
+          uses-system-1: []
+      container-2:
+        x: 300
+        y: 300
