@@ -67,13 +67,6 @@ type alias ReadyState =
 
     -- The position and dimensions of the svg element.
     , element : Element
-
-    -- If you immediately show the graph when moving from `Init` to `Ready`,
-    -- you will briefly see the nodes in the upper left corner before the first
-    -- simulation tick positions them in the center. To avoid this sudden jump,
-    -- `showGraph` is initialized with `False` and set to `True` with the first
-    -- `Tick`.
-    , showGraph : Bool
     }
 
 -- Select information
@@ -111,7 +104,7 @@ type Msg
 
 elementId : String
 elementId =
-    "exercise-graph"
+    "main-graph"
 
 getElementPosition : Cmd Msg
 getElementPosition =
@@ -190,29 +183,17 @@ update msg model =
         ( ZoomMsg _, Init _ ) ->
             ( model, Cmd.none )
 
-        ( ReceiveElementPosition (Ok { element }), Init graph ) ->
-            -- When we get the svg element position and dimensions, we are
-            -- ready to initialize the simulation and the zoom, but we cannot
-            -- show the graph yet. If we did, we would see a noticable jump.
+        ( ReceiveElementPosition (Ok { element }), _ ) ->
+            let
+                extractGraph = case model.graph of
+                    Init gr -> gr
+                    Ready { graph } -> graph
+            in
             ( { model | graph = Ready
                 { drag = Nothing
                 , pointDrag = Nothing
                 , element = element
-                , graph = graph
-                , showGraph = True
-                , zoom = initZoom element
-                }
-            }
-            , Cmd.none
-            )
-
-        ( ReceiveElementPosition (Ok { element }), Ready state ) ->
-            ( { model | graph = Ready
-                { drag = Nothing
-                , pointDrag = Nothing
-                , element = element
-                , graph = state.graph
-                , showGraph = True
+                , graph = extractGraph
                 , zoom = initZoom element
                 }
             }
@@ -397,7 +378,7 @@ update msg model =
         ( DragAt _, Init _ ) ->
             ( model, Cmd.none )
 
-        ( DragEnd xy, Ready state ) ->
+        ( DragEnd _, Ready state ) ->
             case (state.drag, state.pointDrag) of
                 (Just _, Nothing) ->
                     ( { model | graph = Ready { state| drag = Nothing } }, Cmd.none)
@@ -663,32 +644,28 @@ renderGraph model =
         Init _ ->
             text ""
 
-        Ready { drag, pointDrag, graph, showGraph } ->
-            if showGraph then
-                g []
-                    [ Graph.edges graph
-                        |> List.map
-                            (\e ->
-                                case pointDrag of
-                                    Just { index } ->
-                                        let
-                                            (from, to, i) = index
-                                        in
-                                        if e.to == to && e.from == from then
-                                            linkElement (Just i) graph e
-                                        else
-                                            linkElement Nothing graph e
-                                    Nothing ->
+        Ready { drag, pointDrag, graph } ->
+            g []
+                [ Graph.edges graph
+                    |> List.map
+                        (\e ->
+                            case pointDrag of
+                                Just { index } ->
+                                    let
+                                        (from, to, i) = index
+                                    in
+                                    if e.to == to && e.from == from then
+                                        linkElement (Just i) graph e
+                                    else
                                         linkElement Nothing graph e
-                            )
-                        |> g [ class [ "links" ] ]
-                    , Graph.nodes graph
-                        |> List.map (drawContainer drag)
-                        |> g [ class [ "nodes" ] ]
-                    ]
-
-            else
-                text ""
+                                Nothing ->
+                                    linkElement Nothing graph e
+                        )
+                    |> g [ class [ "links" ] ]
+                , Graph.nodes graph
+                    |> List.map (drawContainer drag)
+                    |> g [ class [ "nodes" ] ]
+                ]
 
 
 drawContainer : Maybe (Drag NodeId) -> { id : NodeId, label : { name : String, xy : (Float, Float) } } -> Svg Msg
