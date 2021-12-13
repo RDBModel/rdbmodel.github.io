@@ -6,6 +6,7 @@
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
+            "MaybeJustJames/yaml": "2.1.0",
             "avh4/elm-color": "1.0.0",
             "elm/browser": "1.0.2",
             "elm/core": "1.0.5",
@@ -26,6 +27,7 @@
             "elm/bytes": "1.0.8",
             "elm/file": "1.0.5",
             "elm/random": "1.0.0",
+            "elm/regex": "1.0.0",
             "elm/svg": "1.0.1",
             "elm/time": "1.0.0",
             "elm/url": "1.0.0",

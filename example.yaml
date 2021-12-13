@@ -1,72 +1,73 @@
-model:
+domain:
   name: Name
   description: Description
-  documentation: []
   actors:
     actor-1:
       name: Actor
       description: Description
       relations:
-        - uses - container-1
-  systems:
-    system-1:
-      name: System name
+        - uses - delivery-1
+  rings:
+    ring-3:
+      name: Ring 1 name
       description: Description
       relations: []
-    system-2:
-      name: System name
+      deliveries: []
+    ring-2:
+      name: Ring 2 name
       description: Description
-      relations: []
-      containers:
-        container-1:
-          name: Container 1
+      relations:
+        - uses - ring-1
+      deliveries:
+        delivery-1:
+          name: delivery 1
           description: Description
           relations:
-            - calls - container-2
-            - uses - system-1
-          components:
-            container-1--component-1:
-              name: Component 1
+            - calls - delivery-2
+            - uses - ring-1
+          blocks:
+            delivery-1--block-1:
+              name: block 1
               description: Description
               relations:
-                - uses - container-1--component-2
-                - calls - container-2--component-1
-                - uses - system-1
-            container-1--component-2:
-              name: Component 2
+                - uses - delivery-1--block-2
+                - calls - delivery-2--block-1
+                - uses - ring-1
+            delivery-1--block-2:
+              name: block 2
               description: Description
               relations:
                 []
-        container-2:
-          name: Container 2
+        delivery-2:
+          name: delivery 2
           description: Description
           relations:
             []
-          components:
-            container-2--component-1:
-              name: Component 1
+          blocks:
+            delivery-2--block-1:
+              name: block 1
               description: Description
               relations:
-                - uses - container-2--component-2
-            container-2--component-2:
-              name: Component 2
+                - uses - delivery-2--block-2
+            delivery-2--block-2:
+              name: block 2
               description: Description
               relations:
                 []
 views:
   view-1:
     elements:
-      system-1:
+      ring-1:
         x: 100
         y: 100
-      container-1:
+      delivery-1:
         x: 200
         y: 200
         relations:
-          calls-container-2:
+          calls-delivery-2:
             - x: 280
               y: 280
-          uses-system-1: []
-      container-2:
+          uses-ring-1: []
+      delivery-2:
         x: 300
         y: 300
