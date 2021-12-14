@@ -42,6 +42,7 @@
 
 
 [ ] create parser for rgb
+[ ] write decoder for domain model and view
 
 
 [ ] text inside rect
