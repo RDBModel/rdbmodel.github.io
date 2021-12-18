@@ -76,10 +76,10 @@ views:
         x: 200
         y: 200
         relations:
-          calls-delivery-2:
+          'calls - delivery-2--block-1':
             - x: 280
               y: 280
-          uses-ring-1: []
+          'uses - ring-1': []
       delivery-2:
         x: 300
         y: 300
@@ -154,8 +154,8 @@ suite =
                         [ ( "ring-1", ViewElement 100 100 Nothing )
                         , ( "delivery-1", ViewElement 200 200
                             ( Just ( Dict.fromList 
-                              [ ( "calls-delivery-2", [ ViewRelation 280 280 ] )
-                              , ( "uses-ring-1", [ ] )
+                              [ ( "calls - delivery-2--block-1", [ ViewRelation 280 280 ] )
+                              , ( "uses - ring-1", [ ] )
                               ] )
                             )
                           )

@@ -7,6 +7,7 @@ import Browser.Dom as Dom
 import Basics.Extra exposing (maxSafeInteger)
 import Browser.Events as Events
 import Json.Decode as Decode
+import Yaml.Decode as D
 import Html exposing (Html, div, text)
 import Html.Events.Extra.Mouse as Mouse
 import TypedSvg exposing (svg, defs, g)
@@ -23,6 +24,8 @@ import Elements exposing
     , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, edgeStrokeWidthExtend, gridCellSize
     )
 import Html.Events.Extra.Mouse exposing (Event)
+import DomainDecoder exposing (domainDecoder, viewsDecoder, Domain, View, ViewElement, relationDecoder)
+import Dict exposing (Dict)
 
 port messageReceiver : (String -> msg) -> Sub msg
 
@@ -159,7 +162,25 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model.graph ) of
         ( MonacoEditorValueChanged val, _) ->
-            ( { model | value = val }, Cmd.none )
+            let
+                domain = D.fromString domainDecoder val
+                views = D.fromString viewsDecoder val
+            in
+            case (domain, views) of
+                (Ok d, Ok vs) ->
+                    let
+                        newGraph = convertToGraph (d, vs)
+                    in
+                    case model.graph of
+                        Init _ ->
+                            ( { model | graph = Init newGraph }, Cmd.none )
+                        Ready s ->
+                            let
+                                updatedState = { s | graph = newGraph }
+                            in
+                            ( { model | graph = Ready updatedState }, Cmd.none )
+
+                _ -> (model, Cmd.none)
 
         ( MonacoSendValue val, _) ->
             ( model, sendMessage val )
@@ -387,7 +408,69 @@ update msg model =
 
         ( NoOp, _) -> ( model, Cmd.none )
 
-{-| is it enough to put the point
+
+convertToGraph : (Domain, (Dict String View)) -> Graph Container SubPathEdge
+convertToGraph (domain, views) =
+    case Dict.get "view-1" views of
+        Just v ->
+            let
+                keyToIdMap =
+                    v.elements
+                    |> Dict.toList
+                    |> List.indexedMap
+                        (\i (k, _) ->
+                            (k, i)
+                        )
+                    |> Dict.fromList
+
+                nodes =
+                    v.elements
+                    |> Dict.toList
+                    |> List.indexedMap createNode
+
+                relations =
+                    v.elements
+                    |> Dict.toList
+                    |> List.indexedMap (createRelation keyToIdMap)
+                    |> List.concat
+            in
+            Graph.fromNodesAndEdges
+                nodes
+                relations
+
+                -- [ Node 0 <| Container "" (150, 125)
+                -- , Node 1 <| Container "" (550, 125)
+                -- ]
+                -- [ Edge 0 1 <| SubPathEdge [(350, 150)]
+                -- ]
+        Nothing ->
+            Graph.empty 
+
+createNode : Int -> (String, ViewElement) -> Node Container
+createNode i (k, vv) =
+    Node i <| Container k (vv.x, vv.y)
+
+createRelation : Dict String Int ->  Int -> (String, ViewElement) -> List (Edge SubPathEdge)
+createRelation nameToIdMap i (k, vv) =
+    case vv.relations of
+        Nothing -> []
+        Just rels ->
+            rels
+            |> Dict.toList
+            |> List.filterMap
+                ( \(relationName, points) ->
+                        D.fromString relationDecoder relationName
+                        |> Result.toMaybe
+                        |> Maybe.map .target
+                        |> Maybe.andThen (\t -> Dict.get t nameToIdMap)
+                        |> Maybe.map (\t -> (t, points |> List.map (\vr -> (vr.x, vr.y))))
+                )
+            |> List.map
+                ( \(targetId, points) ->
+                    Edge i targetId <| SubPathEdge points
+                )
+
+{-| is it enough to put the point ?
 -}
 betweenPoints : (Float, Float) -> ((Float, Float), (Float, Float)) -> Bool
 betweenPoints (x, y) ((x1, y1), (x2, y2)) =

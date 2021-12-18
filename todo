@@ -48,7 +48,8 @@
 [x] write decoder for domain model and view
 
 [x] pass txt from monaco to elm by ctrl + s
+[x] pass values to elm model
 [ ] validate yaml on elm side
-[ ] pass values to elm model
 [ ] return errors to js
 [ ] display errors (how?)
+[ ] move point values from Elm to js

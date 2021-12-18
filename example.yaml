@@ -8,11 +8,11 @@ domain:
       relations:
         - uses - delivery-1
   rings:
-    ring-3:
+    ring-1:
       name: Ring 1 name
       description: Description
       relations: []
-      deliveries: []
+      deliveries: {}
     ring-2:
       name: Ring 2 name
       description: Description
@@ -64,10 +64,10 @@ views:
         x: 200
         y: 200
         relations:
-          calls-delivery-2:
+          'calls - delivery-2--block-1':
             - x: 280
               y: 280
-          uses-ring-1: []
+          'uses - ring-1': []
       delivery-2:
         x: 300
         y: 300

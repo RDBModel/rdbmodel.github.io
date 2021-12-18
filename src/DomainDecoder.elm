@@ -1,5 +1,5 @@
 module DomainDecoder exposing (domainDecoder, viewsDecoder, View, ViewElement, Domain, Actor, Relation, Ring
-  , Delivery, Block, ViewRelation)
+  , Delivery, Block, ViewRelation, relationDecoder)
 
 import Yaml.Decode exposing (..)
 import Dict exposing (Dict)
@@ -47,14 +47,14 @@ type alias View =
   }
 
 type alias ViewElement = 
-  { x : Int
-  , y : Int
+  { x : Float
+  , y : Float
   , relations : Maybe (Dict String (List ViewRelation))
   }
 
 type alias ViewRelation =
-  { x : Int
-  , y : Int
+  { x : Float
+  , y : Float
   }
 
 domainDecoder : Decoder Domain
@@ -120,15 +120,15 @@ viewDecoder =
 viewElementDecoder : Decoder ViewElement
 viewElementDecoder =
   map3 ViewElement
-    (field "x" int)
-    (field "y" int)
+    (field "x" float)
+    (field "y" float)
     (maybe (field "relations" (dict (list viewRelationDecoder))))
 
 viewRelationDecoder : Decoder ViewRelation
 viewRelationDecoder =
   map2 ViewRelation
-    (field "x" int)
-    (field "y" int)
+    (field "x" float)
+    (field "y" float)
 
 getRelationFromString : String -> Result String Relation
 getRelationFromString value =
