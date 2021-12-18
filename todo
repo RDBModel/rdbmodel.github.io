@@ -24,6 +24,9 @@
 [ ] select multiply rect
 [ ] move multiply rect
 
+[ ] text inside rect
+[ ] undo/redo support (https://package.elm-lang.org/packages/elm-community/undo-redo)
+
 [x] add points only on left click
 
 [x] add monaco editor (https://github.com/vanillawc/wc-monaco-editor) (https://elmprogramming.com/interacting-with-web-components.html)
@@ -42,8 +45,10 @@
 
 
 [ ] create parser for rgb
-[ ] write decoder for domain model and view
+[x] write decoder for domain model and view
 
-
-[ ] text inside rect
-[ ] undo/redo support (https://package.elm-lang.org/packages/elm-community/undo-redo)
+[x] pass txt from monaco to elm by ctrl + s
+[ ] validate yaml on elm side
+[ ] pass values to elm model
+[ ] return errors to js
+[ ] display errors (how?)

@@ -37,7 +37,7 @@ type alias Model =
     , graph : GraphModel
     , value : String
     }
-    
+
 type GraphModel
     = Init (Graph Container SubPathEdge)
     | Ready ReadyState
