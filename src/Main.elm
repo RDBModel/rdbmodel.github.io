@@ -512,13 +512,7 @@ handleDragAt xy ({ drag, pointDrag } as state) =
         (Just { start, index, delta }, Nothing) ->
             ( Ready
                 { state
-                    | drag =
-                        Just
-                            { start = start
-                            , current = xy
-                            , index = index
-                            , delta = delta
-                            }
+                    | drag = Just { start = start, current = xy, index = index, delta = delta }
                     , graph = updateNodePosition delta index xy state
                 }
             , Cmd.none
@@ -527,13 +521,7 @@ handleDragAt xy ({ drag, pointDrag } as state) =
         (Nothing, Just { start, index, delta }) ->
             ( Ready
                 { state
-                    | pointDrag =
-                        Just
-                            { start = start
-                            , current = xy
-                            , index = index
-                            , delta = delta
-                            }
+                    | pointDrag = Just { start = start, current = xy, index = index, delta = delta}
                     , graph = updatePointPosition delta index xy state
                 }
             , Cmd.none
