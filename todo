@@ -1,31 +1,20 @@
-[X] set up svg view
-[X] set up zoom
-[X] set up grid
-[X] set up scale
-[x] draw rect
-[x] connect rect by curve
-[x] select rect
-[x] move rect
-[x] add points to curve
-[x] add point dynamically
-[x] support arrow at the end of curve (https://stackoverflow.com/questions/41105713/svg-marker-mid-on-specific-point-on-path)
-
-[x] draw a circle for point
-[x] move point
-[x] remove point dynamically
-[x] block menu on right click
-[x] fix bug on adding point (remove existing one, and add a new one)
-[x] change the color of moving point
-[x] clean logic of adding points
-[x] make point path is more wider
-
-[x] fix adding points logic
-
 [ ] select multiply rect
 [ ] move multiply rect
 
-[ ] text inside rect
+[x] text inside rect
 [ ] undo/redo support (https://package.elm-lang.org/packages/elm-community/undo-redo)
+
+[ ] create parser for rgb
+[x] write decoder for domain model and view
+
+[x] pass txt from monaco to elm by ctrl + s
+[x] pass values to elm model
+[ ] validate yaml on elm side
+[ ] return errors to js
+[ ] display errors (how?)
+[ ] move point values from Elm to js
+
+------
 
 [x] add points only on left click
 
@@ -43,13 +32,23 @@
 
 [x] add sample test
 
+[x] draw a circle for point
+[x] move point
+[x] remove point dynamically
+[x] block menu on right click
+[x] fix bug on adding point (remove existing one, and add a new one)
+[x] change the color of moving point
+[x] clean logic of adding points
+[x] make point path is more wider
 
-[ ] create parser for rgb
-[x] write decoder for domain model and view
-
-[x] pass txt from monaco to elm by ctrl + s
-[x] pass values to elm model
-[ ] validate yaml on elm side
-[ ] return errors to js
-[ ] display errors (how?)
-[ ] move point values from Elm to js
+[X] set up svg view
+[X] set up zoom
+[X] set up grid
+[X] set up scale
+[x] draw rect
+[x] connect rect by curve
+[x] select rect
+[x] move rect
+[x] add points to curve
+[x] add point dynamically
+[x] support arrow at the end of curve (https://stackoverflow.com/questions/41105713/svg-marker-mid-on-specific-point-on-path)

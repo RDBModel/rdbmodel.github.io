@@ -26,6 +26,7 @@ import Elements exposing
 import Html.Events.Extra.Mouse exposing (Event)
 import DomainDecoder exposing (domainDecoder, viewsDecoder, Domain, View, ViewElement, relationDecoder)
 import Dict exposing (Dict)
+import Domain exposing (Container)
 
 port messageReceiver : (String -> msg) -> Sub msg
 
@@ -44,11 +45,6 @@ type alias Model =
 type GraphModel
     = Init (Graph Container SubPathEdge)
     | Ready ReadyState
-
-type alias Container =
-    { name : String
-    , xy : (Float, Float)
-    }
 
 type alias SubPathEdge = 
     { points : List (Float, Float)
@@ -111,8 +107,8 @@ init _ =
         splitPanelState = SplitPane.init Horizontal
         initModel = Init
             <| Graph.fromNodesAndEdges
-                [ Node 0 <| Container "" (150, 125)
-                , Node 1 <| Container "" (550, 125)
+                [ Node 0 <| Container "one very long text" (150, 125)
+                , Node 1 <| Container "two" (550, 125)
                 ]
                 [ Edge 0 1 <| SubPathEdge [(350, 150)]
                 ]
@@ -683,7 +679,8 @@ svgView model =
         [ id elementId
         , Attrs.width <| Percent 100
         , Attrs.height <| Percent 100
-        , Mouse.onContextMenu (\_ -> NoOp)
+        -- TODO Disable right click menu
+        --, Mouse.onContextMenu (\_ -> NoOp)
         ]
         [ defs []
             [ innerGrid transform10
@@ -743,11 +740,11 @@ drawContainer drag n =
     case drag of
         Just { index } ->
             if index == n.id then
-                renderContainerSelected n.label.xy mouseDownAttr
+                renderContainerSelected n.label mouseDownAttr
             else
-                renderContainer n.label.xy mouseDownAttr
+                renderContainer n.label mouseDownAttr
         Nothing ->
-            renderContainer n.label.xy mouseDownAttr
+            renderContainer n.label mouseDownAttr
 
 
 linkElement : Maybe Int -> Graph Container SubPathEdge -> Edge SubPathEdge -> Svg Msg

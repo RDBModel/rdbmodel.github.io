@@ -3,19 +3,20 @@ module Elements exposing
      , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, edgeStrokeWidthExtend, gridCellSize
      )
 import TypedSvg.Core exposing (Svg, text)
-import TypedSvg exposing (rect, circle, pattern, marker, g)
-import TypedSvg.Types exposing (Length(..))
+import TypedSvg exposing (rect, circle, pattern, marker, g, text_)
+import TypedSvg.Types exposing (Length(..), AnchorAlignment(..))
 import TypedSvg.Attributes as Attrs exposing
-    ( x, y, width, height, rx, cx, cy, r, id, strokeWidth, fill, stroke, strokeOpacity, transform)
+    ( x, y, width, height, rx, cx, cy, r, id, strokeWidth, fill, stroke, strokeOpacity, transform, dominantBaseline
+    , textAnchor)
 import TypedSvg.Types exposing (Paint(..), CoordinateSystem(..), Opacity(..), DominantBaseline(..), Transform(..))
 import Color
 import TypedSvg.Core exposing (Attribute)
 import Path exposing (Path)
-import Shape
-import SubPath
 import Shape exposing (linearCurve)
-import SubPath exposing (arcLengthParameterized)
-import SubPath exposing (arcLength)
+import SubPath exposing (arcLengthParameterized, arcLength)
+import Domain exposing (Container)
+import TypedSvg.Attributes exposing (cursor)
+import TypedSvg.Types exposing (Cursor(..))
 
 containerWidth : Float
 containerWidth = 100
@@ -29,25 +30,47 @@ gridCellSize : Float
 gridCellSize = 10
 
 
-renderContainerSelected : (Float, Float) -> Attribute msg -> Svg msg
+renderContainerSelected : Container -> Attribute msg -> Svg msg
 renderContainerSelected = renderContainerInternal True
 
-renderContainer : (Float, Float) -> Attribute msg -> Svg msg
+renderContainer : Container -> Attribute msg -> Svg msg
 renderContainer = renderContainerInternal False
 
-renderContainerInternal : Bool -> (Float, Float) -> Attribute msg -> Svg msg
-renderContainerInternal selected (xCenter, yCenter) event = 
-    rect
-        [ x <| Px <| xCenter - containerWidth / 2
-        , y <| Px <| yCenter - containerHeight / 2
-        , width <| Px containerWidth
-        , height <| Px containerHeight
-        , rx <| Px containerRadius
-        , Attrs.fill <| Paint <| Color.white
-        , Attrs.stroke <| Paint <| if selected then Color.blue else Color.black
-        , Attrs.strokeWidth <| Px 1
-        , event
-        ] []
+renderContainerInternal : Bool -> Container -> Attribute msg -> Svg msg
+renderContainerInternal selected { name, xy } event =
+    let
+        (xCenter, yCenter) = xy
+
+        updatedName a =
+            if String.length name > 15 then
+                String.slice 0 15 a
+            else
+                a
+    in
+    g []
+        [ rect
+            [ x <| Px <| xCenter - containerWidth / 2
+            , y <| Px <| yCenter - containerHeight / 2
+            , width <| Px containerWidth
+            , height <| Px containerHeight
+            , rx <| Px containerRadius
+            , Attrs.fill <| Paint <| Color.white
+            , Attrs.stroke <| Paint <| if selected then Color.blue else Color.black
+            , Attrs.strokeWidth <| Px 1
+            , event
+            ] []
+        , text_
+            [ x <| Px <| xCenter
+            , y <| Px <| yCenter
+            , width <| Px containerWidth
+            , height <| Px containerHeight
+            , dominantBaseline DominantBaselineMiddle
+            , textAnchor AnchorMiddle
+            , cursor CursorDefault
+            , event
+            ]
+            [text <| updatedName name ]
+        ]
 
 -- renderSystem : Float -> Float -> Svg msg
 -- renderSystem xValue yValue = 
@@ -155,6 +178,7 @@ gridRect events =
         --, cursor CursorMove
         ] ++ events) []
 
+edgeStrokeWidthExtend : number
 edgeStrokeWidthExtend = 3
 
 edgeBetweenContainers (sourceNode, targetNode, edge) selectedIndex addPointEvent removePointEvent =
