@@ -82,7 +82,7 @@ require(['vs/editor/editor.main'], () => {
     theme: 'vs-dark',
     value: v,
     language: 'yaml',
-    wordWrap: 'on',
+    wordWrap: 'off',
     automaticLayout: true,
     lineNumbers: 'off',
     glyphMargin: false,
