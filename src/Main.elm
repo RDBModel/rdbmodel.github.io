@@ -27,54 +27,36 @@ import Html.Events.Extra.Mouse exposing (Event)
 import DomainDecoder exposing (domainDecoder, viewsDecoder, Domain, View, ViewElement, relationDecoder)
 import Dict exposing (Dict)
 import Domain exposing (Container)
+import Html.Attributes exposing (height)
 
 port messageReceiver : (String -> msg) -> Sub msg
 
 port sendMessage : String -> Cmd msg
 
+
+
 main : Program () Model Msg
 main =
   Browser.element { init = init, update = update, view = view, subscriptions = subscriptions }
+
+init : () -> ( Model, Cmd Msg )
+init _ =
+    let
+        splitPanelState = SplitPane.init Horizontal
+        initModel = Init
+            <| Graph.fromNodesAndEdges
+                [ Node 0 <| Container "one very long text" (150, 125)
+                , Node 1 <| Container "two" (550, 125)
+                ]
+                [ Edge 0 1 <| SubPathEdge [(350, 150)]
+                ]
+    in
+    (Model splitPanelState initModel "", getElementPosition)
 
 type alias Model =
     { pane : SplitPane.State
     , graph : GraphModel
     , value : String
-    }
-
-type GraphModel
-    = Init (Graph Container SubPathEdge)
-    | Ready ReadyState
-
-type alias SubPathEdge = 
-    { points : List (Float, Float)
-    }
-
-type alias ReadyState =
-    { drag : Maybe (Drag NodeId)
-    , pointDrag : Maybe (Drag (NodeId, NodeId, Int))
-    , graph : Graph Container SubPathEdge
-    , zoom : Zoom
-
-    -- The position and dimensions of the svg element.
-    , element : Element
-    }
-
--- Select information
-type alias Drag a =
-    { current : ( Float, Float ) -- current mouse position
-    , index : a -- selected node id orpoint index
-    , start : ( Float, Float ) -- start mouse position
-    , delta : ( Float, Float ) -- delta between start and node center to do ajustment during movement
-    }
-
-
--- SVG element position and size in DOM
-type alias Element =
-    { height : Float
-    , width : Float
-    , x : Float
-    , y : Float
     }
 
 
@@ -92,67 +74,6 @@ type Msg
     | MonacoEditorValueChanged String
     | MonacoSendValue String
     | NoOp
-
-elementId : String
-elementId =
-    "main-graph"
-
-getElementPosition : Cmd Msg
-getElementPosition =
-    Task.attempt ReceiveElementPosition (Dom.getElement elementId)
-
-init : () -> ( Model, Cmd Msg )
-init _ =
-    let
-        splitPanelState = SplitPane.init Horizontal
-        initModel = Init
-            <| Graph.fromNodesAndEdges
-                [ Node 0 <| Container "one very long text" (150, 125)
-                , Node 1 <| Container "two" (550, 125)
-                ]
-                [ Edge 0 1 <| SubPathEdge [(350, 150)]
-                ]
-    in
-    (Model splitPanelState initModel "", getElementPosition)
-
-subscriptions : Model -> Sub Msg
-subscriptions model =
-    let
-        dragSubscriptions : Sub Msg
-        dragSubscriptions =
-            Sub.batch
-                [ Events.onMouseMove
-                    (Decode.map (.clientPos >> DragAt) Mouse.eventDecoder)
-                , Events.onMouseUp
-                    (Decode.map (\_ -> DragEnd) Mouse.eventDecoder)
-                ]
-
-        readySubscriptions : ReadyState -> Sub Msg
-        readySubscriptions { drag, pointDrag, zoom } =
-            Sub.batch
-                [ Zoom.subscriptions zoom ZoomMsg
-                , case (drag, pointDrag) of
-                    (Just _, Nothing) ->
-                        dragSubscriptions
-
-                    (Nothing, Just _) ->
-                        dragSubscriptions
-
-                    _ ->
-                        Sub.none
-                ]
-    in
-    Sub.batch
-        [ case model.graph of
-            Init _ ->
-                Sub.none
-
-            Ready state ->
-                readySubscriptions state
-        , Events.onResize (\_ -> \_ -> Resize)
-        , Sub.map PaneMsg <| SplitPane.subscriptions model.pane
-        , messageReceiver MonacoEditorValueChanged
-        ]
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -404,6 +325,96 @@ update msg model =
 
         ( NoOp, _) -> ( model, Cmd.none )
 
+view : Model -> Html Msg
+view { pane, graph } =
+    div []
+        [ SplitPane.view
+            viewConfig
+            (svgView graph)
+            (div [ id "monaco", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%"] [])
+            pane
+        ]
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    let
+        dragSubscriptions : Sub Msg
+        dragSubscriptions =
+            Sub.batch
+                [ Events.onMouseMove
+                    (Decode.map (.clientPos >> DragAt) Mouse.eventDecoder)
+                , Events.onMouseUp
+                    (Decode.map (\_ -> DragEnd) Mouse.eventDecoder)
+                ]
+
+        readySubscriptions : ReadyState -> Sub Msg
+        readySubscriptions { drag, pointDrag, zoom } =
+            Sub.batch
+                [ Zoom.subscriptions zoom ZoomMsg
+                , case (drag, pointDrag) of
+                    (Just _, Nothing) ->
+                        dragSubscriptions
+
+                    (Nothing, Just _) ->
+                        dragSubscriptions
+
+                    _ ->
+                        Sub.none
+                ]
+    in
+    Sub.batch
+        [ case model.graph of
+            Init _ ->
+                Sub.none
+
+            Ready state ->
+                readySubscriptions state
+        , Events.onResize (\_ -> \_ -> Resize)
+        , Sub.map PaneMsg <| SplitPane.subscriptions model.pane
+        , messageReceiver MonacoEditorValueChanged
+        ]
+
+type GraphModel
+    = Init (Graph Container SubPathEdge)
+    | Ready ReadyState
+
+type alias SubPathEdge = 
+    { points : List (Float, Float)
+    }
+
+type alias ReadyState =
+    { drag : Maybe (Drag NodeId)
+    , pointDrag : Maybe (Drag (NodeId, NodeId, Int))
+    , graph : Graph Container SubPathEdge
+    , zoom : Zoom
+
+    -- The position and dimensions of the svg element.
+    , element : Element
+    }
+
+-- Select information
+type alias Drag a =
+    { current : ( Float, Float ) -- current mouse position
+    , index : a -- selected node id orpoint index
+    , start : ( Float, Float ) -- start mouse position
+    , delta : ( Float, Float ) -- delta between start and node center to do ajustment during movement
+    }
+
+-- SVG element position and size in DOM
+type alias Element =
+    { height : Float
+    , width : Float
+    , x : Float
+    , y : Float
+    }
+
+elementId : String
+elementId =
+    "main-graph"
+
+getElementPosition : Cmd Msg
+getElementPosition =
+    Task.attempt ReceiveElementPosition (Dom.getElement elementId)
 
 convertToGraph : (Domain, (Dict String View)) -> Graph Container SubPathEdge
 convertToGraph (domain, views) =
@@ -496,11 +507,9 @@ initZoom element =
     Zoom.init { width = element.width, height = element.height }
         |> Zoom.scaleExtent 0.1 2
 
-
 floatRemainderBy : Float -> Float -> Float
 floatRemainderBy divisor n =
   n - toFloat(truncate (n / divisor)) * divisor
-
 
 handleDragAt : ( Float, Float ) -> ReadyState -> ( GraphModel, Cmd Msg )
 handleDragAt xy ({ drag, pointDrag } as state) =
@@ -525,7 +534,6 @@ handleDragAt xy ({ drag, pointDrag } as state) =
 
         _ ->
             ( Ready state, Cmd.none )
-
 
 updatePointPosition : (Float, Float) -> (NodeId, NodeId, Int) -> ( Float, Float ) -> ReadyState -> Graph Container SubPathEdge
 updatePointPosition delta (fromId, toId, index) xy state =
@@ -566,7 +574,6 @@ updateNodePosition delta index xy state =
         )
         state.graph
 
-
 updateOutgoingEdges : (NodeId, Int) -> ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
 updateOutgoingEdges (nodeId, index) (dx, dy) ( x, y ) nodeCtx =
     let
@@ -581,7 +588,6 @@ updateOutgoingEdges (nodeId, index) (dx, dy) ( x, y ) nodeCtx =
         updatedEdges =  IntDict.update nodeId ( Maybe.map updateEdgePoints )
     in
     nodeCtx.outgoing |> updatedEdges |> updateContextWithOutgoing nodeCtx
-
 
 updateNode : ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
 updateNode (dx, dy) ( x, y ) nodeCtx =
@@ -601,7 +607,6 @@ updateContextWithValue nodeCtx value =
     in
     { nodeCtx | node = { node | label = value } }
 
-
 {-| The mouse events for drag start, drag at and drag end read the client
 position of the cursor, which is relative to the browser viewport. However,
 the node positions are relative to the svg viewport. This function adjusts the
@@ -617,17 +622,6 @@ shiftPosition zoom (elementX, elementY) ( clientX, clientY ) =
     ( (clientX - zoomRecord.translate.x - elementX) / zoomRecord.scale
     , (clientY - zoomRecord.translate.y - elementY) / zoomRecord.scale
     )
-
-
-view : Model -> Html Msg
-view { pane, graph } =
-    div []
-        [ SplitPane.view
-            viewConfig
-            (svgView graph)
-            (div [ id "monaco", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%"] [])
-            pane
-        ]
 
 viewConfig : ViewConfig Msg
 viewConfig =
@@ -727,7 +721,6 @@ renderGraph model =
                     |> g [ class [ "nodes" ] ]
                 ]
 
-
 drawContainer : Maybe (Drag NodeId) -> { id : NodeId, label : { name : String, xy : (Float, Float) } } -> Svg Msg
 drawContainer drag n =
     let
@@ -746,7 +739,6 @@ drawContainer drag n =
         Nothing ->
             renderContainer n.label mouseDownAttr
 
-
 linkElement : Maybe Int -> Graph Container SubPathEdge -> Edge SubPathEdge -> Svg Msg
 linkElement selectedIndex graph edge =
     let
@@ -761,13 +753,11 @@ linkElement selectedIndex graph edge =
                 (onMouseDownPoint edge)
         _ -> text ""
 
-
 onlyMainButton : Event -> Maybe (Float, Float)
 onlyMainButton e =
     case e.button of
         Mouse.MainButton -> Just e.clientPos
         _ -> Nothing
-
 
 onMouseDownPoint : Edge SubPathEdge -> Int -> Attribute Msg
 onMouseDownPoint edge index =
