@@ -154,3 +154,13 @@ getCurrentView selectedView views = selectedView |> Maybe.andThen (\sv -> Dict.g
 getElement : ViewElementKey -> Maybe (Dict ViewElementKey ViewElement) -> Maybe ViewElement
 getElement viewElementKey =
     Maybe.andThen (Dict.get viewElementKey)
+
+
+getRelationPoints : Relation -> Maybe ViewElement -> Maybe (List ViewRelationPoint)
+getRelationPoints relation =
+  Maybe.map .relations >> Maybe.andThen (Dict.get relation)
+
+
+getPoint : Int -> Maybe (List ViewRelationPoint) -> Maybe ViewRelationPoint
+getPoint index =
+  Maybe.map (List.drop index) >> Maybe.andThen (List.head)

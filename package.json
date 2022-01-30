@@ -5,7 +5,8 @@
   "main": "index.js",
   "dependencies": {
     "elm-live": "^4.0.2",
-    "monaco-editor": "^0.30.1"
+    "monaco-editor": "^0.30.1",
+    "yaml": "^1.10.2"
   },
   "devDependencies": {
     "elm-review": "^2.7.0"

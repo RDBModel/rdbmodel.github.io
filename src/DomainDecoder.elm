@@ -1,4 +1,4 @@
-module DomainDecoder exposing (domainDecoder, viewsDecoder, relationDecoder, getNameByKey)
+module DomainDecoder exposing (..)
 
 import Yaml.Decode exposing (..)
 import Domain exposing (..)
@@ -95,10 +95,13 @@ viewRelationPointDecoder =
     (field "x" float)
     (field "y" float)
 
+
+relationSplitter = " - "
+
 getRelationFromString : String -> Result String Relation
 getRelationFromString value =
   let
-    splitted = String.split " - " value
+    splitted = String.split relationSplitter value
 
     description = List.head splitted
 
@@ -109,6 +112,11 @@ getRelationFromString value =
       Ok (t, d)
     _ ->
       Err "Relations should be formatted like 'purpose - target'"
+
+
+getStringFromRelation : Relation -> String
+getStringFromRelation relation =
+  Tuple.first relation ++ relationSplitter ++ Tuple.second relation
 
 
 getNameByKey : Domain -> String -> Maybe String

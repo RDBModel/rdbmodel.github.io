@@ -22,7 +22,7 @@ import Elements exposing
     , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, edgeStrokeWidthExtend, gridCellSize
     )
 import Html.Events.Extra.Mouse exposing (Event)
-import DomainDecoder exposing (domainDecoder, viewsDecoder, relationDecoder, getNameByKey)
+import DomainDecoder exposing (..)
 import Dict exposing (Dict)
 import Domain exposing (..)
 
@@ -143,10 +143,8 @@ update msg model =
                         delta = getCurrentView state.selectedView state.views
                             |> getViewElementsOfCurrentView
                             |> getElement viewElementKey
-                            |> Maybe.map .relations
-                            |> Maybe.andThen (Dict.get relation)
-                            |> Maybe.map (List.drop pointIndex)
-                            |> Maybe.andThen List.head
+                            |> getRelationPoints relation
+                            |> getPoint pointIndex
                             |> Maybe.map (\tp -> ( shiftedStartX - tp.x, shiftedStartY - tp.y ))
                             |> Maybe.withDefault ( 0, 0 )
                     in
@@ -253,10 +251,36 @@ update msg model =
 
                 DragEnd ->
                     case (state.drag, state.pointDrag) of
-                        (Just _, Nothing) ->
-                            ( { model | root = Ready { state | drag = Nothing } }, Cmd.none)
-                        (Nothing, Just _) ->
-                            ( { model | root = Ready { state | pointDrag = Nothing } }, Cmd.none)
+                        (Just { index }, Nothing) ->
+                            let
+                                currentViewElementXY =
+                                    getCurrentView state.selectedView state.views
+                                    |> getViewElementsOfCurrentView
+                                    |> getElement index
+                                    |> Maybe.map (\e -> Tuple.pair e.x e.y)
+                            in
+                            ( { model | root = Ready { state | drag = Nothing } }
+                            , case currentViewElementXY of
+                                Just (x, y) -> sendMessage (index ++ "|" ++ String.fromFloat x ++ "," ++ String.fromFloat y)
+                                Nothing -> Cmd.none
+                            )
+                        (Nothing, Just { index }) ->
+                            let
+                                (viewElementKey, relation, viewRelationPointIndex) = index
+                                currentRelationPointXY =
+                                    getCurrentView state.selectedView state.views
+                                    |> getViewElementsOfCurrentView
+                                    |> getElement viewElementKey
+                                    |> getRelationPoints relation
+                                    |> getPoint viewRelationPointIndex
+                                    |> Maybe.map (\e -> Tuple.pair e.x e.y)
+                            in
+                            ( { model | root = Ready { state | pointDrag = Nothing } }
+                            , case currentRelationPointXY of
+                                Just (x, y) ->  sendMessage (viewElementKey ++ "|" ++ getStringFromRelation relation ++ "|" ++ String.fromInt viewRelationPointIndex
+                                    ++ "|" ++ String.fromFloat x ++ "," ++ String.fromFloat y)
+                                Nothing -> Cmd.none
+                            )
                         _ ->
                             ( { model | root = Ready state }, Cmd.none )
 
@@ -542,7 +566,7 @@ renderGraph model =
                 Just v ->
                     g []
                         [ getEdges v
-                            |> Debug.todo "called at each rendering and can be cashed?"
+                            -- |> Debug.todo "called at each rendering and can be cashed?"
                             |> List.map
                                 (\edge ->
                                     let

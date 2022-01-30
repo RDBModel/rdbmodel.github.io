@@ -1,3 +1,5 @@
+import { YAML } from './node_modules/yaml/browser/dist/index.js';
+
 const v = 
 `domain:
   name: Name
@@ -102,6 +104,15 @@ require(['vs/editor/editor.main'], () => {
   );
 
   app.ports.sendMessage.subscribe((message) => {
-    editor.setValue(message);
+    const currentModel = YAML.parse(editor.getValue())
+    const splitted = message.split('|');
+    if (splitted.length == 2) {
+      // element moved
+      const elementName = splitted[0];
+      const xy = splitted[1].split(',');
+      currentModel['views']['view-1']['elements'][elementName]['x'] = parseFloat(xy[0]);
+      currentModel['views']['view-1']['elements'][elementName]['y'] = parseFloat(xy[1]);
+      editor.setValue(YAML.stringify(currentModel))
+    }
   });
 });
