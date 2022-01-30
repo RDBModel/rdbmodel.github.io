@@ -1,61 +1,9 @@
-module DomainDecoder exposing (domainDecoder, viewsDecoder, View, ViewElement, Domain, Actor, Relation, Ring
-  , Delivery, Block, ViewRelation, relationDecoder)
+module DomainDecoder exposing (domainDecoder, viewsDecoder, relationDecoder, getNameByKey)
 
 import Yaml.Decode exposing (..)
+import Domain exposing (..)
 import Dict exposing (Dict)
 
-type alias Domain =
-  { name : String
-  , description : String
-  , actors : Dict String Actor
-  , rings : Dict String Ring
-  }
-
-type alias Actor = 
-  { name : String
-  , description : String
-  , relations : List Relation
-  }
-
-type alias Ring =
-  { name : String
-  , description : String
-  , relations : List Relation
-  , delivery : Dict String Delivery
-  }
-
-type alias Delivery =
-  { name : String
-  , description : String
-  , relations : List Relation
-  , blocks : Dict String Block
-  }
-
-type alias Block =
-  { name : String
-  , description : String
-  , relations : List Relation
-  }
-
-type alias Relation =
-  { target : String
-  , description : String
-  }
-
-type alias View =
-  { elements: Dict String ViewElement
-  }
-
-type alias ViewElement = 
-  { x : Float
-  , y : Float
-  , relations : Maybe (Dict String (List ViewRelation))
-  }
-
-type alias ViewRelation =
-  { x : Float
-  , y : Float
-  }
 
 domainDecoder : Decoder Domain
 domainDecoder = field "domain" internalDomainDecoder
@@ -122,11 +70,28 @@ viewElementDecoder =
   map3 ViewElement
     (field "x" float)
     (field "y" float)
-    (maybe (field "relations" (dict (list viewRelationDecoder))))
+    (maybe (field "relations" (dict (list viewRelationPointDecoder) |> mapViewRelationDecoder))
+      |> map (Maybe.withDefault Dict.empty))
 
-viewRelationDecoder : Decoder ViewRelation
-viewRelationDecoder =
-  map2 ViewRelation
+
+mapViewRelationDecoder : Decoder (Dict String (List ViewRelationPoint)) -> Decoder (Dict Relation (List ViewRelationPoint))
+mapViewRelationDecoder = map convertDictKeys
+
+
+convertDictKeys : Dict String (List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint)
+convertDictKeys dict =
+  dict |> Dict.foldl
+    (\k v newD -> 
+      case getRelationFromString k of
+        Ok relation ->
+          Dict.insert relation v newD
+        Err _ -> newD
+    )
+    Dict.empty
+
+viewRelationPointDecoder : Decoder ViewRelationPoint
+viewRelationPointDecoder =
+  map2 ViewRelationPoint
     (field "x" float)
     (field "y" float)
 
@@ -141,6 +106,24 @@ getRelationFromString value =
   in
   case (description, target) of
     ( Just d, Just t) ->
-      Ok (Relation t d)
+      Ok (t, d)
     _ ->
-      Err "Relations should be formated like 'purpose - target'"
+      Err "Relations should be formatted like 'purpose - target'"
+
+
+getNameByKey : Domain -> String -> Maybe String
+getNameByKey domain key =
+  Dict.get key domain.rings
+    |> Maybe.map (\i -> Just i.name)
+    |> Maybe.withDefault
+      ( Dict.values domain.rings
+        |> List.filterMap (\i -> Dict.get key i.delivery |> Maybe.map .name)
+        |> List.head
+        |> Maybe.map (\i -> Just i)
+        |> Maybe.withDefault
+          ( Dict.values domain.rings
+            |> List.concatMap (\i -> Dict.values i.delivery)
+            |> List.filterMap (\i -> Dict.get key i.blocks |> Maybe.map .name)
+            |> List.head
+          )
+      )

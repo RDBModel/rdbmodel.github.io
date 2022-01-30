@@ -12,6 +12,8 @@
 
 [ ] forbid points to move under container
 
+[ ] update model
+
 ------
 [x] disable `wrap` in monaco editor
 [x] text inside rect 2022-01-01

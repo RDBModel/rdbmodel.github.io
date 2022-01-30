@@ -64,10 +64,14 @@ views:
         x: 200
         y: 200
         relations:
-          'calls - delivery-2--block-1':
-            - x: 280
-              y: 280
-          'uses - ring-1': []
+          - target: delivery-2
+            label: calls
+            points:
+              - x: 280
+                y: 280
+          - target: ring-1
+            label: uses
+            points: []
       delivery-2:
         x: 300
         y: 300

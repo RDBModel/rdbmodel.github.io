@@ -181,16 +181,16 @@ gridRect events =
 edgeStrokeWidthExtend : number
 edgeStrokeWidthExtend = 3
 
-edgeBetweenContainers (sourceNode, targetNode, edge) selectedIndex addPointEvent removePointEvent =
+edgeBetweenContainers edge selectedIndex addPointEvent removePointEvent =
      let
-        points = edge.label.points
-        (sx, sy) = sourceNode.node.label.xy
-        (tx, ty) = targetNode.node.label.xy
+        points = edge.points
+        (sx, sy) = edge.source.xy
+        (tx, ty) = edge.target.xy
 
         (cx, cy) = points
             |> List.reverse
             |> List.head
-            |> Maybe.withDefault sourceNode.node.label.xy
+            |> Maybe.withDefault edge.source.xy
 
         preparedPoints = (sx, sy) :: points ++ [ (tx, ty) ]
         curve = linearCurve preparedPoints
@@ -221,7 +221,7 @@ edgeBetweenContainers (sourceNode, targetNode, edge) selectedIndex addPointEvent
             curveLength - distanceXY * temp - magicOffset
 
         idValue =
-            "from-" ++ String.fromInt (sourceNode.node.id) ++ "-to-" ++ String.fromInt (targetNode.node.id)
+            "from-" ++ edge.source.name ++ "-to-" ++ edge.target.name
 
         strokeWidthValue = 1
     in

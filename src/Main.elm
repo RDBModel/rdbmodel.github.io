@@ -14,7 +14,7 @@ import TypedSvg exposing (svg, defs, g)
 import TypedSvg.Attributes as Attrs exposing ( class,  x, y, id)
 import TypedSvg.Types exposing ( Length(..))
 import TypedSvg.Core exposing (Svg, Attribute)
-import Graph exposing (Graph, Node, Edge, NodeContext, NodeId, Adjacency)
+-- import Graph exposing (Graph, Node, Edge, NodeContext, NodeId, Adjacency)
 import Zoom exposing (Zoom, OnZoom)
 import Task
 import Html exposing (source)
@@ -24,10 +24,9 @@ import Elements exposing
     , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, edgeStrokeWidthExtend, gridCellSize
     )
 import Html.Events.Extra.Mouse exposing (Event)
-import DomainDecoder exposing (domainDecoder, viewsDecoder, Domain, View, ViewElement, relationDecoder)
+import DomainDecoder exposing (domainDecoder, viewsDecoder, relationDecoder, getNameByKey)
 import Dict exposing (Dict)
-import Domain exposing (Container)
-import Html.Attributes exposing (height)
+import Domain exposing (..)
 
 port messageReceiver : (String -> msg) -> Sub msg
 
@@ -41,22 +40,11 @@ main =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    let
-        splitPanelState = SplitPane.init Horizontal
-        initModel = Init
-            <| Graph.fromNodesAndEdges
-                [ Node 0 <| Container "one very long text" (150, 125)
-                , Node 1 <| Container "two" (550, 125)
-                ]
-                [ Edge 0 1 <| SubPathEdge [(350, 150)]
-                ]
-    in
-    (Model splitPanelState initModel "", getElementPosition)
+    (Model (SplitPane.init Horizontal) Init, getElementPosition)
 
 type alias Model =
     { pane : SplitPane.State
-    , graph : GraphModel
-    , value : String
+    , root : Root
     }
 
 
@@ -64,10 +52,10 @@ type Msg
     = ZoomMsg OnZoom
     | Resize
     | ReceiveElementPosition (Result Dom.Error Dom.Element)
-    | DragStart NodeId ( Float, Float )
-    | DragSubPathStart (Edge SubPathEdge) ( Float, Float )
-    | DragPointStart Int (Edge SubPathEdge) ( Float, Float )
-    | RemovePoint Int (Edge SubPathEdge)
+    | DragViewElementStart ViewElementKey ( Float, Float )
+    | ClickEdgeStart ViewRelationKey ( Float, Float )
+    | DragPointStart ViewRelationPointKey ( Float, Float )
+    | RemovePoint ViewRelationPointKey
     | DragAt ( Float, Float )
     | DragEnd
     | PaneMsg SplitPane.Msg
@@ -77,260 +65,246 @@ type Msg
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case ( msg, model.graph ) of
-        ( MonacoEditorValueChanged val, _) ->
-            let
-                domain = D.fromString domainDecoder val
-                views = D.fromString viewsDecoder val
-            in
-            case (domain, views) of
-                (Ok d, Ok vs) ->
-                    let
-                        newGraph = convertToGraph (d, vs)
-                    in
-                    case model.graph of
-                        Init _ ->
-                            ( { model | graph = Init newGraph }, Cmd.none )
-                        Ready s ->
-                            let
-                                updatedState = { s | graph = newGraph }
-                            in
-                            ( { model | graph = Ready updatedState }, Cmd.none )
-
-                _ -> (model, Cmd.none)
-
-        ( MonacoSendValue val, _) ->
-            ( model, sendMessage val )
-
-        ( Resize , _ ) ->
-            ( model, getElementPosition )
-
-        ( ZoomMsg zoomMsg, Ready state ) ->
-            ( { model | graph = Ready { state | zoom = Zoom.update zoomMsg state.zoom } }
-            , Cmd.none
-            )
-
-        ( ZoomMsg _, Init _ ) ->
-            ( model, Cmd.none )
-
-        ( ReceiveElementPosition (Ok { element }), _ ) ->
-            let
-                extractGraph = case model.graph of
-                    Init gr -> gr
-                    Ready { graph } -> graph
-            in
-            ( { model | graph = Ready
-                { drag = Nothing
-                , pointDrag = Nothing
-                , element = element
-                , graph = extractGraph
-                , zoom = initZoom element
-                }
-            }
-            , Cmd.none
-            )
-
-        ( ReceiveElementPosition (Err _), _ ) ->
-            ( model, Cmd.none )
-
-        ( DragStart index xy, Ready state ) ->
-            let
-                nodeCtx = Graph.get index state.graph
-
-                (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
-
-                delta =
-                    case nodeCtx of
-                        Just ctx ->
-                            let
-                                (x, y) = ctx.node.label.xy
-                            in
-                            ( shiftedStartX - x
-                            , shiftedStartY - y
-                            )
-
-                        Nothing ->
-                            (0, 0)
-            in
-            ( { model | graph = Ready
-                { state
-                    | drag =
-                        Just
-                            { start = xy
-                            , current = xy
-                            , index = index
-                            , delta = delta
-                            }
-                }
-            }
-            , Cmd.none
-            )
-
-        ( DragPointStart index edge xy, Ready state ) ->
-            let
-                points = edge.label.points
-
-                targetPoint = List.drop index points |> List.head
-
-                (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
-
-                delta =
-                    case targetPoint of
-                        Just (x, y) ->
-                            ( shiftedStartX - x
-                            , shiftedStartY - y
-                            )
-
-                        Nothing ->
-                            (0, 0)
-            in
-            ( { model | graph = Ready
-                { state
-                    | pointDrag =
-                        Just
-                            { start = xy
-                            , current = xy
-                            , index = (edge.from, edge.to, index)
-                            , delta = delta
-                            }
-                }
-            }
-            , Cmd.none
-            )
-
-        (RemovePoint index edge, Ready state ) ->
-            let
-                updatedGraph = Graph.mapEdges
-                    (\e ->
-                        if e == edge.label then
-                            let
-                                updatedList =
-                                    List.take index e.points
-                                    ++
-                                    List.drop (index + 1) e.points
-                            in
-                            SubPathEdge updatedList
-                        else
-                            e
+    case model.root of
+        Init ->
+            case msg of
+                ReceiveElementPosition (Ok { element }) ->
+                    ( { model | root = Ready
+                        { drag = Nothing
+                        , pointDrag = Nothing
+                        , element = element
+                        , zoom = initZoom element
+                        , views = Dict.empty
+                        , selectedView = Nothing
+                        }
+                    }
+                    , Cmd.none
                     )
-                    state.graph
 
-            in
-            ( { model | graph = Ready { state | graph = updatedGraph } }, Cmd.none )
+                ReceiveElementPosition (Err _) ->
+                    ( model, Cmd.none )
 
-        (RemovePoint _ _, Init _ ) ->
-            ( model, Cmd.none )
+                PaneMsg paneMsg ->
+                    ( { model | pane = SplitPane.update paneMsg model.pane }, Cmd.none )
 
-        ( DragStart _ _, Init _ ) ->
-            ( model, Cmd.none )
+                Resize ->
+                    ( model, getElementPosition )
 
-        ( DragPointStart _ _ _, Init _ ) ->
-            ( model, Cmd.none )
+                _ ->  ( model, Cmd.none )
+        Ready state ->
+            case msg of
+                ReceiveElementPosition (Ok { element }) ->
+                    ( { model | root = Ready { state | element = element } }
+                    , Cmd.none
+                    )
 
-        ( DragSubPathStart edge xy, Ready state ) ->
-            let
-                spxy = shiftPosition state.zoom (state.element.x, state.element.y) xy
-                sourceXY = Graph.get edge.from state.graph |> Maybe.map (\ctx -> ctx.node.label.xy)
-                targetXY = Graph.get edge.to state.graph |> Maybe.map (\ctx -> ctx.node.label.xy)
-            in
-            case (sourceXY, targetXY) of
-                (Just sxy, Just txy) ->
+                ReceiveElementPosition (Err _) ->
+                    ( model, Cmd.none )
+
+                MonacoEditorValueChanged val ->
                     let
-                        magicIntMax = maxSafeInteger
-                        allPoints = sxy :: edge.label.points ++ [ txy ]
-
-                        -- as the actual edge is wider then visible, we are extending the search area
-                        extendPoints (x1, y1) (x2, y2) =
-                            let
-                                extend v1 v2 =
-                                    if v1 < v2 || v1 == v2 then
-                                        (v1 - edgeStrokeWidthExtend, v2 + edgeStrokeWidthExtend)
-                                    else
-                                        (v2 - edgeStrokeWidthExtend, v1 + edgeStrokeWidthExtend)
-
-                                (ux1, ux2) = extend x1 x2
-                                (uy1, uy2) = extend y1 y2
-                            in
-                            ((ux1, uy1), (ux2, uy2))
-
-                        (_ , (insertAfterValue, _)) = 
-                            List.foldr
-                            (\currentPoint -> \(previousPoint, (insertAfterPoint, val)) ->
-                                let
-                                    z = distanceToLine spxy (currentPoint , previousPoint)
-
-                                    (extendedA, extendedPrev) = extendPoints currentPoint previousPoint
-                                in
-                                if not (isNaN z) && betweenPoints spxy (extendedA, extendedPrev) && z < val then
-                                    (currentPoint, (currentPoint, z))
-                                else 
-                                    (currentPoint, (insertAfterPoint, val))
-                            )
-                            (txy, (txy, magicIntMax))
-                            allPoints
-
-                        updatedList = List.foldr
-                            (\a -> \b ->
-                                if insertAfterValue == a then
-                                    a :: spxy :: b
-                                else
-                                    a :: b
-                            )
-                            []
-                            allPoints
-                            |> List.drop 1
-                            |> List.reverse
-                            |> List.drop 1
-                            |> List.reverse
-
-                        updatedGraph = Graph.mapEdges
-                            (\e ->
-                                if e == edge.label then
-                                    SubPathEdge updatedList
-                                else
-                                    e
-                            )
-                            state.graph
-
+                        domain = D.fromString domainDecoder val |> Debug.todo "Validate views based on domain"
+                        views = D.fromString viewsDecoder val
                     in
-                    ( { model | graph = Ready { state | graph = updatedGraph } }, Cmd.none )
-                _ -> ( model, Cmd.none )
+                    case views of
+                        Ok vs ->
+                            ( { model | root = Ready { state | views = vs } }, Cmd.none )
 
-        ( DragSubPathStart _ _, Init _ ) ->
-            ( model, Cmd.none )
+                        _ -> (model, Cmd.none)
 
-        ( DragAt xy, Ready state ) ->
-            let
-                (updateGraphModel, cmdMsg) = handleDragAt xy state
-            in
-            ( { model | graph = updateGraphModel }, cmdMsg)
+                MonacoSendValue val ->
+                    ( model, sendMessage val )
 
-        ( DragAt _, Init _ ) ->
-            ( model, Cmd.none )
+                Resize ->
+                    ( model, getElementPosition )
 
-        ( DragEnd, Ready state ) ->
-            case (state.drag, state.pointDrag) of
-                (Just _, Nothing) ->
-                    ( { model | graph = Ready { state | drag = Nothing } }, Cmd.none)
-                (Nothing, Just _) ->
-                    ( { model | graph = Ready { state | pointDrag = Nothing } }, Cmd.none)
-                _ ->
-                    ( { model | graph = Ready state }, Cmd.none )
+                ZoomMsg zoomMsg ->
+                    ( { model | root = Ready { state | zoom = Zoom.update zoomMsg state.zoom } }
+                    , Cmd.none
+                    )
 
-        ( DragEnd, Init _ ) ->
-            ( model, Cmd.none )
+                DragViewElementStart viewElementKey xy ->
+                    let
+                        (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
+                        delta = getCurrentView state.selectedView state.views
+                            |> getViewElementsOfCurrentView
+                            |> Maybe.andThen (Dict.get viewElementKey)
+                            |> Maybe.map (\ve -> ( shiftedStartX - ve.x, shiftedStartY - ve.y ))
+                            |> Maybe.withDefault ( 0, 0 )
+                    in
+                    ( { model | root = Ready
+                        { state | drag = Just { start = xy, current = xy, index = viewElementKey, delta = delta } }
+                    }
+                    , Cmd.none
+                    )
 
-        (PaneMsg paneMsg, _ ) ->
-            ( { model | pane = SplitPane.update paneMsg model.pane }, Cmd.none )
+                DragPointStart (viewElementKey, relation, pointIndex) xy ->
+                    let
+                        (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
 
-        ( NoOp, _) -> ( model, Cmd.none )
+                        delta = getCurrentView state.selectedView state.views
+                            |> getViewElementsOfCurrentView
+                            |> Maybe.andThen (Dict.get viewElementKey)
+                            |> Maybe.map .relations
+                            |> Maybe.andThen (Dict.get relation)
+                            |> Maybe.map (List.drop pointIndex)
+                            |> Maybe.andThen List.head
+                            |> Maybe.map (\tp -> ( shiftedStartX - tp.x, shiftedStartY - tp.y ))
+                            |> Maybe.withDefault ( 0, 0 )
+                    in
+                    ( { model | root = Ready
+                        { state | pointDrag
+                            = Just { start = xy, current = xy, index = (viewElementKey, relation, pointIndex), delta = delta } }
+                    }
+                    , Cmd.none
+                    )
+
+                RemovePoint (viewElementKey, relation, pointIndex) ->
+                    let
+                        removePointAtIndex list = List.take pointIndex list ++ List.drop (pointIndex + 1) list
+                        updateRelations : Dict Relation (List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint)
+                        updateRelations = Dict.update relation <| Maybe.map removePointAtIndex
+                        
+                        updateElements : Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
+                        updateElements =
+                            Dict.update viewElementKey <| Maybe.map (\ve -> { ve | relations = updateRelations ve.relations } )
+                        updateViews =
+                            case state.selectedView of
+                                Just sv ->
+                                    Dict.update sv (Maybe.map (\v -> { v | elements = updateElements v.elements } )) state.views
+                                Nothing -> state.views
+                    in
+                    ( { model | root = Ready { state | views = updateViews } }, Cmd.none )
+
+                ClickEdgeStart (viewElementKey, relation) xy ->
+                    let
+                        spxy = shiftPosition state.zoom (state.element.x, state.element.y) xy
+
+                        currentView = getCurrentView state.selectedView state.views
+
+                        sourceXY = currentView |> getViewElementsOfCurrentView
+                            |> getElement viewElementKey
+                            |> Maybe.map (\s -> (s.x, s.y))
+                        
+                        targetXY = currentView |> getViewElementsOfCurrentView
+                            |> getElement (Tuple.first relation)
+                            |> Maybe.map (\s -> (s.x, s.y))
+
+                        -- (sourceXY, targetXY) = currentView
+                        --     |> Maybe.map (getSourceAndTargetElements (viewElementKey, relation) )
+                        --     |> Maybe.map (\st ->
+                        --         Tuple.mapBoth
+                        --             (Maybe.map (\fValue -> Tuple.pair fValue.x fValue.y))
+                        --             (Maybe.map (\sValue -> Tuple.pair sValue.x sValue.y))
+                        --             st
+                        --     )
+                    in
+                    case (sourceXY, targetXY, currentView) of
+                        (Just sxy, Just txy, Just cv) ->
+                            let
+                                magicIntMax = maxSafeInteger
+                                allPoints = sxy :: (getViewRelationPoints (viewElementKey, relation) cv) ++ [ txy ]
+
+                                -- as the actual edge is wider then visible, we are extending the search area
+                                extendPoints (x1, y1) (x2, y2) =
+                                    let
+                                        extend v1 v2 =
+                                            if v1 < v2 || v1 == v2 then
+                                                (v1 - edgeStrokeWidthExtend, v2 + edgeStrokeWidthExtend)
+                                            else
+                                                (v2 - edgeStrokeWidthExtend, v1 + edgeStrokeWidthExtend)
+
+                                        (ux1, ux2) = extend x1 x2
+                                        (uy1, uy2) = extend y1 y2
+                                    in
+                                    ((ux1, uy1), (ux2, uy2))
+
+                                (_ , (insertAfterValue, _)) = 
+                                    List.foldr
+                                    (\currentPoint -> \(previousPoint, (insertAfterPoint, val)) ->
+                                        let
+                                            z = distanceToLine spxy (currentPoint , previousPoint)
+
+                                            (extendedA, extendedPrev) = extendPoints currentPoint previousPoint
+                                        in
+                                        if not (isNaN z) && betweenPoints spxy (extendedA, extendedPrev) && z < val then
+                                            (currentPoint, (currentPoint, z))
+                                        else 
+                                            (currentPoint, (insertAfterPoint, val))
+                                    )
+                                    (txy, (txy, magicIntMax))
+                                    allPoints
+
+                                updatedList = List.foldr
+                                    (\a -> \b ->
+                                        if insertAfterValue == a then
+                                            a :: spxy :: b
+                                        else
+                                            a :: b
+                                    )
+                                    []
+                                    allPoints
+                                    |> List.drop 1
+                                    |> List.reverse
+                                    |> List.drop 1
+                                    |> List.reverse
+
+                                updatedPoints = \_ -> updatedList |> List.map (\(x, y) -> ViewRelationPoint x y)
+                                updatedRelations : Dict Relation (List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint)
+                                updatedRelations = Dict.update relation <| Maybe.map updatedPoints
+                                
+                                updatedElements : Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
+                                updatedElements =
+                                    Dict.update viewElementKey <| Maybe.map (\ve -> { ve | relations = updatedRelations ve.relations } )
+                                updatedViews =
+                                    case state.selectedView of
+                                        Just sv ->
+                                            Dict.update sv (Maybe.map (\v -> { v | elements = updatedElements v.elements } )) state.views
+                                        Nothing -> state.views
+
+                            in
+                            ( { model | root = Ready { state | views = updatedViews } }, Cmd.none )
+                        _ -> ( model, Cmd.none )
+
+                DragAt xy ->
+                    let
+                        (updatedRoot, cmdMsg) = handleDragAt xy state
+                    in
+                    ( { model | root = updatedRoot }, cmdMsg)
+
+                DragEnd ->
+                    case (state.drag, state.pointDrag) of
+                        (Just _, Nothing) ->
+                            ( { model | root = Ready { state | drag = Nothing } }, Cmd.none)
+                        (Nothing, Just _) ->
+                            ( { model | root = Ready { state | pointDrag = Nothing } }, Cmd.none)
+                        _ ->
+                            ( { model | root = Ready state }, Cmd.none )
+
+                PaneMsg paneMsg ->
+                    ( { model | pane = SplitPane.update paneMsg model.pane }, Cmd.none )
+
+                NoOp -> ( model, Cmd.none )
+
+getViewElementsOfCurrentView : Maybe View -> Maybe (Dict ViewElementKey ViewElement)
+getViewElementsOfCurrentView =
+    Maybe.map .elements
+
+
+getCurrentView : Maybe String -> Dict String Domain.View -> Maybe View
+getCurrentView selectedView views = selectedView |> Maybe.andThen (\sv -> Dict.get sv views)
+
+
+getElement : ViewElementKey -> Maybe (Dict ViewElementKey ViewElement) -> Maybe ViewElement
+getElement viewElementKey =
+    Maybe.andThen (Dict.get viewElementKey)
 
 view : Model -> Html Msg
-view { pane, graph } =
+view { pane, root } =
     div []
         [ SplitPane.view
             viewConfig
-            (svgView graph)
+            (svgView root)
             (div [ id "monaco", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%"] [])
             pane
         ]
@@ -347,7 +321,7 @@ subscriptions model =
                     (Decode.map (\_ -> DragEnd) Mouse.eventDecoder)
                 ]
 
-        readySubscriptions : ReadyState -> Sub Msg
+        readySubscriptions : AppState -> Sub Msg
         readySubscriptions { drag, pointDrag, zoom } =
             Sub.batch
                 [ Zoom.subscriptions zoom ZoomMsg
@@ -363,8 +337,8 @@ subscriptions model =
                 ]
     in
     Sub.batch
-        [ case model.graph of
-            Init _ ->
+        [ case model.root of
+            Init ->
                 Sub.none
 
             Ready state ->
@@ -374,28 +348,31 @@ subscriptions model =
         , messageReceiver MonacoEditorValueChanged
         ]
 
-type GraphModel
-    = Init (Graph Container SubPathEdge)
-    | Ready ReadyState
+type Root
+    = Init
+    | Ready AppState
 
 type alias SubPathEdge = 
     { points : List (Float, Float)
     }
 
-type alias ReadyState =
-    { drag : Maybe (Drag NodeId)
-    , pointDrag : Maybe (Drag (NodeId, NodeId, Int))
-    , graph : Graph Container SubPathEdge
+type alias AppState =
+    { drag : Maybe (Drag ViewElementKey)
+    , pointDrag : Maybe (Drag ViewRelationPointKey)
+    -- , graph : Graph Container SubPathEdge
+    , views : Dict String View
+    , selectedView : Maybe String
     , zoom : Zoom
-
     -- The position and dimensions of the svg element.
     , element : Element
     }
 
+
+
 -- Select information
 type alias Drag a =
     { current : ( Float, Float ) -- current mouse position
-    , index : a -- selected node id orpoint index
+    , index : a -- selected node id or point index
     , start : ( Float, Float ) -- start mouse position
     , delta : ( Float, Float ) -- delta between start and node center to do ajustment during movement
     }
@@ -416,66 +393,6 @@ getElementPosition : Cmd Msg
 getElementPosition =
     Task.attempt ReceiveElementPosition (Dom.getElement elementId)
 
-convertToGraph : (Domain, (Dict String View)) -> Graph Container SubPathEdge
-convertToGraph (domain, views) =
-    case Dict.get "view-1" views of
-        Just v ->
-            let
-                keyToIdMap =
-                    v.elements
-                    |> Dict.toList
-                    |> List.indexedMap
-                        (\i (k, _) ->
-                            (k, i)
-                        )
-                    |> Dict.fromList
-
-                nodes =
-                    v.elements
-                    |> Dict.toList
-                    |> List.indexedMap createNode
-
-                relations =
-                    v.elements
-                    |> Dict.toList
-                    |> List.indexedMap (createRelation keyToIdMap)
-                    |> List.concat
-            in
-            Graph.fromNodesAndEdges
-                nodes
-                relations
-
-                -- [ Node 0 <| Container "" (150, 125)
-                -- , Node 1 <| Container "" (550, 125)
-                -- ]
-                -- [ Edge 0 1 <| SubPathEdge [(350, 150)]
-                -- ]
-        Nothing ->
-            Graph.empty 
-
-createNode : Int -> (String, ViewElement) -> Node Container
-createNode i (k, vv) =
-    Node i <| Container k (vv.x, vv.y)
-
-createRelation : Dict String Int ->  Int -> (String, ViewElement) -> List (Edge SubPathEdge)
-createRelation nameToIdMap i (k, vv) =
-    case vv.relations of
-        Nothing -> []
-        Just rels ->
-            rels
-            |> Dict.toList
-            |> List.filterMap
-                ( \(relationName, points) ->
-                        D.fromString relationDecoder relationName
-                        |> Result.toMaybe
-                        |> Maybe.map .target
-                        |> Maybe.andThen (\t -> Dict.get t nameToIdMap)
-                        |> Maybe.map (\t -> (t, points |> List.map (\vr -> (vr.x, vr.y))))
-                )
-            |> List.map
-                ( \(targetId, points) ->
-                    Edge i targetId <| SubPathEdge points
-                )
 
 {-| is it enough to put the point ?
 -}
@@ -511,14 +428,14 @@ floatRemainderBy : Float -> Float -> Float
 floatRemainderBy divisor n =
   n - toFloat(truncate (n / divisor)) * divisor
 
-handleDragAt : ( Float, Float ) -> ReadyState -> ( GraphModel, Cmd Msg )
+handleDragAt : ( Float, Float ) -> AppState -> ( Root, Cmd Msg )
 handleDragAt xy ({ drag, pointDrag } as state) =
     case (drag, pointDrag) of
         (Just { start, index, delta }, Nothing) ->
             ( Ready
                 { state
                     | drag = Just { start = start, current = xy, index = index, delta = delta }
-                    , graph = updateNodePosition delta index xy state
+                    , views = updateElementPosition delta index xy state
                 }
             , Cmd.none
             )
@@ -527,7 +444,7 @@ handleDragAt xy ({ drag, pointDrag } as state) =
             ( Ready
                 { state
                     | pointDrag = Just { start = start, current = xy, index = index, delta = delta}
-                    , graph = updatePointPosition delta index xy state
+                    , views = updatePointPosition delta index xy state
                 }
             , Cmd.none
             )
@@ -535,77 +452,52 @@ handleDragAt xy ({ drag, pointDrag } as state) =
         _ ->
             ( Ready state, Cmd.none )
 
-updatePointPosition : (Float, Float) -> (NodeId, NodeId, Int) -> ( Float, Float ) -> ReadyState -> Graph Container SubPathEdge
-updatePointPosition delta (fromId, toId, index) xy state =
-    state.graph
-        |> Graph.update
-            fromId
-            (Maybe.map (
-                \nodeCtx ->
-                    (updateOutgoingEdges
-                        (toId, index)
-                        delta
-                        (shiftPosition
-                            state.zoom
-                            (state.element.x, state.element.y)
-                            xy
-                        )
-                        nodeCtx
-                    )
-                )
-            )
 
-updateNodePosition : (Float, Float) -> NodeId -> ( Float, Float ) -> ReadyState -> Graph Container SubPathEdge
-updateNodePosition delta index xy state =
-    Graph.update
-        index
-        (Maybe.map (
-            \nodeCtx ->
-                (updateNode
-                    delta
-                    (shiftPosition
-                        state.zoom
-                        (state.element.x, state.element.y)
-                        xy
-                    )
-                    nodeCtx
-                )
-            )
-        )
-        state.graph
 
-updateOutgoingEdges : (NodeId, Int) -> ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
-updateOutgoingEdges (nodeId, index) (dx, dy) ( x, y ) nodeCtx =
+
+updatePointPosition : (Float, Float) -> ViewRelationPointKey -> ( Float, Float ) -> AppState -> Dict String View
+updatePointPosition (deltaX, deltaY) (viewElementKey, relation, viewRelationPointIndex) xy state =
     let
-        updateXY i currentXY =
-            if i == index then
-                (x - dx, y - dy)
+        (shiftedX, shiftedY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
+        updateXY i viewRelationPoint =
+            if i == viewRelationPointIndex then
+                { viewRelationPoint | x = shiftedX - deltaX, y = shiftedY - deltaY }
             else
-                currentXY
+                viewRelationPoint
 
-        updateEdgePoints spe = { spe | points = List.indexedMap updateXY spe.points }
+        updatedPoints = List.indexedMap updateXY
+        updatedRelations : Dict Relation (List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint)
+        updatedRelations = Dict.update relation <| Maybe.map updatedPoints
 
-        updatedEdges =  IntDict.update nodeId ( Maybe.map updateEdgePoints )
+        updatedElements : Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
+        updatedElements =
+            Dict.update viewElementKey <| Maybe.map (\ve -> { ve | relations = updatedRelations ve.relations } )
+        updatedViews : Dict String View
+        updatedViews =
+            case state.selectedView of
+                Just sv ->
+                    Dict.update sv (Maybe.map (\v -> { v | elements = updatedElements v.elements } )) state.views
+                Nothing -> state.views
+
     in
-    nodeCtx.outgoing |> updatedEdges |> updateContextWithOutgoing nodeCtx
+    updatedViews
 
-updateNode : ( Float, Float ) -> ( Float, Float ) -> NodeContext Container SubPathEdge -> NodeContext Container SubPathEdge
-updateNode (dx, dy) ( x, y ) nodeCtx =
+updateElementPosition : (Float, Float) -> ViewElementKey -> ( Float, Float ) -> AppState -> Dict String View
+updateElementPosition (deltaX, deltaY) viewElementKey xy state =
     let
-        nodeValue = nodeCtx.node.label
+        (shiftedX, shiftedY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
+        updatedElements : Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
+        updatedElements =
+            Dict.update viewElementKey <| Maybe.map (\ve -> { ve | x = shiftedX - deltaX, y = shiftedY - deltaY } )
+        updatedViews : Dict String View
+        updatedViews =
+            case state.selectedView of
+                Just sv ->
+                    Dict.update sv (Maybe.map (\v -> { v | elements = updatedElements v.elements } )) state.views
+                Nothing -> state.views
     in
-    updateContextWithValue nodeCtx { nodeValue | xy = (x - dx, y - dy) }
+    updatedViews
 
-updateContextWithOutgoing : NodeContext Container SubPathEdge -> (Adjacency SubPathEdge) -> NodeContext Container SubPathEdge
-updateContextWithOutgoing nodeCtx value =
-    { nodeCtx | outgoing = value }
-
-updateContextWithValue : NodeContext Container SubPathEdge -> Container -> NodeContext Container SubPathEdge
-updateContextWithValue nodeCtx value =
-    let
-        node = nodeCtx.node
-    in
-    { nodeCtx | node = { node | label = value } }
 
 {-| The mouse events for drag start, drag at and drag end read the client
 position of the cursor, which is relative to the browser viewport. However,
@@ -630,13 +522,13 @@ viewConfig =
         , customSplitter = Nothing
         }
 
-svgView : GraphModel -> Html Msg
+svgView : Root -> Html Msg
 svgView model =
     let
         zoomEvents : List (Attribute Msg)
         zoomEvents =
             case model of
-                Init _ ->
+                Init ->
                     []
 
                 Ready { zoom } ->
@@ -644,7 +536,7 @@ svgView model =
         zoomTransformAttr : Attribute Msg
         zoomTransformAttr =
             case model of
-                Init _ ->
+                Init ->
                     class []
 
                 Ready { zoom } ->
@@ -652,7 +544,7 @@ svgView model =
 
         transform10 = 
             case model of
-                Init _ -> gridCellSize
+                Init -> gridCellSize
                 Ready { zoom } ->
                     zoom |> Zoom.asRecord |> .scale |> (*) 10
 
@@ -660,7 +552,7 @@ svgView model =
 
         getXY =
             case model of
-                Init _ -> ( 0, 0 )
+                Init -> ( 0, 0 )
                 Ready { zoom } ->
                     zoom
                         |> Zoom.asRecord
@@ -692,66 +584,104 @@ svgView model =
 -- Grid comes from https://gist.github.com/leonardfischer/fc4d1086c64b2c1324c93dcd0beed004
 
 
-renderGraph : GraphModel -> Svg Msg
+renderGraph : Root -> Svg Msg
 renderGraph model =
     case model of
-        Init _ ->
+        Init ->
             text ""
 
-        Ready { drag, pointDrag, graph } ->
-            g []
-                [ Graph.edges graph
-                    |> List.map
-                        (\e ->
-                            case pointDrag of
-                                Just { index } ->
+        Ready { drag, pointDrag, views, selectedView } ->
+            case getCurrentView selectedView views of
+                Just v ->
+                    g []
+                        [ getEdges v
+                            |> List.map
+                                (\edge ->
                                     let
-                                        (from, to, i) = index
+                                        viewRelationKey = Tuple.pair edge.source.name (edge.target.name, edge.description)
                                     in
-                                    if e.to == to && e.from == from then
-                                        linkElement (Just i) graph e
-                                    else
-                                        linkElement Nothing graph e
-                                Nothing ->
-                                    linkElement Nothing graph e
-                        )
-                    |> g [ class [ "links" ] ]
-                , Graph.nodes graph
-                    |> List.map (drawContainer drag)
-                    |> g [ class [ "nodes" ] ]
-                ]
+                                    case pointDrag of
+                                        Just { index } ->
+                                            let
+                                                (viewElementKey, relation, viewRelationPointIndex) = index
+                                                targetName = Tuple.first relation
+                                            in
+                                            if edge.source.name == viewElementKey && edge.target.name == targetName then
+                                                linkElement viewRelationKey (Just viewRelationPointIndex) edge
+                                            else
+                                                linkElement viewRelationKey Nothing edge
+                                        Nothing ->
+                                            linkElement viewRelationKey Nothing edge
+                                )
+                            |> g [ class [ "links" ] ]
+                        , getContainers v
+                            |> List.map (drawContainer drag)
+                            |> g [ class [ "nodes" ] ]
+                        ]
+                Nothing -> text ""
 
-drawContainer : Maybe (Drag NodeId) -> { id : NodeId, label : { name : String, xy : (Float, Float) } } -> Svg Msg
-drawContainer drag n =
+getEdges : View -> List Edge
+getEdges currentView =
+    let
+        getTargetElement key = Dict.get key currentView.elements
+
+        getTargetAndPoints : (ViewElementKey, ViewElement) -> List Edge
+        getTargetAndPoints (viewElementKey, viewElement) =
+            let
+                source = Tuple.pair viewElement.x viewElement.y
+                sourceContainer = Container viewElementKey source
+            in
+            Dict.toList viewElement.relations
+                |> List.filterMap (\(relation, points) ->
+                    Tuple.first relation |> getTargetElement |> Maybe.map (\te -> (relation, te, points))
+                )
+                |> List.map (\(relation, targetElement, points) ->
+                    let
+                        convertedViewRelationPoints =
+                            points |> List.map (\vrp -> Tuple.pair vrp.x vrp.y)
+                        
+                        target = Tuple.pair targetElement.x targetElement.y
+                        targetElementKey = Tuple.first relation
+                        description = Tuple.second relation
+                        targetContainer =  Container targetElementKey target
+                    in
+                    Edge sourceContainer targetContainer convertedViewRelationPoints description
+                )
+    in
+    Dict.toList currentView.elements
+        |> List.concatMap getTargetAndPoints
+
+
+getContainers : View -> List Container
+getContainers currentView =
+    Dict.toList currentView.elements
+        |> List.map (\(viewElementKey, viewElement) -> Container viewElementKey (Tuple.pair viewElement.x viewElement.y))
+
+drawContainer : Maybe (Drag ViewElementKey) -> Container -> Svg Msg
+drawContainer drag container =
     let
         mouseDownAttr
             = Mouse.onDown
             <| onlyMainButton
-            >> Maybe.map (DragStart n.id)
+            >> Maybe.map (DragViewElementStart container.name)
             >> Maybe.withDefault NoOp
     in
     case drag of
         Just { index } ->
-            if index == n.id then
-                renderContainerSelected n.label mouseDownAttr
+            if index == container.name then
+                renderContainerSelected container mouseDownAttr
             else
-                renderContainer n.label mouseDownAttr
+                renderContainer container mouseDownAttr
         Nothing ->
-            renderContainer n.label mouseDownAttr
+            renderContainer container mouseDownAttr
 
-linkElement : Maybe Int -> Graph Container SubPathEdge -> Edge SubPathEdge -> Svg Msg
-linkElement selectedIndex graph edge =
-    let
-        (source, target) = (Graph.get edge.from graph, Graph.get edge.to graph)
-    in
-    case (source, target) of
-        (Just sourceNode, Just targetNode) ->
-            edgeBetweenContainers
-                (sourceNode, targetNode, edge)
-                selectedIndex
-                (Mouse.onDown <| onlyMainButton >> Maybe.map (DragSubPathStart edge) >> Maybe.withDefault NoOp)
-                (onMouseDownPoint edge)
-        _ -> text ""
+linkElement : ViewRelationKey -> Maybe Int -> Edge -> Svg Msg
+linkElement viewRelationKey selectedIndex edge =
+    edgeBetweenContainers
+        edge
+        selectedIndex
+        (Mouse.onDown <| onlyMainButton >> Maybe.map (ClickEdgeStart viewRelationKey) >> Maybe.withDefault NoOp)
+        (onMouseDownPoint viewRelationKey)
 
 onlyMainButton : Event -> Maybe (Float, Float)
 onlyMainButton e =
@@ -759,12 +689,15 @@ onlyMainButton e =
         Mouse.MainButton -> Just e.clientPos
         _ -> Nothing
 
-onMouseDownPoint : Edge SubPathEdge -> Int -> Attribute Msg
-onMouseDownPoint edge index =
+onMouseDownPoint : ViewRelationKey -> Int -> Attribute Msg
+onMouseDownPoint (viewRelationElementKey, relation) index =
+    let
+        viewRelationPointKey = (viewRelationElementKey, relation, index)
+    in
     Mouse.onDown
         (\e ->
             case e.button of
-                Mouse.MainButton -> DragPointStart index edge e.clientPos
-                Mouse.SecondButton -> RemovePoint index edge
+                Mouse.MainButton -> DragPointStart viewRelationPointKey e.clientPos
+                Mouse.SecondButton -> RemovePoint viewRelationPointKey
                 _ -> NoOp
         )
