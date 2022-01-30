@@ -1,7 +1,6 @@
 port module Main exposing (..)
 
 import Browser
-import IntDict
 import SplitPane exposing (Orientation(..), ViewConfig, createViewConfig)
 import Browser.Dom as Dom
 import Basics.Extra exposing (maxSafeInteger)
@@ -17,7 +16,6 @@ import TypedSvg.Core exposing (Svg, Attribute)
 -- import Graph exposing (Graph, Node, Edge, NodeContext, NodeId, Adjacency)
 import Zoom exposing (Zoom, OnZoom)
 import Task
-import Html exposing (source)
 import Html.Attributes
 import Elements exposing
     ( renderContainer, renderContainerSelected
@@ -128,7 +126,7 @@ update msg model =
                         (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
                         delta = getCurrentView state.selectedView state.views
                             |> getViewElementsOfCurrentView
-                            |> Maybe.andThen (Dict.get viewElementKey)
+                            |> getElement viewElementKey
                             |> Maybe.map (\ve -> ( shiftedStartX - ve.x, shiftedStartY - ve.y ))
                             |> Maybe.withDefault ( 0, 0 )
                     in
@@ -144,7 +142,7 @@ update msg model =
 
                         delta = getCurrentView state.selectedView state.views
                             |> getViewElementsOfCurrentView
-                            |> Maybe.andThen (Dict.get viewElementKey)
+                            |> getElement viewElementKey
                             |> Maybe.map .relations
                             |> Maybe.andThen (Dict.get relation)
                             |> Maybe.map (List.drop pointIndex)
@@ -162,19 +160,13 @@ update msg model =
                 RemovePoint (viewElementKey, relation, pointIndex) ->
                     let
                         removePointAtIndex list = List.take pointIndex list ++ List.drop (pointIndex + 1) list
-                        updateRelations : Dict Relation (List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint)
-                        updateRelations = Dict.update relation <| Maybe.map removePointAtIndex
                         
-                        updateElements : Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
-                        updateElements =
-                            Dict.update viewElementKey <| Maybe.map (\ve -> { ve | relations = updateRelations ve.relations } )
-                        updateViews =
-                            case state.selectedView of
-                                Just sv ->
-                                    Dict.update sv (Maybe.map (\v -> { v | elements = updateElements v.elements } )) state.views
-                                Nothing -> state.views
+                        updatedViews =
+                            updatePointsInRelations relation removePointAtIndex
+                            |> updateRelationsInElements viewElementKey
+                            |> updateElementsInViews state.selectedView state.views
                     in
-                    ( { model | root = Ready { state | views = updateViews } }, Cmd.none )
+                    ( { model | root = Ready { state | views = updatedViews } }, Cmd.none )
 
                 ClickEdgeStart (viewElementKey, relation) xy ->
                     let
@@ -190,14 +182,6 @@ update msg model =
                             |> getElement (Tuple.first relation)
                             |> Maybe.map (\s -> (s.x, s.y))
 
-                        -- (sourceXY, targetXY) = currentView
-                        --     |> Maybe.map (getSourceAndTargetElements (viewElementKey, relation) )
-                        --     |> Maybe.map (\st ->
-                        --         Tuple.mapBoth
-                        --             (Maybe.map (\fValue -> Tuple.pair fValue.x fValue.y))
-                        --             (Maybe.map (\sValue -> Tuple.pair sValue.x sValue.y))
-                        --             st
-                        --     )
                     in
                     case (sourceXY, targetXY, currentView) of
                         (Just sxy, Just txy, Just cv) ->
@@ -250,20 +234,15 @@ update msg model =
                                     |> List.reverse
 
                                 updatedPoints = \_ -> updatedList |> List.map (\(x, y) -> ViewRelationPoint x y)
-                                updatedRelations : Dict Relation (List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint)
-                                updatedRelations = Dict.update relation <| Maybe.map updatedPoints
                                 
-                                updatedElements : Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
-                                updatedElements =
-                                    Dict.update viewElementKey <| Maybe.map (\ve -> { ve | relations = updatedRelations ve.relations } )
-                                updatedViews =
-                                    case state.selectedView of
-                                        Just sv ->
-                                            Dict.update sv (Maybe.map (\v -> { v | elements = updatedElements v.elements } )) state.views
-                                        Nothing -> state.views
+                                updatedViewsValue =
+                                    updatedPoints
+                                    |> updatePointsInRelations relation 
+                                    |> updateRelationsInElements viewElementKey
+                                    |> updateElementsInViews state.selectedView state.views
 
                             in
-                            ( { model | root = Ready { state | views = updatedViews } }, Cmd.none )
+                            ( { model | root = Ready { state | views = updatedViewsValue } }, Cmd.none )
                         _ -> ( model, Cmd.none )
 
                 DragAt xy ->
@@ -286,18 +265,6 @@ update msg model =
 
                 NoOp -> ( model, Cmd.none )
 
-getViewElementsOfCurrentView : Maybe View -> Maybe (Dict ViewElementKey ViewElement)
-getViewElementsOfCurrentView =
-    Maybe.map .elements
-
-
-getCurrentView : Maybe String -> Dict String Domain.View -> Maybe View
-getCurrentView selectedView views = selectedView |> Maybe.andThen (\sv -> Dict.get sv views)
-
-
-getElement : ViewElementKey -> Maybe (Dict ViewElementKey ViewElement) -> Maybe ViewElement
-getElement viewElementKey =
-    Maybe.andThen (Dict.get viewElementKey)
 
 view : Model -> Html Msg
 view { pane, root } =
@@ -453,8 +420,6 @@ handleDragAt xy ({ drag, pointDrag } as state) =
             ( Ready state, Cmd.none )
 
 
-
-
 updatePointPosition : (Float, Float) -> ViewRelationPointKey -> ( Float, Float ) -> AppState -> Dict String View
 updatePointPosition (deltaX, deltaY) (viewElementKey, relation, viewRelationPointIndex) xy state =
     let
@@ -466,21 +431,10 @@ updatePointPosition (deltaX, deltaY) (viewElementKey, relation, viewRelationPoin
                 viewRelationPoint
 
         updatedPoints = List.indexedMap updateXY
-        updatedRelations : Dict Relation (List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint)
-        updatedRelations = Dict.update relation <| Maybe.map updatedPoints
-
-        updatedElements : Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
-        updatedElements =
-            Dict.update viewElementKey <| Maybe.map (\ve -> { ve | relations = updatedRelations ve.relations } )
-        updatedViews : Dict String View
-        updatedViews =
-            case state.selectedView of
-                Just sv ->
-                    Dict.update sv (Maybe.map (\v -> { v | elements = updatedElements v.elements } )) state.views
-                Nothing -> state.views
-
     in
-    updatedViews
+    updatePointsInRelations relation updatedPoints
+    |> updateRelationsInElements viewElementKey 
+    |> updateElementsInViews state.selectedView state.views
 
 updateElementPosition : (Float, Float) -> ViewElementKey -> ( Float, Float ) -> AppState -> Dict String View
 updateElementPosition (deltaX, deltaY) viewElementKey xy state =
@@ -489,15 +443,8 @@ updateElementPosition (deltaX, deltaY) viewElementKey xy state =
         updatedElements : Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
         updatedElements =
             Dict.update viewElementKey <| Maybe.map (\ve -> { ve | x = shiftedX - deltaX, y = shiftedY - deltaY } )
-        updatedViews : Dict String View
-        updatedViews =
-            case state.selectedView of
-                Just sv ->
-                    Dict.update sv (Maybe.map (\v -> { v | elements = updatedElements v.elements } )) state.views
-                Nothing -> state.views
     in
-    updatedViews
-
+    updateElementsInViews state.selectedView state.views updatedElements
 
 {-| The mouse events for drag start, drag at and drag end read the client
 position of the cursor, which is relative to the browser viewport. However,
@@ -595,6 +542,7 @@ renderGraph model =
                 Just v ->
                     g []
                         [ getEdges v
+                            |> Debug.todo "called at each rendering and can be cashed?"
                             |> List.map
                                 (\edge ->
                                     let
@@ -619,43 +567,6 @@ renderGraph model =
                             |> g [ class [ "nodes" ] ]
                         ]
                 Nothing -> text ""
-
-getEdges : View -> List Edge
-getEdges currentView =
-    let
-        getTargetElement key = Dict.get key currentView.elements
-
-        getTargetAndPoints : (ViewElementKey, ViewElement) -> List Edge
-        getTargetAndPoints (viewElementKey, viewElement) =
-            let
-                source = Tuple.pair viewElement.x viewElement.y
-                sourceContainer = Container viewElementKey source
-            in
-            Dict.toList viewElement.relations
-                |> List.filterMap (\(relation, points) ->
-                    Tuple.first relation |> getTargetElement |> Maybe.map (\te -> (relation, te, points))
-                )
-                |> List.map (\(relation, targetElement, points) ->
-                    let
-                        convertedViewRelationPoints =
-                            points |> List.map (\vrp -> Tuple.pair vrp.x vrp.y)
-                        
-                        target = Tuple.pair targetElement.x targetElement.y
-                        targetElementKey = Tuple.first relation
-                        description = Tuple.second relation
-                        targetContainer =  Container targetElementKey target
-                    in
-                    Edge sourceContainer targetContainer convertedViewRelationPoints description
-                )
-    in
-    Dict.toList currentView.elements
-        |> List.concatMap getTargetAndPoints
-
-
-getContainers : View -> List Container
-getContainers currentView =
-    Dict.toList currentView.elements
-        |> List.map (\(viewElementKey, viewElement) -> Container viewElementKey (Tuple.pair viewElement.x viewElement.y))
 
 drawContainer : Maybe (Drag ViewElementKey) -> Container -> Svg Msg
 drawContainer drag container =

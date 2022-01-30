@@ -12,7 +12,7 @@
 
 [ ] forbid points to move under container
 
-[ ] update model
+[x] update model
 
 ------
 [x] disable `wrap` in monaco editor
