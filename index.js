@@ -113,6 +113,15 @@ require(['vs/editor/editor.main'], () => {
       currentModel['views']['view-1']['elements'][elementName]['x'] = parseFloat(xy[0]);
       currentModel['views']['view-1']['elements'][elementName]['y'] = parseFloat(xy[1]);
       editor.setValue(YAML.stringify(currentModel))
+    } else if (splitted.length == 4) {
+      const elementName = splitted[0];
+      const relationName = splitted[1];
+      const index = parseInt(splitted[2]);
+      const xy = splitted[3].split(',');
+      currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['x'] = parseFloat(xy[0]);
+      currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['y'] = parseFloat(xy[1]);
+      editor.setValue(YAML.stringify(currentModel))
     }
+    console.log(message)
   });
 });

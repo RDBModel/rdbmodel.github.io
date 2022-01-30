@@ -116,7 +116,7 @@ getRelationFromString value =
 
 getStringFromRelation : Relation -> String
 getStringFromRelation relation =
-  Tuple.first relation ++ relationSplitter ++ Tuple.second relation
+  Tuple.second relation ++ relationSplitter ++ Tuple.first relation
 
 
 getNameByKey : Domain -> String -> Maybe String
