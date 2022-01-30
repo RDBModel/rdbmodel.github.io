@@ -103,12 +103,12 @@ update msg model =
 
                 MonacoEditorValueChanged val ->
                     let
-                        domain = D.fromString domainDecoder val |> Debug.todo "Validate views based on domain"
+                        domain = D.fromString domainDecoder val
                         views = D.fromString viewsDecoder val
                     in
                     case views of
                         Ok vs ->
-                            ( { model | root = Ready { state | views = vs } }, Cmd.none )
+                            ( { model | root = Ready { state | views = vs, selectedView = Dict.keys vs |> List.head } }, Cmd.none )
 
                         _ -> (model, Cmd.none)
 
