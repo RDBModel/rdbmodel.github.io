@@ -104,7 +104,7 @@ require(['vs/editor/editor.main'], () => {
   );
 
   app.ports.sendMessage.subscribe((message) => {
-    const currentModel = YAML.parse(editor.getValue())
+    const currentModel = YAML.parse(editor.getValue());
     const splitted = message.split('|');
     if (splitted.length == 2) {
       // element moved
@@ -112,15 +112,35 @@ require(['vs/editor/editor.main'], () => {
       const xy = splitted[1].split(',');
       currentModel['views']['view-1']['elements'][elementName]['x'] = parseFloat(xy[0]);
       currentModel['views']['view-1']['elements'][elementName]['y'] = parseFloat(xy[1]);
-      editor.setValue(YAML.stringify(currentModel))
+      editor.setValue(YAML.stringify(currentModel));
     } else if (splitted.length == 4) {
       const elementName = splitted[0];
       const relationName = splitted[1];
-      const index = parseInt(splitted[2]);
-      const xy = splitted[3].split(',');
-      currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['x'] = parseFloat(xy[0]);
-      currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['y'] = parseFloat(xy[1]);
-      editor.setValue(YAML.stringify(currentModel))
+      if (splitted[2] === 'del') {
+        const indexToDelete = parseInt(splitted[3]);
+        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName].splice(indexToDelete, 1);
+      } else {
+        const index = parseInt(splitted[2]);
+        const xy = splitted[3].split(',');
+        if (!currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]) {
+          currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index] = {};
+        }
+        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['x'] = parseFloat(xy[0]);
+        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['y'] = parseFloat(xy[1]);
+      }
+      editor.setValue(YAML.stringify(currentModel));
+    } else if (splitted.length == 5) {
+      const elementName = splitted[0];
+      const relationName = splitted[1];
+      const type = splitted[2];
+      if (type === 'add') {
+        const index = parseInt(splitted[3]);
+        const xy = splitted[4].split(',');
+        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName].splice(index, 0, {});
+        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['x'] = parseFloat(xy[0]);
+        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['y'] = parseFloat(xy[1]);
+        editor.setValue(YAML.stringify(currentModel));
+      }
     }
     console.log(message)
   });

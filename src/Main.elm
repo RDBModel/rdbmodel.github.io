@@ -164,7 +164,9 @@ update msg model =
                             |> updateRelationsInElements viewElementKey
                             |> updateElementsInViews state.selectedView state.views
                     in
-                    ( { model | root = Ready { state | views = updatedViews } }, Cmd.none )
+                    ( { model | root = Ready { state | views = updatedViews } }
+                    , sendMessage (viewElementKey ++ "|" ++ getStringFromRelation relation ++ "|del|" ++ String.fromInt pointIndex )
+                    )
 
                 ClickEdgeStart (viewElementKey, relation) xy ->
                     let
@@ -217,15 +219,17 @@ update msg model =
                                     (txy, (txy, magicIntMax))
                                     allPoints
 
-                                updatedList = List.foldr
-                                    (\a -> \b ->
+                                (listWithNewPoint, indexOfNewPoint, _ ) = List.foldr
+                                    (\a -> \(b, i, found) ->
                                         if insertAfterValue == a then
-                                            a :: spxy :: b
+                                            (a :: spxy :: b, i, True)
                                         else
-                                            a :: b
+                                            (a :: b, if found then i else i + 1, found)
                                     )
-                                    []
+                                    ([], 0, False)
                                     allPoints
+
+                                updatedList = listWithNewPoint
                                     |> List.drop 1
                                     |> List.reverse
                                     |> List.drop 1
@@ -240,7 +244,10 @@ update msg model =
                                     |> updateElementsInViews state.selectedView state.views
 
                             in
-                            ( { model | root = Ready { state | views = updatedViewsValue } }, Cmd.none )
+                            ( { model | root = Ready { state | views = updatedViewsValue } }
+                            ,  sendMessage (viewElementKey ++ "|" ++ getStringFromRelation relation ++ "|add|" ++ String.fromInt (List.length updatedList - indexOfNewPoint)
+                                    ++ "|" ++ String.fromFloat (Tuple.first spxy) ++ "," ++ String.fromFloat (Tuple.second spxy))
+                            )
                         _ -> ( model, Cmd.none )
 
                 DragAt xy ->
