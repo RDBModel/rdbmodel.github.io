@@ -3,18 +3,21 @@
 
 [ ] undo/redo support (https://package.elm-lang.org/packages/elm-community/undo-redo)
 
-[ ] create parser for rgb
+[ ] create parser for rgb (https://package.elm-lang.org/packages/elm/parser/latest/)
 
-[ ] validate yaml on elm side
 [ ] return errors to js
 [ ] display errors (how?)
-[ ] move point values from Elm to js
 
 [ ] forbid points to move under container
 
-[x] update model
+[ ] support github
+[ ] display validation errors
+
 
 ------
+[x] validate yaml on elm side
+[x] update model
+[x] move point values from Elm to js
 [x] disable `wrap` in monaco editor
 [x] text inside rect 2022-01-01
 

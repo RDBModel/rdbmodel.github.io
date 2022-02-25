@@ -103,6 +103,7 @@ require(['vs/editor/editor.main'], () => {
     }
   );
 
+  // TODO refactor
   app.ports.sendMessage.subscribe((message) => {
     const currentModel = YAML.parse(editor.getValue());
     const splitted = message.split('|');

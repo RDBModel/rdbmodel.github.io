@@ -38,11 +38,12 @@ main =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    (Model (SplitPane.init Horizontal) Init, getElementPosition)
+    (Model (SplitPane.init Horizontal) Init "", getElementPosition)
 
 type alias Model =
     { pane : SplitPane.State
     , root : Root
+    , errors : String
     }
 
 
@@ -101,14 +102,16 @@ update msg model =
 
                 MonacoEditorValueChanged val ->
                     let
-                        domain = D.fromString domainDecoder val
-                        views = D.fromString viewsDecoder val
+                        rdb = D.fromString rdbDecoder val
                     in
-                    case views of
-                        Ok vs ->
-                            ( { model | root = Ready { state | views = vs, selectedView = Dict.keys vs |> List.head } }, Cmd.none )
+                    case rdb of
+                        Ok (domain, vs) ->
+                            ( { model | errors = "", root = Ready { state | views = vs, selectedView = Dict.keys vs |> List.head } }, Cmd.none )
 
-                        _ -> (model, Cmd.none)
+                        Err err ->
+                            case err of
+                                D.Parsing errMsg -> ( { model | errors = errMsg }, Cmd.none)
+                                D.Decoding errMsg -> ( { model | errors = errMsg }, Cmd.none)
 
                 MonacoSendValue val ->
                     ( model, sendMessage val )

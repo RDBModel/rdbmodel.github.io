@@ -1,8 +1,17 @@
-module DomainDecoder exposing (..)
+module DomainDecoder exposing (rdbDecoder)
 
 import Yaml.Decode exposing (..)
 import Domain exposing (..)
 import Dict exposing (Dict)
+import Validation exposing (validateViews, validateDomain)
+
+
+rdbDecoder : Decoder (Domain, Dict String View)
+rdbDecoder =
+  map2 Tuple.pair
+    (domainDecoder |> andThen (validateDomain >> fromResult))
+    viewsDecoder
+  |> andThen (validateViews >> fromResult)
 
 
 domainDecoder : Decoder Domain
@@ -96,7 +105,7 @@ viewRelationPointDecoder =
     (field "y" float)
 
 
-relationSplitter = " - "
+
 
 getRelationFromString : String -> Result String Relation
 getRelationFromString value =
@@ -112,11 +121,6 @@ getRelationFromString value =
       Ok (t, d)
     _ ->
       Err "Relations should be formatted like 'purpose - target'"
-
-
-getStringFromRelation : Relation -> String
-getStringFromRelation relation =
-  Tuple.second relation ++ relationSplitter ++ Tuple.first relation
 
 
 getNameByKey : Domain -> String -> Maybe String

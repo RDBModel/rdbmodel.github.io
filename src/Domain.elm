@@ -164,3 +164,11 @@ getRelationPoints relation =
 getPoint : Int -> Maybe (List ViewRelationPoint) -> Maybe ViewRelationPoint
 getPoint index =
   Maybe.map (List.drop index) >> Maybe.andThen (List.head)
+
+relationSplitter : String
+relationSplitter = " - "
+
+
+getStringFromRelation : Relation -> String
+getStringFromRelation relation =
+  Tuple.second relation ++ relationSplitter ++ Tuple.first relation
