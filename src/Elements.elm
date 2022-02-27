@@ -30,13 +30,13 @@ gridCellSize : Float
 gridCellSize = 10
 
 
-renderContainerSelected : Container -> Attribute msg -> Svg msg
+renderContainerSelected : Container -> Maybe (Attribute msg) -> Svg msg
 renderContainerSelected = renderContainerInternal True
 
-renderContainer : Container -> Attribute msg -> Svg msg
+renderContainer : Container -> Maybe (Attribute msg) -> Svg msg
 renderContainer = renderContainerInternal False
 
-renderContainerInternal : Bool -> Container -> Attribute msg -> Svg msg
+renderContainerInternal : Bool -> Container -> Maybe (Attribute msg) -> Svg msg
 renderContainerInternal selected { name, xy } event =
     let
         (xCenter, yCenter) = xy
@@ -46,10 +46,15 @@ renderContainerInternal selected { name, xy } event =
                 String.slice 0 15 a
             else
                 a
+
+        eventToAdd = 
+            case event of
+                Just ev -> [ ev ]
+                Nothing -> []
     in
     g []
         [ rect
-            [ x <| Px <| xCenter - containerWidth / 2
+            ([ x <| Px <| xCenter - containerWidth / 2
             , y <| Px <| yCenter - containerHeight / 2
             , width <| Px containerWidth
             , height <| Px containerHeight
@@ -57,18 +62,16 @@ renderContainerInternal selected { name, xy } event =
             , Attrs.fill <| Paint <| Color.white
             , Attrs.stroke <| Paint <| if selected then Color.blue else Color.black
             , Attrs.strokeWidth <| Px 1
-            , event
-            ] []
+            ] ++ eventToAdd) []
         , text_
-            [ x <| Px <| xCenter
+            ([ x <| Px <| xCenter
             , y <| Px <| yCenter
             , width <| Px containerWidth
             , height <| Px containerHeight
             , dominantBaseline DominantBaselineMiddle
             , textAnchor AnchorMiddle
             , cursor CursorDefault
-            , event
-            ]
+            ] ++ eventToAdd)
             [text <| updatedName name ]
         ]
 
@@ -181,7 +184,7 @@ gridRect events =
 edgeStrokeWidthExtend : number
 edgeStrokeWidthExtend = 3
 
-edgeBetweenContainers edge selectedIndex addPointEvent removePointEvent =
+edgeBetweenContainers edge selectedIndex addPointEvent removeOrDragPointEvent =
      let
         points = edge.points
         (sx, sy) = edge.source.xy
@@ -224,6 +227,11 @@ edgeBetweenContainers edge selectedIndex addPointEvent removePointEvent =
             "from-" ++ edge.source.name ++ "-to-" ++ edge.target.name
 
         strokeWidthValue = 1
+
+        addPointEventToAdd =
+            case addPointEvent of
+                Just ev -> [ ev ]
+                Nothing -> []
     in
     g []
         [ SubPath.element curve
@@ -233,12 +241,11 @@ edgeBetweenContainers edge selectedIndex addPointEvent removePointEvent =
                 , fill <| PaintNone
                 ]
         , SubPath.element curve
-                [ strokeWidth <| Px (strokeWidthValue + edgeStrokeWidthExtend)
+                ([ strokeWidth <| Px (strokeWidthValue + edgeStrokeWidthExtend)
                 , stroke <| Paint <| Color.black
                 , strokeOpacity <| Opacity 0
                 , fill <| PaintNone
-                , addPointEvent
-                ]
+                ] ++ addPointEventToAdd)
         , TypedSvg.text_ []
             [
                 TypedSvg.textPath
@@ -252,14 +259,19 @@ edgeBetweenContainers edge selectedIndex addPointEvent removePointEvent =
             ]
         , g [] <| List.indexedMap
             (\i -> \(dx, dy ) ->
+                let
+                    eventToAdd = 
+                        case removeOrDragPointEvent of
+                            Just ev -> [ ev i]
+                            Nothing -> []
+                in
                 Path.element circleDot
-                    [ fill (Paint Color.white)
+                    ([ fill (Paint Color.white)
                     , stroke (Paint <| case selectedIndex of
                         Just ind ->
                             if ind == i then Color.blue else Color.black
                         Nothing -> Color.black
                     )
                     , transform [ Translate dx dy ]
-                    , removePointEvent i
-                    ]) points
+                    ] ++ eventToAdd)) points
         ]

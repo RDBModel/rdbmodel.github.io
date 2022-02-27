@@ -60,6 +60,7 @@ type Msg
     | PaneMsg SplitPane.Msg
     | MonacoEditorValueChanged String
     | MonacoSendValue String
+    | SetPanMode Bool
     | NoOp
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -75,6 +76,7 @@ update msg model =
                         , zoom = initZoom element
                         , views = Dict.empty
                         , selectedView = Nothing
+                        , panMode = False
                         }
                     }
                     , Cmd.none
@@ -92,6 +94,11 @@ update msg model =
                 _ ->  ( model, Cmd.none )
         Ready state ->
             case msg of
+                SetPanMode value ->
+                    ( { model | root = Ready { state | panMode = value } }
+                    , Cmd.none
+                    )
+
                 ReceiveElementPosition (Ok { element }) ->
                     ( { model | root = Ready { state | element = element } }
                     , Cmd.none
@@ -105,8 +112,8 @@ update msg model =
                         rdb = D.fromString rdbDecoder val
                     in
                     case rdb of
-                        Ok (domain, vs) ->
-                            ( { model | errors = "", root = Ready { state | views = vs, selectedView = Dict.keys vs |> List.head } }, Cmd.none )
+                        Ok (domain, views) ->
+                            ( { model | errors = "", root = Ready { state | views = views, selectedView = Dict.keys views |> List.head } }, Cmd.none )
 
                         Err err ->
                             case err of
@@ -345,9 +352,19 @@ subscriptions model =
             Ready state ->
                 readySubscriptions state
         , Events.onResize (\_ -> \_ -> Resize)
+        , Events.onKeyDown (keyDecoder |> setPanMode True)
+        , Events.onKeyUp (keyDecoder |> setPanMode False)
         , Sub.map PaneMsg <| SplitPane.subscriptions model.pane
         , messageReceiver MonacoEditorValueChanged
         ]
+
+keyDecoder : Decode.Decoder String
+keyDecoder =
+  Decode.field "key" Decode.string
+
+setPanMode : Bool -> Decode.Decoder String -> Decode.Decoder Msg
+setPanMode value =
+    Decode.map (\key -> if key == "Control" then SetPanMode value else NoOp)
 
 type Root
     = Init
@@ -366,6 +383,7 @@ type alias AppState =
     , zoom : Zoom
     -- The position and dimensions of the svg element.
     , element : Element
+    , panMode : Bool
     }
 
 
@@ -512,8 +530,12 @@ svgView model =
                 Init ->
                     []
 
-                Ready { zoom } ->
-                    Zoom.events zoom ZoomMsg
+                -- [Zoom.onDoubleClick zoom ZoomMsg, Zoom.onWheel zoom ZoomMsg] ++ (mouseDownAttr zoom)
+                Ready { zoom, panMode } ->
+                    [Zoom.onDoubleClick zoom ZoomMsg, Zoom.onWheel zoom ZoomMsg] 
+                        ++ (if panMode then Zoom.onDrag zoom ZoomMsg else [])
+                -- Zoom.events zoom ZoomMsg
+
         zoomTransformAttr : Attribute Msg
         zoomTransformAttr =
             case model of
@@ -547,7 +569,7 @@ svgView model =
         , Attrs.width <| Percent 100
         , Attrs.height <| Percent 100
         -- TODO Disable right click menu
-        --, Mouse.onContextMenu (\_ -> NoOp)
+        , Mouse.onContextMenu (\_ -> NoOp)
         ]
         [ defs []
             [ innerGrid transform10
@@ -557,7 +579,7 @@ svgView model =
         , gridRect zoomEvents
         , g
             [ zoomTransformAttr ]
-            [ renderGraph model
+            [ renderCurrentView model
             ]
         ]
 
@@ -565,13 +587,13 @@ svgView model =
 -- Grid comes from https://gist.github.com/leonardfischer/fc4d1086c64b2c1324c93dcd0beed004
 
 
-renderGraph : Root -> Svg Msg
-renderGraph model =
+renderCurrentView : Root -> Svg Msg
+renderCurrentView model =
     case model of
         Init ->
             text ""
 
-        Ready { drag, pointDrag, views, selectedView } ->
+        Ready { drag, pointDrag, views, selectedView, panMode } ->
             case getCurrentView selectedView views of
                 Just v ->
                     g []
@@ -589,27 +611,27 @@ renderGraph model =
                                                 targetName = Tuple.first relation
                                             in
                                             if edge.source.name == viewElementKey && edge.target.name == targetName then
-                                                linkElement viewRelationKey (Just viewRelationPointIndex) edge
+                                                linkElement panMode viewRelationKey (Just viewRelationPointIndex) edge
                                             else
-                                                linkElement viewRelationKey Nothing edge
+                                                linkElement panMode viewRelationKey Nothing edge
                                         Nothing ->
-                                            linkElement viewRelationKey Nothing edge
+                                            linkElement panMode viewRelationKey Nothing edge
                                 )
                             |> g [ class [ "links" ] ]
                         , getContainers v
-                            |> List.map (drawContainer drag)
+                            |> List.map (drawContainer panMode drag)
                             |> g [ class [ "nodes" ] ]
                         ]
                 Nothing -> text ""
 
-drawContainer : Maybe (Drag ViewElementKey) -> Container -> Svg Msg
-drawContainer drag container =
+drawContainer : Bool -> Maybe (Drag ViewElementKey) -> Container -> Svg Msg
+drawContainer panMode drag container =
     let
-        mouseDownAttr
-            = Mouse.onDown
-            <| onlyMainButton
-            >> Maybe.map (DragViewElementStart container.name)
-            >> Maybe.withDefault NoOp
+        mouseDownAttr =
+            if panMode then
+                Nothing
+            else
+                Just <| mouseDownMain (DragViewElementStart container.name)
     in
     case drag of
         Just { index } ->
@@ -620,19 +642,34 @@ drawContainer drag container =
         Nothing ->
             renderContainer container mouseDownAttr
 
-linkElement : ViewRelationKey -> Maybe Int -> Edge -> Svg Msg
-linkElement viewRelationKey selectedIndex edge =
+linkElement : Bool -> ViewRelationKey -> Maybe Int -> Edge -> Svg Msg
+linkElement panMode viewRelationKey selectedIndex edge =
     edgeBetweenContainers
         edge
         selectedIndex
-        (Mouse.onDown <| onlyMainButton >> Maybe.map (ClickEdgeStart viewRelationKey) >> Maybe.withDefault NoOp)
-        (onMouseDownPoint viewRelationKey)
+        (noOpIfPanMode panMode <| mouseDownMain (ClickEdgeStart viewRelationKey))
+        (if panMode then Nothing else Just (onMouseDownPoint viewRelationKey))
+
+
+noOpIfPanMode : Bool -> Attribute Msg -> Maybe (Attribute Msg)
+noOpIfPanMode panMode ev =
+    if panMode then
+        Nothing
+    else
+        Just ev
 
 onlyMainButton : Event -> Maybe (Float, Float)
 onlyMainButton e =
     case e.button of
         Mouse.MainButton -> Just e.clientPos
         _ -> Nothing
+
+mouseDownMain : ((Float, Float) -> Msg) -> Attribute Msg
+mouseDownMain msg =
+    Mouse.onDown <|
+        onlyMainButton
+        >> Maybe.map msg
+        >> Maybe.withDefault NoOp
 
 onMouseDownPoint : ViewRelationKey -> Int -> Attribute Msg
 onMouseDownPoint (viewRelationElementKey, relation) index =
