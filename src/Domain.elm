@@ -156,9 +156,30 @@ getElement viewElementKey =
     Maybe.andThen (Dict.get viewElementKey)
 
 
+getElements : List ViewElementKey -> Maybe (Dict ViewElementKey ViewElement) -> List (ViewElementKey, ViewElement)
+getElements viewElementKeys maybeDict =
+  case maybeDict of
+    Just dict ->
+      viewElementKeys |> List.filterMap (\vek -> Dict.get vek dict |> Maybe.map (\el -> (vek, el)))
+    Nothing -> []
+
 getRelationPoints : Relation -> Maybe ViewElement -> Maybe (List ViewRelationPoint)
 getRelationPoints relation =
   Maybe.map .relations >> Maybe.andThen (Dict.get relation)
+
+
+getPoints : List ViewRelationPointKey -> Maybe (Dict ViewElementKey ViewElement) -> List (ViewRelationPointKey, ViewRelationPoint)
+getPoints relationPointKeys maybeDict =
+  case maybeDict of
+    Just dict ->
+      relationPointKeys
+        |> List.filterMap (\(vek, relation, index) -> 
+          Dict.get vek dict
+            |> Maybe.andThen (\el -> el.relations |> Dict.get relation)
+            |> Maybe.map (List.drop index)
+            |> Maybe.andThen (List.head)
+            |> Maybe.map (\p -> ((vek, relation, index), p)))
+    Nothing -> []
 
 
 getPoint : Int -> Maybe (List ViewRelationPoint) -> Maybe ViewRelationPoint

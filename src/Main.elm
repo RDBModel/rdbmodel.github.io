@@ -71,7 +71,6 @@ update msg model =
                 ReceiveElementPosition (Ok { element }) ->
                     ( { model | root = Ready
                         { drag = Nothing
-                        , pointDrag = Nothing
                         , element = element
                         , zoom = initZoom element
                         , views = Dict.empty
@@ -141,7 +140,7 @@ update msg model =
                             |> Maybe.withDefault ( 0, 0 )
                     in
                     ( { model | root = Ready
-                        { state | drag = Just { start = xy, current = xy, index = viewElementKey, delta = delta } }
+                        { state | drag = Just { start = xy, current = xy, selectedItems = ([viewElementKey], []), delta = delta } }
                     }
                     , Cmd.none
                     )
@@ -159,8 +158,8 @@ update msg model =
                             |> Maybe.withDefault ( 0, 0 )
                     in
                     ( { model | root = Ready
-                        { state | pointDrag
-                            = Just { start = xy, current = xy, index = (viewElementKey, relation, pointIndex), delta = delta } }
+                        { state | drag
+                            = Just { start = xy, current = xy, selectedItems = ([], [(viewElementKey, relation, pointIndex)]), delta = delta } }
                     }
                     , Cmd.none
                     )
@@ -267,36 +266,42 @@ update msg model =
                     ( { model | root = updatedRoot }, cmdMsg)
 
                 DragEnd ->
-                    case (state.drag, state.pointDrag) of
-                        (Just { index }, Nothing) ->
+                    case state.drag of
+                        Just { selectedItems } ->
                             let
-                                currentViewElementXY =
+                                createMessage (elementKey, element) =
+                                    elementKey ++ "|" ++ String.fromFloat element.x ++ "," ++ String.fromFloat element.y
+
+                                createPointMessage (viewRelationPointKey, viewRelationPoint) =
+                                    let
+                                        (viewElementKey, relation, viewRelationPointIndex) = viewRelationPointKey
+                                        x = viewRelationPoint.x
+                                        y = viewRelationPoint.y
+                                    in
+                                    viewElementKey ++ "|" ++ getStringFromRelation relation ++ "|" ++ String.fromInt viewRelationPointIndex
+                                        ++ "|" ++ String.fromFloat x ++ "," ++ String.fromFloat y
+                                viewElements =
                                     getCurrentView state.selectedView state.views
                                     |> getViewElementsOfCurrentView
-                                    |> getElement index
-                                    |> Maybe.map (\e -> Tuple.pair e.x e.y)
+                                
+                                currentViewElementsXY = viewElements
+                                    |> getElements (getSelectedElementKeys selectedItems)
+
+                                currentRelationPointXY = viewElements
+                                    |> getPoints (getSelectedPointKeys selectedItems)
+                                
+                                updateElementPositionMessages = currentViewElementsXY
+                                    |> List.map (createMessage >> sendMessage)
+                                
+                                updateElementPointsPositionMessages = currentRelationPointXY
+                                    |> List.map (createPointMessage >> sendMessage)
+                                    
+                                allMessages = (updateElementPositionMessages ++ updateElementPointsPositionMessages)
+                                    |> Cmd.batch
+
                             in
                             ( { model | root = Ready { state | drag = Nothing } }
-                            , case currentViewElementXY of
-                                Just (x, y) -> sendMessage (index ++ "|" ++ String.fromFloat x ++ "," ++ String.fromFloat y)
-                                Nothing -> Cmd.none
-                            )
-                        (Nothing, Just { index }) ->
-                            let
-                                (viewElementKey, relation, viewRelationPointIndex) = index
-                                currentRelationPointXY =
-                                    getCurrentView state.selectedView state.views
-                                    |> getViewElementsOfCurrentView
-                                    |> getElement viewElementKey
-                                    |> getRelationPoints relation
-                                    |> getPoint viewRelationPointIndex
-                                    |> Maybe.map (\e -> Tuple.pair e.x e.y)
-                            in
-                            ( { model | root = Ready { state | pointDrag = Nothing } }
-                            , case currentRelationPointXY of
-                                Just (x, y) ->  sendMessage (viewElementKey ++ "|" ++ getStringFromRelation relation ++ "|" ++ String.fromInt viewRelationPointIndex
-                                    ++ "|" ++ String.fromFloat x ++ "," ++ String.fromFloat y)
-                                Nothing -> Cmd.none
+                            , allMessages
                             )
                         _ ->
                             ( { model | root = Ready state }, Cmd.none )
@@ -330,14 +335,11 @@ subscriptions model =
                 ]
 
         readySubscriptions : AppState -> Sub Msg
-        readySubscriptions { drag, pointDrag, zoom } =
+        readySubscriptions { drag, zoom } =
             Sub.batch
                 [ Zoom.subscriptions zoom ZoomMsg
-                , case (drag, pointDrag) of
-                    (Just _, Nothing) ->
-                        dragSubscriptions
-
-                    (Nothing, Just _) ->
+                , case drag of
+                    Just _ ->
                         dragSubscriptions
 
                     _ ->
@@ -375,8 +377,7 @@ type alias SubPathEdge =
     }
 
 type alias AppState =
-    { drag : Maybe (Drag ViewElementKey)
-    , pointDrag : Maybe (Drag ViewRelationPointKey)
+    { drag : Maybe Drag
     -- , graph : Graph Container SubPathEdge
     , views : Dict String View
     , selectedView : Maybe String
@@ -389,9 +390,9 @@ type alias AppState =
 
 
 -- Select information
-type alias Drag a =
+type alias Drag =
     { current : ( Float, Float ) -- current mouse position
-    , index : a -- selected node id or point index
+    , selectedItems : (List ViewElementKey, List ViewRelationPointKey) -- selected node id or point index
     , start : ( Float, Float ) -- start mouse position
     , delta : ( Float, Float ) -- delta between start and node center to do ajustment during movement
     }
@@ -448,22 +449,13 @@ floatRemainderBy divisor n =
   n - toFloat(truncate (n / divisor)) * divisor
 
 handleDragAt : ( Float, Float ) -> AppState -> ( Root, Cmd Msg )
-handleDragAt xy ({ drag, pointDrag } as state) =
-    case (drag, pointDrag) of
-        (Just { start, index, delta }, Nothing) ->
+handleDragAt xy ({ drag } as state) =
+    case drag of
+        Just { start, selectedItems, delta } ->
             ( Ready
                 { state
-                    | drag = Just { start = start, current = xy, index = index, delta = delta }
-                    , views = updateElementPosition delta index xy state
-                }
-            , Cmd.none
-            )
-
-        (Nothing, Just { start, index, delta }) ->
-            ( Ready
-                { state
-                    | pointDrag = Just { start = start, current = xy, index = index, delta = delta}
-                    , views = updatePointPosition delta index xy state
+                    | drag = Just { start = start, current = xy, selectedItems = selectedItems, delta = delta }
+                    , views = updateElementAndPointPosition delta selectedItems xy state
                 }
             , Cmd.none
             )
@@ -472,29 +464,51 @@ handleDragAt xy ({ drag, pointDrag } as state) =
             ( Ready state, Cmd.none )
 
 
-updatePointPosition : (Float, Float) -> ViewRelationPointKey -> ( Float, Float ) -> AppState -> Dict String View
-updatePointPosition (deltaX, deltaY) (viewElementKey, relation, viewRelationPointIndex) xy state =
+updateElementAndPointPosition : (Float, Float) -> (List ViewElementKey, List ViewRelationPointKey) -> ( Float, Float ) -> AppState -> Dict String View
+updateElementAndPointPosition (deltaX, deltaY) (selectedElements, selectedPoints) xy state =
     let
         (shiftedX, shiftedY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
-        updateXY i viewRelationPoint =
-            if i == viewRelationPointIndex then
+        updateElementXY : ViewElementKey -> ViewElement -> ViewElement
+        updateElementXY viewElementKey viewElement =
+            if List.member viewElementKey selectedElements then
+                { viewElement | x = shiftedX - deltaX, y = shiftedY - deltaY }
+            else
+                viewElement
+
+        updatePointXY pointIndex i viewRelationPoint =
+            if i == pointIndex then
                 { viewRelationPoint | x = shiftedX - deltaX, y = shiftedY - deltaY }
             else
                 viewRelationPoint
 
-        updatedPoints = List.indexedMap updateXY
-    in
-    updatePointsInRelations relation updatedPoints
-    |> updateRelationsInElements viewElementKey 
-    |> updateElementsInViews state.selectedView state.views
+        updatePoints viewElementKey =
+            Dict.map (\relation points ->
+            let
+                selectedPointIndex = selectedPoints
+                    |> List.filterMap (\(vek, rel, pointIndex) ->
+                        if vek == viewElementKey && rel == relation then
+                            Just pointIndex
+                        else
+                            Nothing
+                    )
+                    |> List.head
+            in
+            case selectedPointIndex of
+                Just i ->
+                    List.indexedMap (updatePointXY i) points
+                Nothing -> points
+            )
 
-updateElementPosition : (Float, Float) -> ViewElementKey -> ( Float, Float ) -> AppState -> Dict String View
-updateElementPosition (deltaX, deltaY) viewElementKey xy state =
-    let
-        (shiftedX, shiftedY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
+        updatedRelations : ViewElementKey -> ViewElement -> ViewElement
+        updatedRelations viewElementKey viewElement =
+            { viewElement | relations = updatePoints viewElementKey viewElement.relations}
+
         updatedElements : Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
         updatedElements =
-            Dict.update viewElementKey <| Maybe.map (\ve -> { ve | x = shiftedX - deltaX, y = shiftedY - deltaY } )
+            Dict.map (\viewElementKey ve ->
+                updateElementXY viewElementKey ve
+                |> updatedRelations viewElementKey 
+            )
     in
     updateElementsInViews state.selectedView state.views updatedElements
 
@@ -593,7 +607,7 @@ renderCurrentView model =
         Init ->
             text ""
 
-        Ready { drag, pointDrag, views, selectedView, panMode } ->
+        Ready { drag, views, selectedView, panMode } ->
             case getCurrentView selectedView views of
                 Just v ->
                     g []
@@ -604,16 +618,26 @@ renderCurrentView model =
                                     let
                                         viewRelationKey = Tuple.pair edge.source.name (edge.target.name, edge.description)
                                     in
-                                    case pointDrag of
-                                        Just { index } ->
+                                    case drag of
+                                        Just { selectedItems } ->
                                             let
-                                                (viewElementKey, relation, viewRelationPointIndex) = index
-                                                targetName = Tuple.first relation
+                                                selectedPoints = getSelectedPointKeys selectedItems
+
+                                                selectedPointIndex = selectedPoints
+                                                    |> List.filterMap (\(viewElementKey, relation, viewRelationPointIndex) ->
+                                                        let
+                                                            targetName = Tuple.first relation
+                                                            descriptionOfRelation = Tuple.second relation
+                                                        in
+                                                        if edge.source.name == viewElementKey && edge.target.name == targetName && edge.description == descriptionOfRelation then
+                                                            Just viewRelationPointIndex
+                                                        else
+                                                            Nothing
+                                                    )
+                                                    |> List.head
                                             in
-                                            if edge.source.name == viewElementKey && edge.target.name == targetName then
-                                                linkElement panMode viewRelationKey (Just viewRelationPointIndex) edge
-                                            else
-                                                linkElement panMode viewRelationKey Nothing edge
+                                            linkElement panMode viewRelationKey selectedPointIndex edge
+
                                         Nothing ->
                                             linkElement panMode viewRelationKey Nothing edge
                                 )
@@ -624,7 +648,7 @@ renderCurrentView model =
                         ]
                 Nothing -> text ""
 
-drawContainer : Bool -> Maybe (Drag ViewElementKey) -> Container -> Svg Msg
+drawContainer : Bool -> Maybe Drag -> Container -> Svg Msg
 drawContainer panMode drag container =
     let
         mouseDownAttr =
@@ -634,13 +658,20 @@ drawContainer panMode drag container =
                 Just <| mouseDownMain (DragViewElementStart container.name)
     in
     case drag of
-        Just { index } ->
-            if index == container.name then
+        Just { selectedItems } ->
+            if List.member container.name <| getSelectedElementKeys selectedItems then
                 renderContainerSelected container mouseDownAttr
             else
                 renderContainer container mouseDownAttr
         Nothing ->
             renderContainer container mouseDownAttr
+
+
+getSelectedElementKeys : (List ViewElementKey, List ViewRelationPointKey) -> List ViewElementKey
+getSelectedElementKeys = Tuple.first
+
+getSelectedPointKeys : (List ViewElementKey, List ViewRelationPointKey) -> List ViewRelationPointKey
+getSelectedPointKeys = Tuple.second
 
 linkElement : Bool -> ViewRelationKey -> Maybe Int -> Edge -> Svg Msg
 linkElement panMode viewRelationKey selectedIndex edge =
