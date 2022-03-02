@@ -71,6 +71,10 @@ type alias ViewRelationPoint =
 type alias ViewRelationKey = (ViewElementKey, Relation)
 type alias ViewRelationPointKey = (ViewElementKey, Relation, ViewRelationPointIndex)
 
+type ViewItemKey
+  = ElementKey ViewElementKey
+  | PointKey ViewRelationPointKey
+
 
 getSourceAndTargetElements : ViewRelationKey -> View -> (Maybe ViewElement, Maybe ViewElement)
 getSourceAndTargetElements (viewElementKey, relation) view =

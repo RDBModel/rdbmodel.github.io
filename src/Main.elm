@@ -140,13 +140,14 @@ update msg model =
                             |> Maybe.withDefault ( 0, 0 )
                     in
                     ( { model | root = Ready
-                        { state | drag = Just { start = xy, current = xy, selectedItems = ([viewElementKey], []), delta = delta } }
+                        { state | drag = Just { start = xy, current = xy, selectedItems = [ElementKey viewElementKey], delta = delta } }
                     }
                     , Cmd.none
                     )
 
-                DragPointStart (viewElementKey, relation, pointIndex) xy ->
+                DragPointStart viewRelationPointKey xy ->
                     let
+                        (viewElementKey, relation, pointIndex) = viewRelationPointKey
                         (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
 
                         delta = getCurrentView state.selectedView state.views
@@ -159,7 +160,7 @@ update msg model =
                     in
                     ( { model | root = Ready
                         { state | drag
-                            = Just { start = xy, current = xy, selectedItems = ([], [(viewElementKey, relation, pointIndex)]), delta = delta } }
+                            = Just { start = xy, current = xy, selectedItems = [PointKey viewRelationPointKey], delta = delta } }
                     }
                     , Cmd.none
                     )
@@ -392,7 +393,7 @@ type alias AppState =
 -- Select information
 type alias Drag =
     { current : ( Float, Float ) -- current mouse position
-    , selectedItems : (List ViewElementKey, List ViewRelationPointKey) -- selected node id or point index
+    , selectedItems : List ViewItemKey -- selected node id or point index
     , start : ( Float, Float ) -- start mouse position
     , delta : ( Float, Float ) -- delta between start and node center to do ajustment during movement
     }
@@ -464,9 +465,12 @@ handleDragAt xy ({ drag } as state) =
             ( Ready state, Cmd.none )
 
 
-updateElementAndPointPosition : (Float, Float) -> (List ViewElementKey, List ViewRelationPointKey) -> ( Float, Float ) -> AppState -> Dict String View
-updateElementAndPointPosition (deltaX, deltaY) (selectedElements, selectedPoints) xy state =
+updateElementAndPointPosition : (Float, Float) -> List ViewItemKey -> ( Float, Float ) -> AppState -> Dict String View
+updateElementAndPointPosition (deltaX, deltaY) selectedItems xy state =
     let
+        selectedElements = getSelectedElementKeys selectedItems
+        selectedPoints = getSelectedPointKeys selectedItems
+
         (shiftedX, shiftedY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
         updateElementXY : ViewElementKey -> ViewElement -> ViewElement
         updateElementXY viewElementKey viewElement =
@@ -667,11 +671,25 @@ drawContainer panMode drag container =
             renderContainer container mouseDownAttr
 
 
-getSelectedElementKeys : (List ViewElementKey, List ViewRelationPointKey) -> List ViewElementKey
-getSelectedElementKeys = Tuple.first
+getSelectedElementKeys : List ViewItemKey -> List ViewElementKey
+getSelectedElementKeys =
+    let
+        extractViewElelementKeys v = 
+            case v of
+                ElementKey x -> Just x
+                PointKey _ -> Nothing
+    in
+    List.filterMap extractViewElelementKeys
 
-getSelectedPointKeys : (List ViewElementKey, List ViewRelationPointKey) -> List ViewRelationPointKey
-getSelectedPointKeys = Tuple.second
+getSelectedPointKeys : List ViewItemKey -> List ViewRelationPointKey
+getSelectedPointKeys =
+    let
+        extractPointKeys v = 
+            case v of
+                PointKey x -> Just x
+                ElementKey _ -> Nothing
+    in
+    List.filterMap extractPointKeys
 
 linkElement : Bool -> ViewRelationKey -> Maybe Int -> Edge -> Svg Msg
 linkElement panMode viewRelationKey selectedIndex edge =
