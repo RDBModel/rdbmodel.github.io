@@ -149,44 +149,21 @@ update msg model =
                         selectedElementKeys = getSelectedElementKeysAndDeltas state.selectedItems
                             |> List.map Tuple.first
 
-                        selectedPointKeys = getSelectedPointKeysAndDeltas state.selectedItems
-                            |> List.map Tuple.first
-
                         isWithinAlreadySelected = selectedElementKeys
                             |> List.member viewElementKey
 
-                        elementIsWithinAlreadySelected vek _ =
-                            List.member vek selectedElementKeys
-
-                        pointIsWithinAlreadySelected vpk =
-                            List.member vpk selectedPointKeys
+                        elementsOfCurrentView = getCurrentView state.selectedView state.views
+                            |> getViewElementsOfCurrentView
 
                         updatedSelectedItems = 
                             if List.isEmpty state.selectedItems || not isWithinAlreadySelected then
-                                getCurrentView state.selectedView state.views
-                                    |> getViewElementsOfCurrentView
+                                elementsOfCurrentView
                                     |> getElement viewElementKey
                                     |> Maybe.map (\ve -> ( shiftedStartX - ve.x, shiftedStartY - ve.y ))
                                     |> SelectedItem (ElementKey viewElementKey)
                                     |> List.singleton
                             else
-                                let
-                                    selectedElementsWithDeltas = getCurrentView state.selectedView state.views
-                                        |> getViewElementsOfCurrentView
-                                        |> Maybe.map (Dict.filter elementIsWithinAlreadySelected)
-                                        |> Maybe.map Dict.toList
-                                        |> Maybe.withDefault []
-                                        |> List.map (\(vek, ve) -> SelectedItem (ElementKey vek) (Just ( shiftedStartX - ve.x, shiftedStartY - ve.y )))
-                                    selectedPointsWithDeltas = getCurrentView state.selectedView state.views
-                                        |> getViewElementsOfCurrentView
-                                        |> Maybe.map Dict.toList
-                                        |> Maybe.withDefault []
-                                        |> List.concatMap (\(vek, ve) -> ve.relations |> Dict.toList |> List.map (Tuple.pair vek))
-                                        |> List.concatMap (\(vek, (r, points) ) -> points |> List.indexedMap (\i point -> ((vek, r, i), point)))
-                                        |> List.filter (\(vpk, _) -> pointIsWithinAlreadySelected vpk)
-                                        |> List.map (\(vpk, point) -> SelectedItem (PointKey vpk) (Just ( shiftedStartX - point.x, shiftedStartY - point.y )))
-                                in
-                                    selectedElementsWithDeltas ++ selectedPointsWithDeltas
+                                updateSelectedItemsDeltas elementsOfCurrentView (shiftedStartX, shiftedStartY) state.selectedItems
                     in
                     ( { model | root = Ready
                         { state
@@ -205,22 +182,15 @@ update msg model =
                         selectedPointKeys = getSelectedPointKeysAndDeltas state.selectedItems
                             |> List.map Tuple.first
 
-                        selectedElementKeys = getSelectedElementKeysAndDeltas state.selectedItems
-                            |> List.map Tuple.first
-
                         isWithinAlreadySelected = selectedPointKeys
                             |> List.member viewRelationPointKey
-                        
-                        elementIsWithinAlreadySelected vek _ =
-                            List.member vek selectedElementKeys
 
-                        pointIsWithinAlreadySelected vpk =
-                            List.member vpk selectedPointKeys
+                        elementsOfCurrentView = getCurrentView state.selectedView state.views
+                            |> getViewElementsOfCurrentView
 
                         updatedSelectedItems = 
                             if List.isEmpty state.selectedItems || not isWithinAlreadySelected then
-                                getCurrentView state.selectedView state.views
-                                    |> getViewElementsOfCurrentView
+                                elementsOfCurrentView
                                     |> getElement viewElementKey
                                     |> getRelationPoints relation
                                     |> getPoint pointIndex
@@ -228,23 +198,7 @@ update msg model =
                                     |> SelectedItem (PointKey viewRelationPointKey)
                                     |> List.singleton
                             else
-                                let
-                                    selectedElementsWithDeltas = getCurrentView state.selectedView state.views
-                                        |> getViewElementsOfCurrentView
-                                        |> Maybe.map (Dict.filter elementIsWithinAlreadySelected)
-                                        |> Maybe.map Dict.toList
-                                        |> Maybe.withDefault []
-                                        |> List.map (\(vek, ve) -> SelectedItem (ElementKey vek) (Just ( shiftedStartX - ve.x, shiftedStartY - ve.y )))
-                                    selectedPointsWithDeltas = getCurrentView state.selectedView state.views
-                                        |> getViewElementsOfCurrentView
-                                        |> Maybe.map Dict.toList
-                                        |> Maybe.withDefault []
-                                        |> List.concatMap (\(vek, ve) -> ve.relations |> Dict.toList |> List.map (Tuple.pair vek))
-                                        |> List.concatMap (\(vek, (r, points) ) -> points |> List.indexedMap (\i point -> ((vek, r, i), point)))
-                                        |> List.filter (\(vpk, _) -> pointIsWithinAlreadySelected vpk)
-                                        |> List.map (\(vpk, point) -> SelectedItem (PointKey vpk) (Just ( shiftedStartX - point.x, shiftedStartY - point.y )))
-                                in
-                                    selectedElementsWithDeltas ++ selectedPointsWithDeltas
+                                updateSelectedItemsDeltas elementsOfCurrentView (shiftedStartX, shiftedStartY) state.selectedItems
                     in
                     ( { model | root = Ready
                         { state
@@ -376,6 +330,34 @@ update msg model =
 
                 NoOp -> ( model, Cmd.none )
 
+updateSelectedItemsDeltas : Maybe (Dict ViewElementKey ViewElement) -> (Float, Float) -> List SelectedItem -> List SelectedItem
+updateSelectedItemsDeltas viewElementsOfCurrentView (shiftedStartX, shiftedStartY) selectedItems =
+    let
+        selectedPointKeys = getSelectedPointKeysAndDeltas selectedItems
+            |> List.map Tuple.first
+
+        selectedElementKeys = getSelectedElementKeysAndDeltas selectedItems
+            |> List.map Tuple.first
+
+        elementIsWithinAlreadySelected vek _ =
+            List.member vek selectedElementKeys
+
+        pointIsWithinAlreadySelected vpk =
+            List.member vpk selectedPointKeys
+        selectedElementsWithDeltas = viewElementsOfCurrentView
+            |> Maybe.map (Dict.filter elementIsWithinAlreadySelected)
+            |> Maybe.map Dict.toList
+            |> Maybe.withDefault []
+            |> List.map (\(vek, ve) -> SelectedItem (ElementKey vek) (Just ( shiftedStartX - ve.x, shiftedStartY - ve.y )))
+        selectedPointsWithDeltas = viewElementsOfCurrentView
+            |> Maybe.map Dict.toList
+            |> Maybe.withDefault []
+            |> List.concatMap (\(vek, ve) -> ve.relations |> Dict.toList |> List.map (Tuple.pair vek))
+            |> List.concatMap (\(vek, (r, points) ) -> points |> List.indexedMap (\i point -> ((vek, r, i), point)))
+            |> List.filter (\(vpk, _) -> pointIsWithinAlreadySelected vpk)
+            |> List.map (\(vpk, point) -> SelectedItem (PointKey vpk) (Just ( shiftedStartX - point.x, shiftedStartY - point.y )))
+    in
+        selectedElementsWithDeltas ++ selectedPointsWithDeltas
 
 updateMonacoValues : Maybe String -> Dict String View -> List SelectedItem -> Cmd msg
 updateMonacoValues selectedView views selectedItems =
