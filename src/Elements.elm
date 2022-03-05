@@ -1,6 +1,7 @@
 module Elements exposing
      ( renderContainerSelected, renderContainer
      , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, edgeStrokeWidthExtend, gridCellSize
+     , rectToSelect
      )
 import TypedSvg.Core exposing (Svg, text)
 import TypedSvg exposing (rect, circle, pattern, marker, g, text_)
@@ -184,7 +185,7 @@ gridRect events =
 edgeStrokeWidthExtend : number
 edgeStrokeWidthExtend = 3
 
-edgeBetweenContainers edge selectedIndex addPointEvent removeOrDragPointEvent =
+edgeBetweenContainers edge selectedIndexes addPointEvent removeOrDragPointEvent =
      let
         points = edge.points
         (sx, sy) = edge.source.xy
@@ -267,11 +268,16 @@ edgeBetweenContainers edge selectedIndex addPointEvent removeOrDragPointEvent =
                 in
                 Path.element circleDot
                     ([ fill (Paint Color.white)
-                    , stroke (Paint <| case selectedIndex of
-                        Just ind ->
-                            if ind == i then Color.blue else Color.black
-                        Nothing -> Color.black
+                    , stroke (Paint <| if List.member i selectedIndexes then Color.blue else Color.black
                     )
                     , transform [ Translate dx dy ]
                     ] ++ eventToAdd)) points
         ]
+
+
+rectToSelect : (Float, Float) -> (Float, Float) -> Svg msg
+rectToSelect (xValue, yValue) (w, h) =
+    rect [x <| Px <| xValue
+    , y <| Px <| yValue
+    , width <| Px <| w
+    , height <| Px <| h] []
