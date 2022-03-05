@@ -56,8 +56,8 @@ type Msg
     | ClickEdgeStart ViewRelationKey ( Float, Float )
     | DragPointStart ViewRelationPointKey ( Float, Float )
     | RemovePoint ViewRelationPointKey
-    | DragAt ( Float, Float )
-    | DragEnd
+    | MouseMove ( Float, Float )
+    | MouseMoveEnd
     | PaneMsg SplitPane.Msg
     | MonacoEditorValueChanged String
     | MonacoSendValue String
@@ -79,6 +79,7 @@ update msg model =
                         , selectedView = Nothing
                         , panMode = False
                         , brush = Nothing
+                        , selectedItems = []
                         }
                     }
                     , Cmd.none
@@ -151,7 +152,10 @@ update msg model =
                             |> Maybe.withDefault ( 0, 0 )
                     in
                     ( { model | root = Ready
-                        { state | drag = Just { start = xy, current = xy, selectedItems = [SelectedItem (ElementKey viewElementKey) delta] } }
+                        { state
+                        | drag = Just { start = xy, current = xy }
+                        , selectedItems = [SelectedItem (ElementKey viewElementKey) delta]
+                        }
                     }
                     , Cmd.none
                     )
@@ -170,8 +174,10 @@ update msg model =
                             |> Maybe.withDefault ( 0, 0 )
                     in
                     ( { model | root = Ready
-                        { state | drag
-                            = Just { start = xy, current = xy, selectedItems = [SelectedItem (PointKey viewRelationPointKey) delta] } }
+                        { state
+                        | drag = Just { start = xy, current = xy }
+                        , selectedItems = [SelectedItem (PointKey viewRelationPointKey) delta]
+                        }
                     }
                     , Cmd.none
                     )
@@ -198,7 +204,7 @@ update msg model =
                         sourceXY = currentView |> getViewElementsOfCurrentView
                             |> getElement viewElementKey
                             |> Maybe.map (\s -> (s.x, s.y))
-                        
+
                         targetXY = currentView |> getViewElementsOfCurrentView
                             |> getElement (Tuple.first relation)
                             |> Maybe.map (\s -> (s.x, s.y))
@@ -271,13 +277,13 @@ update msg model =
                             )
                         _ -> ( model, Cmd.none )
 
-                DragAt xy ->
+                MouseMove xy ->
                     let
-                        (updatedRoot, cmdMsg) = handleDragAt xy state
+                        (updatedRoot, cmdMsg) = handleMouseMove xy state
                     in
                     ( { model | root = updatedRoot }, cmdMsg)
 
-                DragEnd ->
+                MouseMoveEnd ->
                     case state.brush of 
                         Just brush ->
                             ( { model | root = Ready { state | brush = Nothing } }
@@ -285,41 +291,9 @@ update msg model =
                             )
                         Nothing ->
                             case state.drag of
-                                Just { selectedItems } ->
-                                    let
-                                        createMessage (elementKey, element) =
-                                            elementKey ++ "|" ++ String.fromFloat element.x ++ "," ++ String.fromFloat element.y
-
-                                        createPointMessage (viewRelationPointKey, viewRelationPoint) =
-                                            let
-                                                (viewElementKey, relation, viewRelationPointIndex) = viewRelationPointKey
-                                                x = viewRelationPoint.x
-                                                y = viewRelationPoint.y
-                                            in
-                                            viewElementKey ++ "|" ++ getStringFromRelation relation ++ "|" ++ String.fromInt viewRelationPointIndex
-                                                ++ "|" ++ String.fromFloat x ++ "," ++ String.fromFloat y
-                                        viewElements =
-                                            getCurrentView state.selectedView state.views
-                                            |> getViewElementsOfCurrentView
-                                        
-                                        currentViewElementsXY = viewElements
-                                            |> getElements (getSelectedElementKeysAndDeltas selectedItems |> List.map Tuple.first)
-
-                                        currentRelationPointXY = viewElements
-                                            |> getPoints (getSelectedPointKeysAndDeltas selectedItems |> List.map Tuple.first)
-                                        
-                                        updateElementPositionMessages = currentViewElementsXY
-                                            |> List.map (createMessage >> sendMessage)
-                                        
-                                        updateElementPointsPositionMessages = currentRelationPointXY
-                                            |> List.map (createPointMessage >> sendMessage)
-                                            
-                                        allMessages = (updateElementPositionMessages ++ updateElementPointsPositionMessages)
-                                            |> Cmd.batch
-
-                                    in
-                                    ( { model | root = Ready { state | drag = Nothing } }
-                                    , allMessages
+                                Just _ ->
+                                    ( { model | root = Ready { state | drag = Nothing, selectedItems = [] } }
+                                    , updateMonacoValues state.selectedView state.views state.selectedItems
                                     )
                                 _ ->
                                     ( { model | root = Ready state }, Cmd.none )
@@ -328,6 +302,40 @@ update msg model =
                     ( { model | pane = SplitPane.update paneMsg model.pane }, Cmd.none )
 
                 NoOp -> ( model, Cmd.none )
+
+
+updateMonacoValues : Maybe String -> Dict String View -> List SelectedItem -> Cmd msg
+updateMonacoValues selectedView views selectedItems =
+    let
+        createMessage (elementKey, element) =
+            elementKey ++ "|" ++ String.fromFloat element.x ++ "," ++ String.fromFloat element.y
+
+        createPointMessage (viewRelationPointKey, viewRelationPoint) =
+            let
+                (viewElementKey, relation, viewRelationPointIndex) = viewRelationPointKey
+                x = viewRelationPoint.x
+                y = viewRelationPoint.y
+            in
+            viewElementKey ++ "|" ++ getStringFromRelation relation ++ "|" ++ String.fromInt viewRelationPointIndex
+                ++ "|" ++ String.fromFloat x ++ "," ++ String.fromFloat y
+        viewElements =
+            getCurrentView selectedView views
+            |> getViewElementsOfCurrentView
+        
+        currentViewElementsXY = viewElements
+            |> getElements (getSelectedElementKeysAndDeltas selectedItems |> List.map Tuple.first)
+
+        currentRelationPointXY = viewElements
+            |> getPoints (getSelectedPointKeysAndDeltas selectedItems |> List.map Tuple.first)
+        
+        updateElementPositionMessages = currentViewElementsXY
+            |> List.map (createMessage >> sendMessage)
+        
+        updateElementPointsPositionMessages = currentRelationPointXY
+            |> List.map (createPointMessage >> sendMessage)
+    in
+    (updateElementPositionMessages ++ updateElementPointsPositionMessages)
+        |> Cmd.batch
 
 
 view : Model -> Html Msg
@@ -347,9 +355,9 @@ subscriptions model =
         dragSubscriptions =
             Sub.batch
                 [ Events.onMouseMove
-                    (Decode.map (.clientPos >> DragAt) Mouse.eventDecoder)
+                    (Decode.map (.clientPos >> MouseMove) Mouse.eventDecoder)
                 , Events.onMouseUp
-                    (Decode.map (\_ -> DragEnd) Mouse.eventDecoder)
+                    (Decode.map (\_ -> MouseMoveEnd) Mouse.eventDecoder)
                 ]
 
         readySubscriptions : AppState -> Sub Msg
@@ -402,6 +410,7 @@ type alias AppState =
     , element : Element
     , panMode : Bool
     , brush : Maybe Brush
+    , selectedItems : List SelectedItem
     }
 
 type alias Brush =
@@ -412,7 +421,6 @@ type alias Brush =
 -- Select information
 type alias Drag =
     { current : ( Float, Float ) -- current mouse position
-    , selectedItems : List SelectedItem 
     , start : ( Float, Float ) -- start mouse position
     }
 
@@ -472,8 +480,8 @@ floatRemainderBy : Float -> Float -> Float
 floatRemainderBy divisor n =
   n - toFloat(truncate (n / divisor)) * divisor
 
-handleDragAt : ( Float, Float ) -> AppState -> ( Root, Cmd Msg )
-handleDragAt xy ({ drag, brush } as state) =
+handleMouseMove : ( Float, Float ) -> AppState -> ( Root, Cmd Msg )
+handleMouseMove xy ({ drag, brush, selectedItems } as state) =
     case brush of
         Just b ->
             let
@@ -485,10 +493,10 @@ handleDragAt xy ({ drag, brush } as state) =
             )
         Nothing ->
             case drag of
-                Just { start, selectedItems } ->
+                Just { start } ->
                     ( Ready
                         { state
-                            | drag = Just { start = start, current = xy, selectedItems = selectedItems }
+                            | drag = Just { start = start, current = xy }
                             , views = updateElementAndPointPosition selectedItems xy state
                         }
                     , Cmd.none
@@ -664,7 +672,7 @@ renderCurrentView model =
         Init ->
             text ""
 
-        Ready { drag, views, selectedView, panMode } ->
+        Ready { drag, views, selectedView, panMode, selectedItems } ->
             case getCurrentView selectedView views of
                 Just v ->
                     g []
@@ -674,39 +682,32 @@ renderCurrentView model =
                                 (\edge ->
                                     let
                                         viewRelationKey = Tuple.pair edge.source.name (edge.target.name, edge.description)
+                                        selectedPoints = getSelectedPointKeysAndDeltas selectedItems
+                                            |> List.map Tuple.first
+
+                                        selectedPointIndexes = selectedPoints
+                                            |> List.filterMap (\(viewElementKey, relation, viewRelationPointIndex) ->
+                                                let
+                                                    targetName = Tuple.first relation
+                                                    descriptionOfRelation = Tuple.second relation
+                                                in
+                                                if edge.source.name == viewElementKey && edge.target.name == targetName && edge.description == descriptionOfRelation then
+                                                    Just viewRelationPointIndex
+                                                else
+                                                    Nothing
+                                            )
                                     in
-                                    case drag of
-                                        Just { selectedItems } ->
-                                            let
-                                                selectedPoints = getSelectedPointKeysAndDeltas selectedItems
-                                                    |> List.map Tuple.first
-
-                                                selectedPointIndexes = selectedPoints
-                                                    |> List.filterMap (\(viewElementKey, relation, viewRelationPointIndex) ->
-                                                        let
-                                                            targetName = Tuple.first relation
-                                                            descriptionOfRelation = Tuple.second relation
-                                                        in
-                                                        if edge.source.name == viewElementKey && edge.target.name == targetName && edge.description == descriptionOfRelation then
-                                                            Just viewRelationPointIndex
-                                                        else
-                                                            Nothing
-                                                    )
-                                            in
-                                            linkElement panMode viewRelationKey selectedPointIndexes edge
-
-                                        Nothing ->
-                                            linkElement panMode viewRelationKey [] edge
+                                    linkElement panMode viewRelationKey selectedPointIndexes edge
                                 )
                             |> g [ class [ "links" ] ]
                         , getContainers v
-                            |> List.map (drawContainer panMode drag)
+                            |> List.map (drawContainer panMode drag selectedItems)
                             |> g [ class [ "nodes" ] ]
                         ]
                 Nothing -> text ""
 
-drawContainer : Bool -> Maybe Drag -> Container -> Svg Msg
-drawContainer panMode drag container =
+drawContainer : Bool -> Maybe Drag -> List SelectedItem -> Container -> Svg Msg
+drawContainer panMode drag selectedItems container =
     let
         mouseDownAttr =
             if panMode then
@@ -715,7 +716,7 @@ drawContainer panMode drag container =
                 Just <| mouseDownMain (DragViewElementStart container.name)
     in
     case drag of
-        Just { selectedItems } ->
+        Just _ ->
             let
                 selectedElements = getSelectedElementKeysAndDeltas selectedItems
                     |> List.map Tuple.first
