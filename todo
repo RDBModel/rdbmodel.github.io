@@ -1,5 +1,3 @@
-[ ] select multiply rect
-[ ] move multiply rect
 
 [ ] undo/redo support (https://package.elm-lang.org/packages/elm-community/undo-redo)
 
@@ -7,14 +5,16 @@
 
 [ ] return errors to js
 [ ] display errors (how?)
-
-[ ] forbid points to move under container
-
-[ ] support github
 [ ] display validation errors
 
+[ ] delete points under containers
+
+[ ] support github
 
 ------
+[x] select multiply rect
+[x] move multiply rect
+
 [x] validate yaml on elm side
 [x] update model
 [x] move point values from Elm to js
