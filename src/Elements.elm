@@ -1,7 +1,7 @@
 module Elements exposing
      ( renderContainerSelected, renderContainer
      , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, edgeStrokeWidthExtend, gridCellSize
-     , rectToSelect
+     , selectItemsRect
      )
 import TypedSvg.Core exposing (Svg, text)
 import TypedSvg exposing (rect, circle, pattern, marker, g, text_)
@@ -18,6 +18,7 @@ import SubPath exposing (arcLengthParameterized, arcLength)
 import Domain exposing (Container)
 import TypedSvg.Attributes exposing (cursor)
 import TypedSvg.Types exposing (Cursor(..))
+import TypedSvg.Attributes exposing (fillOpacity)
 
 containerWidth : Float
 containerWidth = 100
@@ -275,9 +276,22 @@ edgeBetweenContainers edge selectedIndexes addPointEvent removeOrDragPointEvent 
         ]
 
 
+selectItemsRect : (Float, Float) -> (Float, Float) -> Svg msg
+selectItemsRect start end =
+    let
+        (x1, y1) = start
+        (x2, y2) = end
+        width = abs <| (Tuple.first end - Tuple.first start)
+        height = abs <| (Tuple.second end - Tuple.second start)
+    in
+    rectToSelect (min x1 x2, min y1 y2) (width, height)
+
 rectToSelect : (Float, Float) -> (Float, Float) -> Svg msg
 rectToSelect (xValue, yValue) (w, h) =
     rect [x <| Px <| xValue
+    , fill <| Paint <| Color.blue
+    , fillOpacity <| Opacity 0.3
     , y <| Px <| yValue
+    , stroke <| Paint <| Color.white
     , width <| Px <| w
     , height <| Px <| h] []

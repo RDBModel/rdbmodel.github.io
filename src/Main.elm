@@ -20,6 +20,7 @@ import Html.Attributes
 import Elements exposing
     ( renderContainer, renderContainerSelected
     , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, edgeStrokeWidthExtend, gridCellSize
+    , selectItemsRect
     )
 import Html.Events.Extra.Mouse exposing (Event)
 import DomainDecoder exposing (..)
@@ -77,6 +78,7 @@ update msg model =
                         , views = Dict.empty
                         , selectedView = Nothing
                         , panMode = False
+                        , brush = Nothing
                         }
                     }
                     , Cmd.none
@@ -94,10 +96,14 @@ update msg model =
                 _ ->  ( model, Cmd.none )
         Ready state ->
             case msg of
-                SelectItemsStart (x, y) ->
-                    ( model
+                SelectItemsStart xy ->
+                    let
+                        shiftedXY = shiftPosition state.zoom (0, 0) xy
+                    in
+                    ( { model | root = Ready { state | brush = Just <| Brush shiftedXY shiftedXY } }
                     , Cmd.none
                     )
+
                 SetPanMode value ->
                     ( { model | root = Ready { state | panMode = value } }
                     , Cmd.none
@@ -272,45 +278,51 @@ update msg model =
                     ( { model | root = updatedRoot }, cmdMsg)
 
                 DragEnd ->
-                    case state.drag of
-                        Just { selectedItems } ->
-                            let
-                                createMessage (elementKey, element) =
-                                    elementKey ++ "|" ++ String.fromFloat element.x ++ "," ++ String.fromFloat element.y
-
-                                createPointMessage (viewRelationPointKey, viewRelationPoint) =
-                                    let
-                                        (viewElementKey, relation, viewRelationPointIndex) = viewRelationPointKey
-                                        x = viewRelationPoint.x
-                                        y = viewRelationPoint.y
-                                    in
-                                    viewElementKey ++ "|" ++ getStringFromRelation relation ++ "|" ++ String.fromInt viewRelationPointIndex
-                                        ++ "|" ++ String.fromFloat x ++ "," ++ String.fromFloat y
-                                viewElements =
-                                    getCurrentView state.selectedView state.views
-                                    |> getViewElementsOfCurrentView
-                                
-                                currentViewElementsXY = viewElements
-                                    |> getElements (getSelectedElementKeysAndDeltas selectedItems |> List.map Tuple.first)
-
-                                currentRelationPointXY = viewElements
-                                    |> getPoints (getSelectedPointKeysAndDeltas selectedItems |> List.map Tuple.first)
-                                
-                                updateElementPositionMessages = currentViewElementsXY
-                                    |> List.map (createMessage >> sendMessage)
-                                
-                                updateElementPointsPositionMessages = currentRelationPointXY
-                                    |> List.map (createPointMessage >> sendMessage)
-                                    
-                                allMessages = (updateElementPositionMessages ++ updateElementPointsPositionMessages)
-                                    |> Cmd.batch
-
-                            in
-                            ( { model | root = Ready { state | drag = Nothing } }
-                            , allMessages
+                    case state.brush of 
+                        Just brush ->
+                            ( { model | root = Ready { state | brush = Nothing } }
+                            , Cmd.none
                             )
-                        _ ->
-                            ( { model | root = Ready state }, Cmd.none )
+                        Nothing ->
+                            case state.drag of
+                                Just { selectedItems } ->
+                                    let
+                                        createMessage (elementKey, element) =
+                                            elementKey ++ "|" ++ String.fromFloat element.x ++ "," ++ String.fromFloat element.y
+
+                                        createPointMessage (viewRelationPointKey, viewRelationPoint) =
+                                            let
+                                                (viewElementKey, relation, viewRelationPointIndex) = viewRelationPointKey
+                                                x = viewRelationPoint.x
+                                                y = viewRelationPoint.y
+                                            in
+                                            viewElementKey ++ "|" ++ getStringFromRelation relation ++ "|" ++ String.fromInt viewRelationPointIndex
+                                                ++ "|" ++ String.fromFloat x ++ "," ++ String.fromFloat y
+                                        viewElements =
+                                            getCurrentView state.selectedView state.views
+                                            |> getViewElementsOfCurrentView
+                                        
+                                        currentViewElementsXY = viewElements
+                                            |> getElements (getSelectedElementKeysAndDeltas selectedItems |> List.map Tuple.first)
+
+                                        currentRelationPointXY = viewElements
+                                            |> getPoints (getSelectedPointKeysAndDeltas selectedItems |> List.map Tuple.first)
+                                        
+                                        updateElementPositionMessages = currentViewElementsXY
+                                            |> List.map (createMessage >> sendMessage)
+                                        
+                                        updateElementPointsPositionMessages = currentRelationPointXY
+                                            |> List.map (createPointMessage >> sendMessage)
+                                            
+                                        allMessages = (updateElementPositionMessages ++ updateElementPointsPositionMessages)
+                                            |> Cmd.batch
+
+                                    in
+                                    ( { model | root = Ready { state | drag = Nothing } }
+                                    , allMessages
+                                    )
+                                _ ->
+                                    ( { model | root = Ready state }, Cmd.none )
 
                 PaneMsg paneMsg ->
                     ( { model | pane = SplitPane.update paneMsg model.pane }, Cmd.none )
@@ -341,15 +353,13 @@ subscriptions model =
                 ]
 
         readySubscriptions : AppState -> Sub Msg
-        readySubscriptions { drag, zoom } =
+        readySubscriptions { zoom, brush, drag } =
             Sub.batch
                 [ Zoom.subscriptions zoom ZoomMsg
-                , case drag of
-                    Just _ ->
-                        dragSubscriptions
-
+                , case (brush, drag) of
+                    (Nothing, Nothing) -> Sub.none
                     _ ->
-                        Sub.none
+                        dragSubscriptions
                 ]
     in
     Sub.batch
@@ -391,10 +401,11 @@ type alias AppState =
     -- The position and dimensions of the svg element.
     , element : Element
     , panMode : Bool
+    , brush : Maybe Brush
     }
 
 type alias Brush =
-    { current : ( Float, Float ) -- current mouse position
+    { end : ( Float, Float ) -- current mouse position
     , start : ( Float, Float ) -- start mouse position
     }
 
@@ -462,19 +473,29 @@ floatRemainderBy divisor n =
   n - toFloat(truncate (n / divisor)) * divisor
 
 handleDragAt : ( Float, Float ) -> AppState -> ( Root, Cmd Msg )
-handleDragAt xy ({ drag } as state) =
-    case drag of
-        Just { start, selectedItems } ->
-            ( Ready
-                { state
-                    | drag = Just { start = start, current = xy, selectedItems = selectedItems }
-                    , views = updateElementAndPointPosition selectedItems xy state
-                }
+handleDragAt xy ({ drag, brush } as state) =
+    case brush of
+        Just b ->
+            let
+                shiftedXY = shiftPosition state.zoom (0, 0) xy
+                updatedBrush = { b | end = shiftedXY }
+            in
+            ( Ready { state | brush = Just updatedBrush }
             , Cmd.none
             )
+        Nothing ->
+            case drag of
+                Just { start, selectedItems } ->
+                    ( Ready
+                        { state
+                            | drag = Just { start = start, current = xy, selectedItems = selectedItems }
+                            , views = updateElementAndPointPosition selectedItems xy state
+                        }
+                    , Cmd.none
+                    )
 
-        _ ->
-            ( Ready state, Cmd.none )
+                _ ->
+                    ( Ready state, Cmd.none )
 
 
 updateElementAndPointPosition : List SelectedItem -> ( Float, Float ) -> AppState -> Dict String View
@@ -616,11 +637,25 @@ svgView model =
         , g
             [ zoomTransformAttr ]
             [ renderCurrentView model
+            , renderSelectRect model
             ]
         ]
 
 
 -- Grid comes from https://gist.github.com/leonardfischer/fc4d1086c64b2c1324c93dcd0beed004
+
+renderSelectRect : Root -> Svg Msg
+renderSelectRect model =
+    case model of
+        Init ->
+            text ""
+
+        Ready { brush } ->
+            case brush of
+                Just { start, end } ->
+                    selectItemsRect start end
+                Nothing ->
+                    text ""
 
 
 renderCurrentView : Root -> Svg Msg
