@@ -151,6 +151,16 @@ getViewElementsOfCurrentView =
     Maybe.map .elements
 
 
+getViewElementKeysByCondition : (ViewElementKey -> ViewElement -> Bool) -> Maybe (Dict ViewElementKey ViewElement) -> List ViewElementKey
+getViewElementKeysByCondition condition =
+  Maybe.map (Dict.filter condition >> Dict.keys) >> Maybe.withDefault []
+
+
+getElementAndItsKeys :  Maybe (Dict ViewElementKey ViewElement) -> List (ViewElementKey, ViewElement)
+getElementAndItsKeys =
+  Maybe.map (Dict.toList) >> Maybe.withDefault []
+
+
 getCurrentView : Maybe String -> Dict String View -> Maybe View
 getCurrentView selectedView views = selectedView |> Maybe.andThen (\sv -> Dict.get sv views)
 
@@ -170,6 +180,15 @@ getElements viewElementKeys maybeDict =
 getRelationPoints : Relation -> Maybe ViewElement -> Maybe (List ViewRelationPoint)
 getRelationPoints relation =
   Maybe.map .relations >> Maybe.andThen (Dict.get relation)
+
+
+getViewPointKeysByCondition : (ViewRelationPoint -> Bool) -> List ViewRelationPoint -> List ViewRelationPointIndex
+getViewPointKeysByCondition condition =
+  List.indexedMap (\i point -> (i, point)) >> List.filterMap (\(i, point) ->
+    if condition point then
+      Just i
+    else
+      Nothing )
 
 
 getPoints : List ViewRelationPointKey -> Maybe (Dict ViewElementKey ViewElement) -> List (ViewRelationPointKey, ViewRelationPoint)

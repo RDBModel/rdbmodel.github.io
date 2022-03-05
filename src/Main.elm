@@ -154,7 +154,7 @@ update msg model =
                     ( { model | root = Ready
                         { state
                         | drag = Just { start = xy, current = xy }
-                        , selectedItems = [SelectedItem (ElementKey viewElementKey) delta]
+                        , selectedItems = [SelectedItem (ElementKey viewElementKey) (Just delta)]
                         }
                     }
                     , Cmd.none
@@ -176,7 +176,7 @@ update msg model =
                     ( { model | root = Ready
                         { state
                         | drag = Just { start = xy, current = xy }
-                        , selectedItems = [SelectedItem (PointKey viewRelationPointKey) delta]
+                        , selectedItems = [SelectedItem (PointKey viewRelationPointKey) (Just delta)]
                         }
                     }
                     , Cmd.none
@@ -426,7 +426,7 @@ type alias Drag =
 
 type alias SelectedItem =
     { key : ViewItemKey -- selected node id or point index
-    , delta : (Float, Float) -- delta between start and node center to do ajustment during movement
+    , delta : Maybe (Float, Float) -- delta between start and node center to do ajustment during movement
     }
 
 -- SVG element position and size in DOM
@@ -487,8 +487,19 @@ handleMouseMove xy ({ drag, brush, selectedItems } as state) =
             let
                 shiftedXY = shiftPosition state.zoom (0, 0) xy
                 updatedBrush = { b | end = shiftedXY }
+                elementKeysWithinBrush = getCurrentView state.selectedView state.views
+                    |> getViewElementsOfCurrentView
+                    |> getViewElementKeysByCondition (elementWithinBrush updatedBrush)
+                    |> List.map (\i -> SelectedItem (ElementKey i) Nothing)
+
+                pointKeysWithinBrush = getCurrentView state.selectedView state.views
+                    |> getViewElementsOfCurrentView
+                    |> getElementAndItsKeys
+                    |> List.concatMap (\(k, v) -> v.relations |> Dict.toList |> List.map (\(relation, points) -> (k, relation, points)))
+                    |> List.concatMap (\(k, relation, points) -> points |> getViewPointKeysByCondition (pointWithinBrush updatedBrush) |> List.map (\pointIndex -> (k, relation, pointIndex)))
+                    |> List.map (\i -> SelectedItem (PointKey i) Nothing)
             in
-            ( Ready { state | brush = Just updatedBrush }
+            ( Ready { state | brush = Just updatedBrush, selectedItems = elementKeysWithinBrush ++ pointKeysWithinBrush }
             , Cmd.none
             )
         Nothing ->
@@ -506,12 +517,32 @@ handleMouseMove xy ({ drag, brush, selectedItems } as state) =
                     ( Ready state, Cmd.none )
 
 
+elementWithinBrush : Brush -> ViewElementKey -> ViewElement -> Bool
+elementWithinBrush { start, end } _ {x , y} =
+    let
+        (startX1, startY1) = start
+        (endX2, endY2) = end
+    in
+    x > min startX1 endX2 && x < max startX1 endX2
+        && y > min startY1 endY2 && y < max startY1 endY2
+
+pointWithinBrush : Brush -> ViewRelationPoint -> Bool
+pointWithinBrush { start, end } {x , y} =
+    let
+        (startX1, startY1) = start
+        (endX2, endY2) = end
+    in
+    x > min startX1 endX2 && x < max startX1 endX2
+        && y > min startY1 endY2 && y < max startY1 endY2
+
 updateElementAndPointPosition : List SelectedItem -> ( Float, Float ) -> AppState -> Dict String View
 updateElementAndPointPosition selectedItems xy state =
     let
         selectedElementDeltas = getSelectedElementKeysAndDeltas selectedItems
+            |> List.filterMap (\(k, d) -> d |> Maybe.map (Tuple.pair k))
 
         selectedPointsDeltas = getSelectedPointKeysAndDeltas selectedItems
+            |> List.filterMap (\(k, d) -> d |> Maybe.map (Tuple.pair k))
 
         (shiftedX, shiftedY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
         updateElementXY : ViewElementKey -> ViewElement -> ViewElement
@@ -701,35 +732,29 @@ renderCurrentView model =
                                 )
                             |> g [ class [ "links" ] ]
                         , getContainers v
-                            |> List.map (drawContainer panMode drag selectedItems)
+                            |> List.map (drawContainer panMode selectedItems)
                             |> g [ class [ "nodes" ] ]
                         ]
                 Nothing -> text ""
 
-drawContainer : Bool -> Maybe Drag -> List SelectedItem -> Container -> Svg Msg
-drawContainer panMode drag selectedItems container =
+drawContainer : Bool -> List SelectedItem -> Container -> Svg Msg
+drawContainer panMode selectedItems container =
     let
         mouseDownAttr =
             if panMode then
                 Nothing
             else
                 Just <| mouseDownMain (DragViewElementStart container.name)
+        selectedElements = getSelectedElementKeysAndDeltas selectedItems
+            |> List.map Tuple.first
     in
-    case drag of
-        Just _ ->
-            let
-                selectedElements = getSelectedElementKeysAndDeltas selectedItems
-                    |> List.map Tuple.first
-            in
-            if List.member container.name selectedElements then
-                renderContainerSelected container mouseDownAttr
-            else
-                renderContainer container mouseDownAttr
-        Nothing ->
-            renderContainer container mouseDownAttr
+    if List.member container.name selectedElements then
+        renderContainerSelected container mouseDownAttr
+    else
+        renderContainer container mouseDownAttr
 
 
-getSelectedElementKeysAndDeltas : List SelectedItem -> List (ViewElementKey, (Float, Float))
+getSelectedElementKeysAndDeltas : List SelectedItem -> List (ViewElementKey, Maybe (Float, Float))
 getSelectedElementKeysAndDeltas =
     let
         extractViewElelementKeys v = 
@@ -739,7 +764,7 @@ getSelectedElementKeysAndDeltas =
     in
     List.filterMap extractViewElelementKeys
 
-getSelectedPointKeysAndDeltas : List SelectedItem -> List (ViewRelationPointKey, (Float, Float))
+getSelectedPointKeysAndDeltas : List SelectedItem -> List (ViewRelationPointKey, Maybe(Float, Float))
 getSelectedPointKeysAndDeltas =
     let
         extractPointKeys v = 
