@@ -145,16 +145,53 @@ update msg model =
                 DragViewElementStart viewElementKey xy ->
                     let
                         (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
-                        delta = getCurrentView state.selectedView state.views
-                            |> getViewElementsOfCurrentView
-                            |> getElement viewElementKey
-                            |> Maybe.map (\ve -> ( shiftedStartX - ve.x, shiftedStartY - ve.y ))
-                            |> Maybe.withDefault ( 0, 0 )
+
+                        selectedElementKeys = getSelectedElementKeysAndDeltas state.selectedItems
+                            |> List.map Tuple.first
+
+                        selectedPointKeys = getSelectedPointKeysAndDeltas state.selectedItems
+                            |> List.map Tuple.first
+
+                        isWithinAlreadySelected = selectedElementKeys
+                            |> List.member viewElementKey
+
+                        elementIsWithinAlreadySelected vek _ =
+                            List.member vek selectedElementKeys
+
+                        pointIsWithinAlreadySelected vpk =
+                            List.member vpk selectedPointKeys
+
+                        updatedSelectedItems = 
+                            if List.isEmpty state.selectedItems || not isWithinAlreadySelected then
+                                getCurrentView state.selectedView state.views
+                                    |> getViewElementsOfCurrentView
+                                    |> getElement viewElementKey
+                                    |> Maybe.map (\ve -> ( shiftedStartX - ve.x, shiftedStartY - ve.y ))
+                                    |> SelectedItem (ElementKey viewElementKey)
+                                    |> List.singleton
+                            else
+                                let
+                                    selectedElementsWithDeltas = getCurrentView state.selectedView state.views
+                                        |> getViewElementsOfCurrentView
+                                        |> Maybe.map (Dict.filter elementIsWithinAlreadySelected)
+                                        |> Maybe.map Dict.toList
+                                        |> Maybe.withDefault []
+                                        |> List.map (\(vek, ve) -> SelectedItem (ElementKey vek) (Just ( shiftedStartX - ve.x, shiftedStartY - ve.y )))
+                                    selectedPointsWithDeltas = getCurrentView state.selectedView state.views
+                                        |> getViewElementsOfCurrentView
+                                        |> Maybe.map Dict.toList
+                                        |> Maybe.withDefault []
+                                        |> List.concatMap (\(vek, ve) -> ve.relations |> Dict.toList |> List.map (Tuple.pair vek))
+                                        |> List.concatMap (\(vek, (r, points) ) -> points |> List.indexedMap (\i point -> ((vek, r, i), point)))
+                                        |> List.filter (\(vpk, _) -> pointIsWithinAlreadySelected vpk)
+                                        |> List.map (\(vpk, point) -> SelectedItem (PointKey vpk) (Just ( shiftedStartX - point.x, shiftedStartY - point.y )))
+                                in
+                                    selectedElementsWithDeltas ++ selectedPointsWithDeltas
                     in
                     ( { model | root = Ready
                         { state
                         | drag = Just { start = xy, current = xy }
-                        , selectedItems = [SelectedItem (ElementKey viewElementKey) (Just delta)]
+                        , selectedItems = updatedSelectedItems
                         }
                     }
                     , Cmd.none
@@ -165,18 +202,54 @@ update msg model =
                         (viewElementKey, relation, pointIndex) = viewRelationPointKey
                         (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
 
-                        delta = getCurrentView state.selectedView state.views
-                            |> getViewElementsOfCurrentView
-                            |> getElement viewElementKey
-                            |> getRelationPoints relation
-                            |> getPoint pointIndex
-                            |> Maybe.map (\tp -> ( shiftedStartX - tp.x, shiftedStartY - tp.y ))
-                            |> Maybe.withDefault ( 0, 0 )
+                        selectedPointKeys = getSelectedPointKeysAndDeltas state.selectedItems
+                            |> List.map Tuple.first
+
+                        selectedElementKeys = getSelectedElementKeysAndDeltas state.selectedItems
+                            |> List.map Tuple.first
+
+                        isWithinAlreadySelected = selectedPointKeys
+                            |> List.member viewRelationPointKey
+                        
+                        elementIsWithinAlreadySelected vek _ =
+                            List.member vek selectedElementKeys
+
+                        pointIsWithinAlreadySelected vpk =
+                            List.member vpk selectedPointKeys
+
+                        updatedSelectedItems = 
+                            if List.isEmpty state.selectedItems || not isWithinAlreadySelected then
+                                getCurrentView state.selectedView state.views
+                                    |> getViewElementsOfCurrentView
+                                    |> getElement viewElementKey
+                                    |> getRelationPoints relation
+                                    |> getPoint pointIndex
+                                    |> Maybe.map (\tp -> ( shiftedStartX - tp.x, shiftedStartY - tp.y ))
+                                    |> SelectedItem (PointKey viewRelationPointKey)
+                                    |> List.singleton
+                            else
+                                let
+                                    selectedElementsWithDeltas = getCurrentView state.selectedView state.views
+                                        |> getViewElementsOfCurrentView
+                                        |> Maybe.map (Dict.filter elementIsWithinAlreadySelected)
+                                        |> Maybe.map Dict.toList
+                                        |> Maybe.withDefault []
+                                        |> List.map (\(vek, ve) -> SelectedItem (ElementKey vek) (Just ( shiftedStartX - ve.x, shiftedStartY - ve.y )))
+                                    selectedPointsWithDeltas = getCurrentView state.selectedView state.views
+                                        |> getViewElementsOfCurrentView
+                                        |> Maybe.map Dict.toList
+                                        |> Maybe.withDefault []
+                                        |> List.concatMap (\(vek, ve) -> ve.relations |> Dict.toList |> List.map (Tuple.pair vek))
+                                        |> List.concatMap (\(vek, (r, points) ) -> points |> List.indexedMap (\i point -> ((vek, r, i), point)))
+                                        |> List.filter (\(vpk, _) -> pointIsWithinAlreadySelected vpk)
+                                        |> List.map (\(vpk, point) -> SelectedItem (PointKey vpk) (Just ( shiftedStartX - point.x, shiftedStartY - point.y )))
+                                in
+                                    selectedElementsWithDeltas ++ selectedPointsWithDeltas
                     in
                     ( { model | root = Ready
                         { state
                         | drag = Just { start = xy, current = xy }
-                        , selectedItems = [SelectedItem (PointKey viewRelationPointKey) (Just delta)]
+                        , selectedItems = updatedSelectedItems
                         }
                     }
                     , Cmd.none
@@ -703,7 +776,7 @@ renderCurrentView model =
         Init ->
             text ""
 
-        Ready { drag, views, selectedView, panMode, selectedItems } ->
+        Ready { views, selectedView, panMode, selectedItems } ->
             case getCurrentView selectedView views of
                 Just v ->
                     g []
