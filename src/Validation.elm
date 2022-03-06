@@ -4,7 +4,7 @@ import Domain exposing (..)
 import Dict exposing (Dict)
 import Set exposing (..)
 
-validateDomain: Domain -> Result String Domain
+validateDomain : Domain -> Result String Domain
 validateDomain domain =
   let
     elementKeysAndNames = getElementsKeysAndNames domain
@@ -125,16 +125,7 @@ getViewRelations : View -> Set (String, Relation)
 getViewRelations view = 
   Dict.toList view.elements |> List.map (\(k, element) -> element.relations |> Dict.keys |> List.map (\x -> (k, x))) |> List.concat |> Set.fromList
 
-getElementsKeysAndNames : Domain -> List (String, String)
-getElementsKeysAndNames domain =
-  extractKeyAndName domain.actors ++ extractKeyAndName domain.rings
-    ++ (Dict.values domain.rings |> List.map .delivery |> List.concatMap extractKeyAndName)
-    ++ (Dict.values domain.rings |> List.map .delivery |> List.concatMap Dict.values |> List.map .blocks |> List.concatMap extractKeyAndName)
 
-extractKeyAndName : Dict String { a | name: String } -> List (String, String)
-extractKeyAndName dict =
-  dict |> Dict.map (\k v -> (k, v.name)) |> Dict.values
-  
 getUniqueElementsKeys : Domain -> Set String
 getUniqueElementsKeys =
   getElementsKeysAndNames >> List.map Tuple.first >> Set.fromList

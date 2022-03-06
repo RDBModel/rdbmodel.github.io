@@ -11,7 +11,14 @@
 
 [ ] support github
 
+[ ] support parent container
+
+
+[ ] show additional information via mouseover
+
 ------
+[x] show name in containers
+
 [x] select multiply rect
 [x] move multiply rect
 

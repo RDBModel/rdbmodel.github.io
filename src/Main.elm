@@ -80,6 +80,7 @@ update msg model =
                         , panMode = False
                         , brush = Nothing
                         , selectedItems = []
+                        , domain = Nothing
                         }
                     }
                     , Cmd.none
@@ -119,12 +120,14 @@ update msg model =
                     ( model, Cmd.none )
 
                 MonacoEditorValueChanged val ->
-                    let
-                        rdb = D.fromString rdbDecoder val
-                    in
-                    case rdb of
+                    case D.fromString rdbDecoder val of
                         Ok (domain, views) ->
-                            ( { model | errors = "", root = Ready { state | views = views, selectedView = Dict.keys views |> List.head } }, Cmd.none )
+                            (   { model
+                                | errors = ""
+                                , root = Ready { state | views = views, domain = Just domain, selectedView = Dict.keys views |> List.head }
+                                }
+                            , Cmd.none
+                            )
 
                         Err err ->
                             case err of
@@ -466,6 +469,7 @@ type alias AppState =
     , panMode : Bool
     , brush : Maybe Brush
     , selectedItems : List SelectedItem
+    , domain : Maybe Domain
     }
 
 type alias Brush =
@@ -763,19 +767,19 @@ renderCurrentView model =
         Init ->
             text ""
 
-        Ready { views, selectedView, panMode, selectedItems } ->
-            case getCurrentView selectedView views of
-                Just v ->
+        Ready { views, selectedView, panMode, selectedItems, domain } ->
+            case (getCurrentView selectedView views, domain) of
+                (Just v, Just d) ->
                     g []
-                        [ getEdges v
+                        [ getEdges (d, v)
                             -- |> Debug.todo "called at each rendering and can be cashed?"
                             |> List.map (drawEdge panMode selectedItems)
                             |> g [ class [ "links" ] ]
-                        , getContainers v
+                        , getContainers (d, v)
                             |> List.map (drawContainer panMode selectedItems)
                             |> g [ class [ "nodes" ] ]
                         ]
-                Nothing -> text ""
+                _ -> text ""
 
 drawEdge : Bool -> List SelectedItem -> Edge -> Svg Msg
 drawEdge panMode selectedItems edge =
@@ -801,11 +805,11 @@ drawContainer panMode selectedItems container =
             if panMode then
                 Nothing
             else
-                Just <| mouseDownMain (DragViewElementStart container.name)
+                Just <| mouseDownMain (DragViewElementStart container.key)
         selectedElements = getSelectedElementKeysAndDeltas selectedItems
             |> List.map Tuple.first
     in
-    if List.member container.name selectedElements then
+    if List.member container.key selectedElements then
         renderContainerSelected container mouseDownAttr
     else
         renderContainer container mouseDownAttr

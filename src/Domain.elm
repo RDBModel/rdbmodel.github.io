@@ -3,6 +3,8 @@ import Dict exposing (Dict)
 
 type alias Container =
   { name : String
+  , key : String
+  , description : String
   , xy : (Float, Float)
   }
 
@@ -78,77 +80,90 @@ type ViewItemKey
 
 getSourceAndTargetElements : ViewRelationKey -> View -> (Maybe ViewElement, Maybe ViewElement)
 getSourceAndTargetElements (viewElementKey, relation) view =
-    let
-        source = Dict.get viewElementKey view.elements
-        target = Dict.get (Tuple.first relation) view.elements
-    in
-    Tuple.pair source target
+  let
+    source = Dict.get viewElementKey view.elements
+    target = Dict.get (Tuple.first relation) view.elements
+  in
+  Tuple.pair source target
 
 getViewRelationPoints : ViewRelationKey -> View -> List (Float, Float)
 getViewRelationPoints (viewElementKey, relation) view =
-    Dict.get viewElementKey view.elements
-        |> Maybe.map .relations
-        |> Maybe.andThen (Dict.get relation)
-        |> Maybe.map (List.map (\p -> Tuple.pair p.x p.y))
-        |> Maybe.withDefault []
+  Dict.get viewElementKey view.elements
+    |> Maybe.map .relations
+    |> Maybe.andThen (Dict.get relation)
+    |> Maybe.map (List.map (\p -> Tuple.pair p.x p.y))
+    |> Maybe.withDefault []
 
-getEdges : View -> List Edge
-getEdges currentView =
+getEdges : (Domain, View) -> List Edge
+getEdges (domain, currentView) =
     let
         getTargetElement key = Dict.get key currentView.elements
 
         getTargetAndPoints : (ViewElementKey, ViewElement) -> List Edge
         getTargetAndPoints (viewElementKey, viewElement) =
-            let
-                source = Tuple.pair viewElement.x viewElement.y
-                sourceContainer = Container viewElementKey source
-            in
-            Dict.toList viewElement.relations
+          let
+            source = Tuple.pair viewElement.x viewElement.y
+
+            sourceNameAndDescription = getNameAndDescriptionByKey viewElementKey domain
+          in
+          case sourceNameAndDescription of
+            Just (sourceName, sourceDescription) -> 
+              let
+                sourceContainer = Container sourceName viewElementKey sourceDescription source
+              in
+              Dict.toList viewElement.relations
                 |> List.filterMap (\(relation, points) ->
-                    Tuple.first relation |> getTargetElement |> Maybe.map (\te -> (relation, te, points))
+                  Tuple.first relation |> getTargetElement |> Maybe.map (\te -> (relation, te, points))
                 )
-                |> List.map (\(relation, targetElement, points) ->
-                    let
-                        convertedViewRelationPoints =
-                            points |> List.map (\vrp -> Tuple.pair vrp.x vrp.y)
-                        
-                        target = Tuple.pair targetElement.x targetElement.y
-                        targetElementKey = Tuple.first relation
-                        description = Tuple.second relation
-                        targetContainer =  Container targetElementKey target
-                    in
-                    Edge sourceContainer targetContainer convertedViewRelationPoints description
+                |> List.filterMap (\(relation, targetElement, points) ->
+                  let
+                    convertedViewRelationPoints = points |> List.map (\vrp -> Tuple.pair vrp.x vrp.y)
+                    target = Tuple.pair targetElement.x targetElement.y
+                    targetElementKey = Tuple.first relation
+                    description = Tuple.second relation
+                  in
+                  getNameAndDescriptionByKey targetElementKey domain
+                    |> Maybe.map (\(targetName, targetDescription) ->
+                      let
+                        targetContainer = Container targetName targetElementKey targetDescription target
+                      in
+                      Edge sourceContainer targetContainer convertedViewRelationPoints description
+                    )
                 )
+            Nothing -> []
     in
     Dict.toList currentView.elements
-        |> List.concatMap getTargetAndPoints
+      |> List.concatMap getTargetAndPoints
 
 
-getContainers : View -> List Container
-getContainers currentView =
-    Dict.toList currentView.elements
-        |> List.map (\(viewElementKey, viewElement) -> Container viewElementKey (Tuple.pair viewElement.x viewElement.y))
+getContainers : (Domain, View) -> List Container
+getContainers (domain, currentView) =
+  Dict.toList currentView.elements
+    |> List.filterMap (\(viewElementKey, viewElement) ->
+      getNameAndDescriptionByKey viewElementKey domain
+        |> Maybe.map (\(name, description) -> Container name viewElementKey description (Tuple.pair viewElement.x viewElement.y))
+    )
 
 updateElementsInViews : Maybe String -> Dict String View -> (Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement) -> Dict String View
 updateElementsInViews selectedView views updateElements =
-    case selectedView of
-        Just sv ->
-            Dict.update sv (Maybe.map (\v -> { v | elements = updateElements v.elements } )) views
-        Nothing -> views
+  case selectedView of
+    Just sv ->
+      Dict.update sv (Maybe.map (\v -> { v | elements = updateElements v.elements } )) views
+    Nothing -> views
 
 updateRelationsInElements : ViewElementKey ->  (Dict Relation (List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint)) -> Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
 updateRelationsInElements viewElementKey updatedRelationsFunc =
-    Dict.update viewElementKey <| Maybe.map (\ve -> { ve | relations = updatedRelationsFunc ve.relations } )
+  Dict.update viewElementKey <| Maybe.map (\ve -> { ve | relations = updatedRelationsFunc ve.relations } )
 
 
 updatePointsInRelations : Relation -> (List ViewRelationPoint -> List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint)
 updatePointsInRelations relation updatedPoints =
-    Dict.update relation <| Maybe.map updatedPoints
+  Dict.update relation <| Maybe.map updatedPoints
 
 
 getViewElementsOfCurrentView : Maybe View -> Maybe (Dict ViewElementKey ViewElement)
 getViewElementsOfCurrentView =
-    Maybe.map .elements
+  Maybe.map .elements
 
 
 getViewElementKeysByCondition : (ViewElementKey -> ViewElement -> Bool) -> Maybe (Dict ViewElementKey ViewElement) -> List ViewElementKey
@@ -167,7 +182,7 @@ getCurrentView selectedView views = selectedView |> Maybe.andThen (\sv -> Dict.g
 
 getElement : ViewElementKey -> Maybe (Dict ViewElementKey ViewElement) -> Maybe ViewElement
 getElement viewElementKey =
-    Maybe.andThen (Dict.get viewElementKey)
+  Maybe.andThen (Dict.get viewElementKey)
 
 
 getElements : List ViewElementKey -> Maybe (Dict ViewElementKey ViewElement) -> List (ViewElementKey, ViewElement)
@@ -220,9 +235,37 @@ getStringFromRelation relation =
 
 getViewRelationKeyFromEdge : Edge -> ViewRelationKey
 getViewRelationKeyFromEdge edge =
-  (edge.source.name, (edge.target.name, edge.description))
+  (edge.source.key, (edge.target.key, edge.description))
 
 
 getViewRelationKeyFromViewRelationPointKey : ViewRelationPointKey -> ViewRelationKey
 getViewRelationKeyFromViewRelationPointKey (viewElementKey, relation, viewRelationPointIndex) =
   (viewElementKey, relation)
+
+
+getNameAndDescriptionByKey : ViewElementKey -> Domain -> Maybe (String, String)
+getNameAndDescriptionByKey viewElementKey =
+  getElementsNamesAndDescriptions
+    >> List.filterMap (\(k, name, description) -> if k == viewElementKey then Just (name, description) else Nothing)
+    >> List.head
+
+getElementsKeysAndNames : Domain -> List (String, String)
+getElementsKeysAndNames domain =
+  extractKeyAndName domain.actors ++ extractKeyAndName domain.rings
+    ++ (Dict.values domain.rings |> List.map .delivery |> List.concatMap extractKeyAndName)
+    ++ (Dict.values domain.rings |> List.map .delivery |> List.concatMap Dict.values |> List.map .blocks |> List.concatMap extractKeyAndName)
+
+getElementsNamesAndDescriptions : Domain -> List (String, String, String)
+getElementsNamesAndDescriptions domain =
+  extractKeyAndNameAndDescription domain.actors ++ extractKeyAndNameAndDescription domain.rings
+    ++ (Dict.values domain.rings |> List.map .delivery |> List.concatMap extractKeyAndNameAndDescription)
+    ++ (Dict.values domain.rings |> List.map .delivery |> List.concatMap Dict.values |> List.map .blocks |> List.concatMap extractKeyAndNameAndDescription)
+
+extractKeyAndName : Dict String { a | name: String } -> List (String, String)
+extractKeyAndName =
+  Dict.map (\k v -> (k, v.name)) >> Dict.values
+
+
+extractKeyAndNameAndDescription : Dict String { a | name: String, description : String } -> List (String, String, String)
+extractKeyAndNameAndDescription =
+  Dict.map (\k v -> (k, v.name, v.description)) >> Dict.values
