@@ -104,7 +104,9 @@ getEdges (domain, currentView) =
           let
             source = Tuple.pair viewElement.x viewElement.y
 
-            sourceNameAndDescription = getNameAndDescriptionByKey viewElementKey domain
+            elementsNamesAndDescriptions = getElementsNamesAndDescriptions domain
+
+            sourceNameAndDescription = getNameAndDescriptionByKey viewElementKey elementsNamesAndDescriptions
           in
           case sourceNameAndDescription of
             Just (sourceName, sourceDescription) -> 
@@ -122,7 +124,8 @@ getEdges (domain, currentView) =
                     targetElementKey = Tuple.first relation
                     description = Tuple.second relation
                   in
-                  getNameAndDescriptionByKey targetElementKey domain
+                  elementsNamesAndDescriptions
+                    |> getNameAndDescriptionByKey targetElementKey 
                     |> Maybe.map (\(targetName, targetDescription) ->
                       let
                         targetContainer = Container targetName targetElementKey targetDescription target
@@ -138,9 +141,13 @@ getEdges (domain, currentView) =
 
 getContainers : (Domain, View) -> List Container
 getContainers (domain, currentView) =
+  let
+    elementsNamesAndDescriptions = getElementsNamesAndDescriptions domain
+  in
   Dict.toList currentView.elements
     |> List.filterMap (\(viewElementKey, viewElement) ->
-      getNameAndDescriptionByKey viewElementKey domain
+      elementsNamesAndDescriptions
+        |> getNameAndDescriptionByKey viewElementKey 
         |> Maybe.map (\(name, description) -> Container name viewElementKey description (Tuple.pair viewElement.x viewElement.y))
     )
 
@@ -243,10 +250,9 @@ getViewRelationKeyFromViewRelationPointKey (viewElementKey, relation, viewRelati
   (viewElementKey, relation)
 
 
-getNameAndDescriptionByKey : ViewElementKey -> Domain -> Maybe (String, String)
+getNameAndDescriptionByKey : ViewElementKey -> List (String, String, String) -> Maybe (String, String)
 getNameAndDescriptionByKey viewElementKey =
-  getElementsNamesAndDescriptions
-    >> List.filterMap (\(k, name, description) -> if k == viewElementKey then Just (name, description) else Nothing)
+    List.filterMap (\(k, name, description) -> if k == viewElementKey then Just (name, description) else Nothing)
     >> List.head
 
 getElementsKeysAndNames : Domain -> List (String, String)
