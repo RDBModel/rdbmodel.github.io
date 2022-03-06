@@ -612,33 +612,31 @@ updateElementAndPointPosition selectedItems xy state =
 
         updatePointXY : List (ViewRelationPointIndex, (Float, Float)) -> Int -> ViewRelationPoint -> ViewRelationPoint
         updatePointXY selectedPointIndexes i viewRelationPoint =
-            let
-                delta = selectedPointIndexes
-                    |> List.filterMap (\(pointIndex, d) ->
-                        if pointIndex == i then
-                            Just d
-                        else
-                            Nothing)
-                    |> List.head
-            in
-            case delta of
-                Just (deltaX, deltaY) ->
+            selectedPointIndexes
+                |> List.filterMap (\(pointIndex, d) ->
+                    if pointIndex == i then
+                        Just d
+                    else
+                        Nothing)
+                |> List.head
+                |> Maybe.map (\(deltaX, deltaY) ->
                     { viewRelationPoint | x = shiftedX - deltaX, y = shiftedY - deltaY }
-                Nothing ->
-                    viewRelationPoint
+                )
+                |> Maybe.withDefault viewRelationPoint
 
         updatedPoints viewElementKey =
             Dict.map (\relation points ->
                 let
-                    selectedPointIndexes = selectedPointsDeltas
+                    updatePointXYUsingSelectedPoints = selectedPointsDeltas
                         |> List.filterMap (\((vek, rel, pointIndex), delta) ->
                             if vek == viewElementKey && rel == relation then
                                 Just (pointIndex, delta)
                             else
                                 Nothing
                         )
+                        |> updatePointXY
                 in
-                List.indexedMap (updatePointXY selectedPointIndexes) points
+                List.indexedMap updatePointXYUsingSelectedPoints points
             )
 
         updatedRelations : ViewElementKey -> ViewElement -> ViewElement
