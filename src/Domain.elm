@@ -216,3 +216,13 @@ relationSplitter = " - "
 getStringFromRelation : Relation -> String
 getStringFromRelation relation =
   Tuple.second relation ++ relationSplitter ++ Tuple.first relation
+
+
+getViewRelationKeyFromEdge : Edge -> ViewRelationKey
+getViewRelationKeyFromEdge edge =
+  (edge.source.name, (edge.target.name, edge.description))
+
+
+getViewRelationKeyFromViewRelationPointKey : ViewRelationPointKey -> ViewRelationKey
+getViewRelationKeyFromViewRelationPointKey (viewElementKey, relation, viewRelationPointIndex) =
+  (viewElementKey, relation)

@@ -186,7 +186,7 @@ gridRect events =
 edgeStrokeWidthExtend : number
 edgeStrokeWidthExtend = 3
 
-edgeBetweenContainers edge selectedIndexes addPointEvent removeOrDragPointEvent =
+edgeBetweenContainers edge addPointEvent removeOrDragPointEvent selectedIndexes =
      let
         points = edge.points
         (sx, sy) = edge.source.xy

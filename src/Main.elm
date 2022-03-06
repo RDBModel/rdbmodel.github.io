@@ -312,7 +312,7 @@ update msg model =
 
                 MouseMoveEnd ->
                     case state.brush of 
-                        Just brush ->
+                        Just _ ->
                             ( { model | root = Ready { state | brush = Nothing } }
                             , Cmd.none
                             )
@@ -323,7 +323,7 @@ update msg model =
                                     , updateMonacoValues state.selectedView state.views state.selectedItems
                                     )
                                 _ ->
-                                    ( { model | root = Ready state }, Cmd.none )
+                                    ( model, Cmd.none )
 
                 PaneMsg paneMsg ->
                     ( { model | pane = SplitPane.update paneMsg model.pane }, Cmd.none )
@@ -610,33 +610,40 @@ updateElementAndPointPosition selectedItems xy state =
                     { viewElement | x = shiftedX - deltaX, y = shiftedY - deltaY }
                 Nothing -> viewElement
 
-        updatePointXY pointIndex (deltaX, deltaY) i viewRelationPoint =
-            if i == pointIndex then
-                { viewRelationPoint | x = shiftedX - deltaX, y = shiftedY - deltaY }
-            else
-                viewRelationPoint
-
-        updatePoints viewElementKey =
-            Dict.map (\relation points ->
+        updatePointXY : List (ViewRelationPointIndex, (Float, Float)) -> Int -> ViewRelationPoint -> ViewRelationPoint
+        updatePointXY selectedPointIndexes i viewRelationPoint =
             let
-                selectedPointIndex = selectedPointsDeltas
-                    |> List.filterMap (\((vek, rel, pointIndex), delta) ->
-                        if vek == viewElementKey && rel == relation then
-                            Just (pointIndex, delta)
+                delta = selectedPointIndexes
+                    |> List.filterMap (\(pointIndex, d) ->
+                        if pointIndex == i then
+                            Just d
                         else
-                            Nothing
-                    )
+                            Nothing)
                     |> List.head
             in
-            case selectedPointIndex of
-                Just (i, delta) ->
-                    List.indexedMap (updatePointXY i delta) points
-                Nothing -> points
+            case delta of
+                Just (deltaX, deltaY) ->
+                    { viewRelationPoint | x = shiftedX - deltaX, y = shiftedY - deltaY }
+                Nothing ->
+                    viewRelationPoint
+
+        updatedPoints viewElementKey =
+            Dict.map (\relation points ->
+                let
+                    selectedPointIndexes = selectedPointsDeltas
+                        |> List.filterMap (\((vek, rel, pointIndex), delta) ->
+                            if vek == viewElementKey && rel == relation then
+                                Just (pointIndex, delta)
+                            else
+                                Nothing
+                        )
+                in
+                List.indexedMap (updatePointXY selectedPointIndexes) points
             )
 
         updatedRelations : ViewElementKey -> ViewElement -> ViewElement
         updatedRelations viewElementKey viewElement =
-            { viewElement | relations = updatePoints viewElementKey viewElement.relations}
+            { viewElement | relations = updatedPoints viewElementKey viewElement.relations}
 
         updatedElements : Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
         updatedElements =
@@ -764,33 +771,30 @@ renderCurrentView model =
                     g []
                         [ getEdges v
                             -- |> Debug.todo "called at each rendering and can be cashed?"
-                            |> List.map
-                                (\edge ->
-                                    let
-                                        viewRelationKey = Tuple.pair edge.source.name (edge.target.name, edge.description)
-                                        selectedPoints = getSelectedPointKeysAndDeltas selectedItems
-                                            |> List.map Tuple.first
-
-                                        selectedPointIndexes = selectedPoints
-                                            |> List.filterMap (\(viewElementKey, relation, viewRelationPointIndex) ->
-                                                let
-                                                    targetName = Tuple.first relation
-                                                    descriptionOfRelation = Tuple.second relation
-                                                in
-                                                if edge.source.name == viewElementKey && edge.target.name == targetName && edge.description == descriptionOfRelation then
-                                                    Just viewRelationPointIndex
-                                                else
-                                                    Nothing
-                                            )
-                                    in
-                                    linkElement panMode viewRelationKey selectedPointIndexes edge
-                                )
+                            |> List.map (drawEdge panMode selectedItems)
                             |> g [ class [ "links" ] ]
                         , getContainers v
                             |> List.map (drawContainer panMode selectedItems)
                             |> g [ class [ "nodes" ] ]
                         ]
                 Nothing -> text ""
+
+drawEdge : Bool -> List SelectedItem -> Edge -> Svg Msg
+drawEdge panMode selectedItems edge =
+    let
+        getSelectedPointIndex vpk =
+            if getViewRelationKeyFromViewRelationPointKey vpk == getViewRelationKeyFromEdge edge then
+                let
+                    (_, _, viewRelationPointIndex) = vpk
+                in
+                Just viewRelationPointIndex
+            else
+                Nothing
+    in
+    getSelectedPointKeysAndDeltas selectedItems
+        |> List.map Tuple.first
+        |> List.filterMap getSelectedPointIndex
+        |> linkElement panMode edge
 
 drawContainer : Bool -> List SelectedItem -> Container -> Svg Msg
 drawContainer panMode selectedItems container =
@@ -829,11 +833,13 @@ getSelectedPointKeysAndDeltas =
     in
     List.filterMap extractPointKeys
 
-linkElement : Bool -> ViewRelationKey -> List Int -> Edge -> Svg Msg
-linkElement panMode viewRelationKey selectedIndexes edge =
+linkElement : Bool -> Edge -> List Int -> Svg Msg
+linkElement panMode edge =
+    let
+        viewRelationKey = getViewRelationKeyFromEdge edge
+    in
     edgeBetweenContainers
         edge
-        selectedIndexes
         (noOpIfPanMode panMode <| mouseDownMain (ClickEdgeStart viewRelationKey))
         (if panMode then Nothing else Just (onMouseDownPoint viewRelationKey))
 
