@@ -1,7 +1,7 @@
 
 [ ] undo/redo support (https://package.elm-lang.org/packages/elm-community/undo-redo)
 
-[ ] create parser for rgb (https://package.elm-lang.org/packages/elm/parser/latest/)
+[ ] create parser for rgb (https://package.elm-lang.org/packages/elm/parser/latest/) (nice to have)
 
 [ ] return errors to js
 [ ] display errors (how?)
@@ -11,12 +11,12 @@
 
 [ ] support github
 
-[ ] support parent container
+[ ] support parent container (nice to have)
 
-
-[ ] show additional information via mouseover
+[ ] deploy via azure
 
 ------
+[x] show additional information via mouseover
 [x] show name in containers
 
 [x] select multiply rect

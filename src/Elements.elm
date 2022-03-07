@@ -3,22 +3,18 @@ module Elements exposing
      , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, edgeStrokeWidthExtend, gridCellSize
      , selectItemsRect
      )
-import TypedSvg.Core exposing (Svg, text)
-import TypedSvg exposing (rect, circle, pattern, marker, g, text_)
-import TypedSvg.Types exposing (Length(..), AnchorAlignment(..))
+import TypedSvg exposing (rect, circle, pattern, marker, g, text_, title)
 import TypedSvg.Attributes as Attrs exposing
     ( x, y, width, height, rx, cx, cy, r, id, strokeWidth, fill, stroke, strokeOpacity, transform, dominantBaseline
-    , textAnchor)
-import TypedSvg.Types exposing (Paint(..), CoordinateSystem(..), Opacity(..), DominantBaseline(..), Transform(..))
+    , textAnchor, cursor, d, fillOpacity)
+import TypedSvg.Core exposing (Svg, Attribute, text)
+import TypedSvg.Types exposing (Length(..), AnchorAlignment(..), Cursor(..), Paint(..), CoordinateSystem(..), Opacity(..)
+    , DominantBaseline(..), Transform(..))
 import Color
-import TypedSvg.Core exposing (Attribute)
 import Path exposing (Path)
 import Shape exposing (linearCurve)
 import SubPath exposing (arcLengthParameterized, arcLength)
 import Domain exposing (Container)
-import TypedSvg.Attributes exposing (cursor)
-import TypedSvg.Types exposing (Cursor(..))
-import TypedSvg.Attributes exposing (fillOpacity)
 
 containerWidth : Float
 containerWidth = 100
@@ -39,7 +35,7 @@ renderContainer : Container -> Maybe (Attribute msg) -> Svg msg
 renderContainer = renderContainerInternal False
 
 renderContainerInternal : Bool -> Container -> Maybe (Attribute msg) -> Svg msg
-renderContainerInternal selected { name, xy } event =
+renderContainerInternal selected { key, name, description, xy } event =
     let
         (xCenter, yCenter) = xy
 
@@ -53,6 +49,8 @@ renderContainerInternal selected { name, xy } event =
             case event of
                 Just ev -> [ ev ]
                 Nothing -> []
+
+        tooltip = key ++ "\n" ++ description
     in
     g []
         [ rect
@@ -64,7 +62,7 @@ renderContainerInternal selected { name, xy } event =
             , Attrs.fill <| Paint <| Color.white
             , Attrs.stroke <| Paint <| if selected then Color.blue else Color.black
             , Attrs.strokeWidth <| Px 1
-            ] ++ eventToAdd) []
+            ] ++ eventToAdd) [ title [] [text tooltip]]
         , text_
             ([ x <| Px <| xCenter
             , y <| Px <| yCenter
@@ -74,7 +72,7 @@ renderContainerInternal selected { name, xy } event =
             , textAnchor AnchorMiddle
             , cursor CursorDefault
             ] ++ eventToAdd)
-            [text <| updatedName name ]
+            [text <| updatedName name, title [] [text tooltip] ]
         ]
 
 -- renderSystem : Float -> Float -> Svg msg
@@ -234,20 +232,23 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent selectedIndexes 
             case addPointEvent of
                 Just ev -> [ ev ]
                 Nothing -> []
+
+        tooltip = String.join " " ["'" ++ edge.source.name ++ "'", edge.description, "'" ++ edge.target.name ++ "'"]
     in
     g []
         [ SubPath.element curve
-                [ id idValue
-                , strokeWidth <| Px strokeWidthValue
-                , stroke <| Paint <| Color.black
-                , fill <| PaintNone
-                ]
-        , SubPath.element curve
-                ([ strokeWidth <| Px (strokeWidthValue + edgeStrokeWidthExtend)
-                , stroke <| Paint <| Color.black
-                , strokeOpacity <| Opacity 0
-                , fill <| PaintNone
-                ] ++ addPointEventToAdd)
+            [ id idValue
+            , strokeWidth <| Px strokeWidthValue
+            , stroke <| Paint <| Color.black
+            , fill <| PaintNone
+            ]
+        , TypedSvg.path
+            ([ d (curve |> SubPath.toString)
+            , strokeWidth <| Px (strokeWidthValue + edgeStrokeWidthExtend)
+            , stroke <| Paint <| Color.black
+            , strokeOpacity <| Opacity 0
+            , fill <| PaintNone
+            ] ++ addPointEventToAdd) [ title [] [ text tooltip ]]
         , TypedSvg.text_ []
             [
                 TypedSvg.textPath
@@ -260,19 +261,20 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent selectedIndexes 
                     [ text "➤" ]
             ]
         , g [] <| List.indexedMap
-            (\i -> \(dx, dy ) ->
+            (\i (dx, dy) ->
                 let
                     eventToAdd = 
                         case removeOrDragPointEvent of
-                            Just ev -> [ ev i]
+                            Just ev -> [ ev i ]
                             Nothing -> []
                 in
-                Path.element circleDot
-                    ([ fill (Paint Color.white)
+                TypedSvg.path
+                    ([ d (circleDot |> Path.toString)
+                    , fill (Paint Color.white)
                     , stroke (Paint <| if List.member i selectedIndexes then Color.blue else Color.black
-                    )
+                        )
                     , transform [ Translate dx dy ]
-                    ] ++ eventToAdd)) points
+                    ] ++ eventToAdd) [ title [] [ text tooltip ] ]) points
         ]
 
 
