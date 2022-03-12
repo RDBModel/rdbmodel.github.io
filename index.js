@@ -1,4 +1,13 @@
-import { YAML } from './node_modules/yaml/browser/dist/index.js';
+import YAML from 'yaml';
+import EditorWorker from 'url:monaco-editor/esm/vs/editor/editor.worker.js';
+import * as monaco from 'monaco-editor';
+import { Elm } from './src/Main.elm';
+
+window.MonacoEnvironment = {
+	getWorkerUrl: function (moduleId, label) {
+		return EditorWorker;
+	}
+};
 
 const v = 
 `domain:
@@ -75,74 +84,72 @@ views:
         x: 300
         y: 300`;
 
-require(['vs/editor/editor.main'], () => {
-  const app = Elm.Main.init({
-    node: document.getElementById("root")
-  });
+const app = Elm.Main.init({
+  node: document.getElementById("root")
+});
 
-  const editor = monaco.editor.create(document.getElementById("monaco"), {
-    theme: 'vs-dark',
-    value: v,
-    language: 'yaml',
-    wordWrap: 'off',
-    automaticLayout: true,
-    lineNumbers: 'off',
-    glyphMargin: false,
-    minimap: {
-      enabled: false
-    },
-    scrollbar: {
-      vertical: 'auto'
-    }
-  });
+const editor = monaco.editor.create(document.getElementById("monaco"), {
+  theme: 'vs-dark',
+  value: v,
+  language: 'yaml',
+  wordWrap: 'off',
+  automaticLayout: true,
+  lineNumbers: 'off',
+  glyphMargin: false,
+  minimap: {
+    enabled: false
+  },
+  scrollbar: {
+    vertical: 'auto'
+  }
+});
 
-  editor.addCommand(
-    monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-    function () {
-      app.ports.messageReceiver.send(editor.getValue());
-    }
-  );
+editor.addCommand(
+  monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+  function () {
+    app.ports.messageReceiver.send(editor.getValue());
+  }
+);
 
-  // TODO refactor
-  app.ports.sendMessage.subscribe((message) => {
-    const currentModel = YAML.parse(editor.getValue());
-    const splitted = message.split('|');
-    if (splitted.length == 2) {
-      // element moved
-      const elementName = splitted[0];
-      const xy = splitted[1].split(',');
-      currentModel['views']['view-1']['elements'][elementName]['x'] = parseFloat(xy[0]);
-      currentModel['views']['view-1']['elements'][elementName]['y'] = parseFloat(xy[1]);
-      editor.setValue(YAML.stringify(currentModel));
-    } else if (splitted.length == 4) {
-      const elementName = splitted[0];
-      const relationName = splitted[1];
-      if (splitted[2] === 'del') {
-        const indexToDelete = parseInt(splitted[3]);
-        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName].splice(indexToDelete, 1);
-      } else {
-        const index = parseInt(splitted[2]);
-        const xy = splitted[3].split(',');
-        if (!currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]) {
-          currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index] = {};
-        }
-        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['x'] = parseFloat(xy[0]);
-        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['y'] = parseFloat(xy[1]);
+// TODO refactor
+app.ports.sendMessage.subscribe((message) => {
+  const currentModel = YAML.parse(editor.getValue());
+  const splitted = message.split('|');
+  if (splitted.length == 2) {
+    // element moved
+    const elementName = splitted[0];
+    const xy = splitted[1].split(',');
+    currentModel['views']['view-1']['elements'][elementName]['x'] = parseFloat(xy[0]);
+    currentModel['views']['view-1']['elements'][elementName]['y'] = parseFloat(xy[1]);
+    editor.setValue(YAML.stringify(currentModel));
+  } else if (splitted.length == 4) {
+    const elementName = splitted[0];
+    const relationName = splitted[1];
+    if (splitted[2] === 'del') {
+      const indexToDelete = parseInt(splitted[3]);
+      currentModel['views']['view-1']['elements'][elementName]['relations'][relationName].splice(indexToDelete, 1);
+    } else {
+      const index = parseInt(splitted[2]);
+      const xy = splitted[3].split(',');
+      if (!currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]) {
+        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index] = {};
       }
-      editor.setValue(YAML.stringify(currentModel));
-    } else if (splitted.length == 5) {
-      const elementName = splitted[0];
-      const relationName = splitted[1];
-      const type = splitted[2];
-      if (type === 'add') {
-        const index = parseInt(splitted[3]);
-        const xy = splitted[4].split(',');
-        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName].splice(index, 0, {});
-        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['x'] = parseFloat(xy[0]);
-        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['y'] = parseFloat(xy[1]);
-        editor.setValue(YAML.stringify(currentModel));
-      }
+      currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['x'] = parseFloat(xy[0]);
+      currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['y'] = parseFloat(xy[1]);
     }
-    console.log(message)
-  });
+    editor.setValue(YAML.stringify(currentModel));
+  } else if (splitted.length == 5) {
+    const elementName = splitted[0];
+    const relationName = splitted[1];
+    const type = splitted[2];
+    if (type === 'add') {
+      const index = parseInt(splitted[3]);
+      const xy = splitted[4].split(',');
+      currentModel['views']['view-1']['elements'][elementName]['relations'][relationName].splice(index, 0, {});
+      currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['x'] = parseFloat(xy[0]);
+      currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['y'] = parseFloat(xy[1]);
+      editor.setValue(YAML.stringify(currentModel));
+    }
+  }
+  console.log(message)
 });

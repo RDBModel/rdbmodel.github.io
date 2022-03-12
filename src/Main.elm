@@ -398,7 +398,7 @@ updateMonacoValues selectedView views selectedItems =
 
 view : Model -> Html Msg
 view { pane, root } =
-    div []
+    div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
         [ SplitPane.view
             viewConfig
             (svgView root)

@@ -2,14 +2,16 @@
   "name": "rdb",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
   "dependencies": {
-    "elm-live": "^4.0.2",
-    "monaco-editor": "^0.30.1",
+    "monaco-editor": "0.31.0",
     "yaml": "^1.10.2"
   },
   "devDependencies": {
-    "elm-review": "^2.7.0"
+    "@parcel/transformer-elm": "^2.3.2",
+    "elm": "^0.19.1-5",
+    "elm-review": "^2.7.0",
+    "parcel": "^2.3.2",
+    "process": "^0.11.10"
   },
   "scripts": {
     "start": "elm-live src/Main.elm -- --output=main.js --debug",

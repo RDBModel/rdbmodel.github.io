@@ -11,8 +11,6 @@
 
 [ ] support parent container (nice to have)
 
-[ ] deploy via azure
-
 ------
 [x] delete points under containers (temporary)
 [x] show additional information via mouseover
