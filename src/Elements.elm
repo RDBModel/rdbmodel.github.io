@@ -15,6 +15,7 @@ import Path exposing (Path)
 import Shape exposing (linearCurve)
 import SubPath exposing (arcLengthParameterized, arcLength)
 import Domain exposing (Container)
+import Domain exposing (Edge)
 
 containerWidth : Float
 containerWidth = 100
@@ -184,9 +185,10 @@ gridRect events =
 edgeStrokeWidthExtend : number
 edgeStrokeWidthExtend = 3
 
+edgeBetweenContainers : Edge -> Maybe (Attribute msg) -> Maybe (Int -> Attribute msg) -> List Int -> Svg msg
 edgeBetweenContainers edge addPointEvent removeOrDragPointEvent selectedIndexes =
      let
-        points = edge.points
+        points = edge.points |> filterPointsUnderContainer edge.source.xy edge.target.xy
         (sx, sy) = edge.source.xy
         (tx, ty) = edge.target.xy
 
@@ -276,6 +278,30 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent selectedIndexes 
                     , transform [ Translate dx dy ]
                     ] ++ eventToAdd) [ title [] [ text tooltip ] ]) points
         ]
+
+{--
+    Removing temprorary points which are under container
+--}
+filterPointsUnderContainer : (Float, Float) -> (Float, Float) -> List (Float, Float) -> List (Float, Float)
+filterPointsUnderContainer sourceXY targetXY =
+    List.foldl (\point result ->
+        if List.isEmpty result && pointUnderRect sourceXY point then
+            result
+        else
+            point :: result
+    ) []
+    >> List.foldl (\point result ->
+        if List.isEmpty result && pointUnderRect targetXY point then
+            result
+        else
+            point :: result
+    ) []
+
+
+pointUnderRect: (Float, Float) -> (Float, Float) -> Bool
+pointUnderRect (x, y) (px, py) =
+    px > (x - containerWidth / 2) && px < (x + containerWidth / 2)
+        && py > (y - containerHeight / 2) && py < (y + containerHeight / 2)
 
 
 selectItemsRect : (Float, Float) -> (Float, Float) -> Svg msg
