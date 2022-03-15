@@ -6,7 +6,7 @@
         {
             "label": "Run",
             "type": "shell",
-            "command": "npx parcel index.html",
+            "command": "elm-live src/Main.elm --pushstate '--' --debug --output=main.js",
             "problemMatcher": []
         },
         {
