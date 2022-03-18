@@ -111,7 +111,7 @@ function initMonaco() {
 require(['vs/editor/editor.main'], () => {
   app.ports.removePoint.subscribe((message) => unityOfWork(removePoint, message));
   app.ports.addPoint.subscribe((message) => unityOfWork(addPoint, message));
-  app.ports.initMonacoSend.subscribe(() => initMonaco());
+  app.ports.initMonacoResponse.subscribe(() => initMonaco());
   app.ports.updateElementPosition.subscribe((message) => unityOfWork(updateElementPosition, message));
   app.ports.updatePointPosition.subscribe((message) => unityOfWork(updatePointPosition, message));
   app.ports.initMonacoRequest.send(null);

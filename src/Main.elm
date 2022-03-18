@@ -28,14 +28,14 @@ import Dict exposing (Dict)
 import Domain exposing (..)
 import Url exposing (Url)
 import Route exposing (Route)
-import JsInterop exposing (initMonacoSend, removePoint, encodeRemovePoint, monacoEditorValue, initMonacoRequest
+import JsInterop exposing (initMonacoResponse, removePoint, encodeRemovePoint, monacoEditorValue, initMonacoRequest
     , RemovePointMessage, PointMessage, encodePointMessage, addPoint, UpdateElementPositionMessage, updateElementPosition
     , encodeUpdateElementPosition, updatePointPosition)
 
 
 
 initMonaco : Cmd Msg
-initMonaco = initMonacoSend ()
+initMonaco = initMonacoResponse ()
 
 main : Program () Model Msg
 main =
