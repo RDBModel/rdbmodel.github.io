@@ -102,59 +102,59 @@ function initMonaco() {
     editor.addCommand(
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
       function () {
-        app.ports.messageReceiver.send(editor.getValue());
+        app.ports.monacoEditorValue.send(editor.getValue());
       }
     );
   }
 }
 
 require(['vs/editor/editor.main'], () => {
-  // TODO refactor
-  app.ports.sendMessage.subscribe((message) => {
-    console.log (message);
-    if (message === 'init-monaco') {
-      initMonaco()
-      return;
-    }
-    const currentModel = YAML.parse(editor.getValue());
-    const splitted = message.split('|');
-    if (splitted.length == 2) {
-      // element moved
-      const elementName = splitted[0];
-      const xy = splitted[1].split(',');
-      currentModel['views']['view-1']['elements'][elementName]['x'] = parseFloat(xy[0]);
-      currentModel['views']['view-1']['elements'][elementName]['y'] = parseFloat(xy[1]);
-      editor.setValue(YAML.stringify(currentModel));
-    } else if (splitted.length == 4) {
-      const elementName = splitted[0];
-      const relationName = splitted[1];
-      if (splitted[2] === 'del') {
-        const indexToDelete = parseInt(splitted[3]);
-        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName].splice(indexToDelete, 1);
-      } else {
-        const index = parseInt(splitted[2]);
-        const xy = splitted[3].split(',');
-        if (!currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]) {
-          currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index] = {};
-        }
-        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['x'] = parseFloat(xy[0]);
-        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['y'] = parseFloat(xy[1]);
-      }
-      editor.setValue(YAML.stringify(currentModel));
-    } else if (splitted.length == 5) {
-      const elementName = splitted[0];
-      const relationName = splitted[1];
-      const type = splitted[2];
-      if (type === 'add') {
-        const index = parseInt(splitted[3]);
-        const xy = splitted[4].split(',');
-        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName].splice(index, 0, {});
-        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['x'] = parseFloat(xy[0]);
-        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['y'] = parseFloat(xy[1]);
-        editor.setValue(YAML.stringify(currentModel));
-      }
-    }
-    console.log(message)
-  });
-  app.ports.messageReceiver.send("ask-monaco-init");
+  app.ports.removePoint.subscribe((message) => unityOfWork(removePoint, message));
+  app.ports.addPoint.subscribe((message) => unityOfWork(addPoint, message));
+  app.ports.initMonacoSend.subscribe(() => initMonaco());
+  app.ports.updateElementPosition.subscribe((message) => unityOfWork(updateElementPosition, message));
+  app.ports.updatePointPosition.subscribe((message) => unityOfWork(updatePointPosition, message));
+  app.ports.initMonacoRequest.send(null);
 });
+
+function removePoint(currentModel, message) {
+  const elementName = message.elementKey;
+  const relationName = message.relation;
+  const indexToDelete = parseInt(message.pointIndex);
+  currentModel['views']['view-1']['elements'][elementName]['relations'][relationName].splice(indexToDelete, 1);
+}
+
+function addPoint(currentModel, message) {
+  const elementName = message.elementKey;
+  const relationName = message.relation;
+  const index = parseInt(message.pointIndex);
+  const targetRelation = currentModel['views']['view-1']['elements'][elementName]['relations'][relationName];
+  targetRelation.splice(index, 0, {});
+  updateCoords(targetRelation[index], message.x, message.y);
+}
+
+function updateElementPosition(currentModel, message) {
+  const elementName = message.elementKey;
+  const targetElement = currentModel['views']['view-1']['elements'][elementName];
+  updateCoords(targetElement, message.x, message.y);
+}
+
+function updatePointPosition(currentModel, message) {
+  const elementName = message.elementKey;
+  const relationName = message.relation;
+  const index = parseInt(message.pointIndex);
+  const targetRelation = currentModel['views']['view-1']['elements'][elementName]['relations'][relationName];
+  targetRelation[index] = targetRelation[index] || {};
+  updateCoords(targetRelation[index], message.x, message.y);
+}
+
+function updateCoords(item, x, y) {
+  item['x'] = x;
+  item['y'] = y;
+}
+
+function unityOfWork(func, message) {
+  const currentModel = YAML.parse(editor.getValue());
+  func(currentModel, message);
+  editor.setValue(YAML.stringify(currentModel));
+}

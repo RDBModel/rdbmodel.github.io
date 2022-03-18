@@ -1,4 +1,4 @@
-port module Main exposing (..)
+module Main exposing (..)
 
 import Basics.Extra exposing (maxSafeInteger)
 import SplitPane exposing (Orientation(..), ViewConfig, createViewConfig)
@@ -28,13 +28,14 @@ import Dict exposing (Dict)
 import Domain exposing (..)
 import Url exposing (Url)
 import Route exposing (Route)
+import JsInterop exposing (initMonacoSend, removePoint, encodeRemovePoint, monacoEditorValue, initMonacoRequest
+    , RemovePointMessage, PointMessage, encodePointMessage, addPoint, UpdateElementPositionMessage, updateElementPosition
+    , encodeUpdateElementPosition, updatePointPosition)
 
-port messageReceiver : (String -> msg) -> Sub msg
 
-port sendMessage : String -> Cmd msg
 
 initMonaco : Cmd Msg
-initMonaco = sendMessage "init-monaco"
+initMonaco = initMonacoSend ()
 
 main : Program () Model Msg
 main =
@@ -60,9 +61,6 @@ getNavKey model =
 
 changeRouteTo : Maybe Route -> Nav.Key -> ( Model, Cmd Msg )
 changeRouteTo maybeRoute key =
-    let
-        _ = Debug.log "changeRouteTo" maybeRoute
-    in
     case maybeRoute of
         Nothing ->
             ( Home key, Cmd.none )
@@ -71,9 +69,6 @@ changeRouteTo maybeRoute key =
             ( Home key, Cmd.none )
 
         Just Route.Editor ->
-            let
-                _ = Debug.log "changeRouteTo2" maybeRoute
-            in
             ( Editor key (EditorModel (SplitPane.init Horizontal) Init ""), Cmd.batch [ getElementPosition, initMonaco ] )
 
 
@@ -100,8 +95,8 @@ type Msg
     | MouseMove ( Float, Float )
     | MouseMoveEnd
     | PaneMsg SplitPane.Msg
-    | MessageFromJSReceived String
-    | MonacoSendValue String
+    | MonacoEditorValueReceived String
+    | InitMonacoRequestReceived ()
     | SetPanMode Bool
     | SelectItemsStart (Float, Float)
     | NoOp
@@ -184,26 +179,23 @@ update msg model =
                         ReceiveElementPosition (Err _) ->
                             ( model, Cmd.none )
 
-                        MessageFromJSReceived val ->
-                            if val == "ask-monaco-init" then
-                                (model, initMonaco)
-                            else
-                                case D.fromString rdbDecoder val of
-                                    Ok (domain, views) ->
-                                        (   { editorModel
-                                            | errors = ""
-                                            , root = Ready { state | views = views, domain = Just domain, selectedView = Dict.keys views |> List.head }
-                                            } |> Editor navKey
-                                        , Cmd.none
-                                        )
+                        InitMonacoRequestReceived _ ->
+                            (model, initMonaco)
 
-                                    Err err ->
-                                        case err of
-                                            D.Parsing errMsg -> ( { editorModel | errors = errMsg } |> Editor navKey, Cmd.none)
-                                            D.Decoding errMsg -> ( { editorModel | errors = errMsg } |> Editor navKey, Cmd.none)
+                        MonacoEditorValueReceived val ->
+                            case D.fromString rdbDecoder val of
+                                Ok (domain, views) ->
+                                    (   { editorModel
+                                        | errors = ""
+                                        , root = Ready { state | views = views, domain = Just domain, selectedView = Dict.keys views |> List.head }
+                                        } |> Editor navKey
+                                    , Cmd.none
+                                    )
 
-                        MonacoSendValue val ->
-                            ( model, sendMessage val )
+                                Err err ->
+                                    case err of
+                                        D.Parsing errMsg -> ( { editorModel | errors = errMsg } |> Editor navKey, Cmd.none)
+                                        D.Decoding errMsg -> ( { editorModel | errors = errMsg } |> Editor navKey, Cmd.none)
 
                         Resize ->
                             ( model, getElementPosition )
@@ -288,9 +280,11 @@ update msg model =
                                     updatePointsInRelations relation removePointAtIndex
                                     |> updateRelationsInElements viewElementKey
                                     |> updateElementsInViews state.selectedView state.views
+
+                                removePointMessage = RemovePointMessage viewElementKey relation pointIndex
                             in
                             ( { editorModel | root = Ready { state | views = updatedViews } } |> Editor navKey
-                            , sendMessage (viewElementKey ++ "|" ++ getStringFromRelation relation ++ "|del|" ++ String.fromInt pointIndex )
+                            , removePointMessage |> encodeRemovePoint |> removePoint -- (viewElementKey ++ "|" ++ getStringFromRelation relation ++ "|del|" ++ String.fromInt pointIndex )
                             )
 
                         ClickEdgeStart (viewElementKey, relation) xy ->
@@ -368,10 +362,11 @@ update msg model =
                                             |> updateRelationsInElements viewElementKey
                                             |> updateElementsInViews state.selectedView state.views
 
+                                        addPointMessage = PointMessage viewElementKey relation (List.length updatedList - indexOfNewPoint) spxy
+
                                     in
                                     ( { editorModel | root = Ready { state | views = updatedViewsValue } } |> Editor navKey
-                                    ,  sendMessage (viewElementKey ++ "|" ++ getStringFromRelation relation ++ "|add|" ++ String.fromInt (List.length updatedList - indexOfNewPoint)
-                                            ++ "|" ++ String.fromFloat (Tuple.first spxy) ++ "," ++ String.fromFloat (Tuple.second spxy))
+                                    , addPointMessage |> encodePointMessage |> addPoint
                                     )
                                 _ -> ( model, Cmd.none )
 
@@ -436,16 +431,13 @@ updateMonacoValues : Maybe String -> Dict String View -> List SelectedItem -> Cm
 updateMonacoValues selectedView views selectedItems =
     let
         createMessage (elementKey, element) =
-            elementKey ++ "|" ++ String.fromFloat element.x ++ "," ++ String.fromFloat element.y
+            UpdateElementPositionMessage elementKey (element.x, element.y)
 
         createPointMessage (viewRelationPointKey, viewRelationPoint) =
             let
                 (viewElementKey, relation, viewRelationPointIndex) = viewRelationPointKey
-                x = viewRelationPoint.x
-                y = viewRelationPoint.y
             in
-            viewElementKey ++ "|" ++ getStringFromRelation relation ++ "|" ++ String.fromInt viewRelationPointIndex
-                ++ "|" ++ String.fromFloat x ++ "," ++ String.fromFloat y
+            PointMessage viewElementKey relation viewRelationPointIndex (viewRelationPoint.x, viewRelationPoint.y)
         viewElements =
             getCurrentView selectedView views
             |> getViewElementsOfCurrentView
@@ -457,10 +449,10 @@ updateMonacoValues selectedView views selectedItems =
             |> getPoints (getSelectedPointKeysAndDeltas selectedItems |> List.map Tuple.first)
         
         updateElementPositionMessages = currentViewElementsXY
-            |> List.map (createMessage >> sendMessage)
-        
+            |> List.map (createMessage >> encodeUpdateElementPosition >> updateElementPosition)
+
         updateElementPointsPositionMessages = currentRelationPointXY
-            |> List.map (createPointMessage >> sendMessage)
+            |> List.map (createPointMessage >> encodePointMessage >> updatePointPosition)
     in
     (updateElementPositionMessages ++ updateElementPointsPositionMessages)
         |> Cmd.batch
@@ -524,7 +516,8 @@ subscriptions model =
             Home _ -> Sub.none
             Editor _ { pane } ->
                 Sub.map PaneMsg <| SplitPane.subscriptions pane
-        , messageReceiver MessageFromJSReceived
+        , monacoEditorValue MonacoEditorValueReceived
+        , initMonacoRequest InitMonacoRequestReceived
         ]
 
 
