@@ -31,7 +31,7 @@ import Route exposing (Route)
 import JsInterop exposing (initMonacoResponse, removePoint, encodeRemovePoint, monacoEditorValue, initMonacoRequest
     , RemovePointMessage, PointMessage, encodePointMessage, addPoint, UpdateElementPositionMessage, updateElementPosition
     , encodeUpdateElementPosition, updatePointPosition)
-
+import Index exposing (index)
 
 
 initMonaco : Cmd Msg
@@ -462,7 +462,7 @@ view model =
     case model of
         Home _ ->
             { title = "RDB Model"
-            , body = [ a [ href "/editor"] [text "Hello world" ] ]
+            , body = [ index ]
             }
         Editor _ { pane, root } ->
             { title = "RDB Model Editor"

@@ -8,8 +8,8 @@
     "yaml": "^1.10.2"
   },
   "devDependencies": {
-    "elm-review": "^2.7.0",
-    "elm-live": "^4.0.2"
+    "elm-live": "^4.0.2",
+    "parcel": "^2.3.2"
   },
   "scripts": {
     "start": "elm-live src/Main.elm -- --output=main.js --debug",
