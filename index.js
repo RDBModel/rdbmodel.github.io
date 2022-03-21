@@ -82,30 +82,28 @@ const app = Elm.Main.init({
 let editor;
 
 function initMonaco() {
-  if (!editor) {
-    editor = monaco.editor.create(document.getElementById("monaco"), {
-      theme: 'vs-dark',
-      value: v,
-      language: 'yaml',
-      wordWrap: 'off',
-      automaticLayout: true,
-      lineNumbers: 'off',
-      glyphMargin: false,
-      minimap: {
-        enabled: false
-      },
-      scrollbar: {
-        vertical: 'auto'
-      }
-    });
+  editor = monaco.editor.create(document.getElementById("monaco"), {
+    theme: 'vs-dark',
+    value: v,
+    language: 'yaml',
+    wordWrap: 'off',
+    automaticLayout: true,
+    lineNumbers: 'off',
+    glyphMargin: false,
+    minimap: {
+      enabled: false
+    },
+    scrollbar: {
+      vertical: 'auto'
+    }
+  });
 
-    editor.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-      function () {
-        app.ports.monacoEditorValue.send(editor.getValue());
-      }
-    );
-  }
+  editor.addCommand(
+    monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+    function () {
+      app.ports.monacoEditorValue.send(editor.getValue());
+    }
+  );
 }
 
 require(['vs/editor/editor.main'], () => {
@@ -114,6 +112,7 @@ require(['vs/editor/editor.main'], () => {
   app.ports.initMonacoResponse.subscribe(() => initMonaco());
   app.ports.updateElementPosition.subscribe((message) => unityOfWork(updateElementPosition, message));
   app.ports.updatePointPosition.subscribe((message) => unityOfWork(updatePointPosition, message));
+  // delay monaco initialization (via Elm)
   app.ports.initMonacoRequest.send(null);
 });
 

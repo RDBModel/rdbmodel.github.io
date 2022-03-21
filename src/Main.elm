@@ -69,7 +69,7 @@ changeRouteTo maybeRoute key =
             ( Home key, Cmd.none )
 
         Just Route.Editor ->
-            ( Editor key (EditorModel (SplitPane.init Horizontal) Init ""), Cmd.batch [ getElementPosition, initMonaco ] )
+            ( Editor key (EditorModel (SplitPane.init Horizontal) Init ""), Cmd.batch [ getElementPosition, getMonacoElementPosition] )
 
 
 type alias EditorModel =
@@ -82,12 +82,11 @@ type Model
     = Home Nav.Key
     | Editor Nav.Key EditorModel
 
-
-
 type Msg
     = ZoomMsg OnZoom
     | Resize
     | ReceiveElementPosition (Result Dom.Error Dom.Element)
+    | ReceiveMonacoElementPosition (Result Dom.Error Dom.Element)
     | DragViewElementStart ViewElementKey ( Float, Float )
     | ClickEdgeStart ViewRelationKey ( Float, Float )
     | DragPointStart ViewRelationPointKey ( Float, Float )
@@ -106,7 +105,18 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case (msg, model) of
+        (ReceiveMonacoElementPosition (Ok _ ), _) ->
+            ( model
+            , initMonaco
+            )
+
+        (ReceiveMonacoElementPosition (Err _), _) ->
+            ( model, Cmd.none )
+
         (ClickedLink urlRequest, _ ) ->
+            let
+                _ = Debug.log "clicked" urlRequest
+            in
             case urlRequest of
                 Browser.Internal url ->
                     ( model
@@ -114,14 +124,14 @@ update msg model =
                     )
 
                 Browser.External href ->
-                    let
-                        _ = Debug.log "href" href
-                    in
                     ( model
                     , Nav.load href
                     )
 
         (ChangedUrl url, _ ) ->
+            let
+                _ = Debug.log "ChangedUrl" url
+            in
             changeRouteTo (Route.fromUrl url) (getNavKey model)
 
         (_, Home _) ->
@@ -178,6 +188,8 @@ update msg model =
 
                         ReceiveElementPosition (Err _) ->
                             ( model, Cmd.none )
+
+                        
 
                         InitMonacoRequestReceived _ ->
                             (model, initMonaco)
@@ -584,6 +596,11 @@ elementId =
 getElementPosition : Cmd Msg
 getElementPosition =
     Task.attempt ReceiveElementPosition (Dom.getElement elementId)
+
+
+getMonacoElementPosition : Cmd Msg
+getMonacoElementPosition =
+    Task.attempt ReceiveMonacoElementPosition (Dom.getElement "monaco")
 
 
 {-| is it enough to put the point ?

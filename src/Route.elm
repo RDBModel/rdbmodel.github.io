@@ -1,5 +1,5 @@
-module Route exposing (Route(..), fromUrl, href, replaceUrl)
-import Url.Parser as Parser exposing ((</>), Parser, oneOf, s, string)
+module Route exposing (Route(..), fromUrl, href, replaceUrl, editorRoute)
+import Url.Parser as Parser exposing ((</>), Parser, oneOf, s)
 import Html exposing (Attribute)
 import Html.Attributes as Attr
 import Browser.Navigation as Nav
@@ -47,6 +47,9 @@ routeToString page =
     "#/" ++ String.join "/" (routeToPieces page)
 
 
+editorRoute : String
+editorRoute = "editor"
+
 routeToPieces : Route -> List String
 routeToPieces page =
     case page of
@@ -54,4 +57,4 @@ routeToPieces page =
             []
 
         Editor ->
-            [ "editor" ]
+            [ editorRoute ]
