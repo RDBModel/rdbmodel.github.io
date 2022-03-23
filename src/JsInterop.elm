@@ -16,20 +16,23 @@ port addPoint : E.Value -> Cmd msg
 
 
 type alias RemovePointMessage =
-  { viewElementKey : String
+  { selectedView : String
+  , viewElementKey : String
   , relation : Relation
   , pointIndex : Int
   }
 
 type alias PointMessage =
-  { viewElementKey : String
+  { selectedView : String
+  , viewElementKey : String
   , relation : Relation
   , pointIndex : Int
   , coords : (Float, Float)
   }
 
 type alias UpdateElementPositionMessage =
-  { viewElementKey : String
+  { selectedView : String
+  , viewElementKey : String
   , coords : (Float, Float)
   }
 
@@ -37,7 +40,8 @@ type alias UpdateElementPositionMessage =
 encodeRemovePoint : RemovePointMessage -> E.Value
 encodeRemovePoint removePointValue =
   E.object
-    [ ( "elementKey", E.string removePointValue.viewElementKey)
+    [ ( "view", E.string removePointValue.selectedView)
+    , ( "elementKey", E.string removePointValue.viewElementKey)
     , ( "relation", E.string (getStringFromRelation removePointValue.relation))
     , ( "pointIndex", E.int removePointValue.pointIndex)
     ]
@@ -45,7 +49,8 @@ encodeRemovePoint removePointValue =
 encodePointMessage : PointMessage -> E.Value
 encodePointMessage addPointValue =
   E.object
-    [ ( "elementKey", E.string addPointValue.viewElementKey)
+    [ ( "view", E.string addPointValue.selectedView)
+    , ( "elementKey", E.string addPointValue.viewElementKey)
     , ( "relation", E.string (getStringFromRelation addPointValue.relation))
     , ( "pointIndex", E.int addPointValue.pointIndex)
     , ( "x", E.float (addPointValue.coords |> Tuple.first))
@@ -55,7 +60,8 @@ encodePointMessage addPointValue =
 encodeUpdateElementPosition : UpdateElementPositionMessage -> E.Value
 encodeUpdateElementPosition value =
   E.object
-    [ ( "elementKey", E.string value.viewElementKey)
+    [ ( "view", E.string value.selectedView)
+    , ( "elementKey", E.string value.viewElementKey)
     , ( "x", E.float (value.coords |> Tuple.first))
     , ( "y", E.float (value.coords |> Tuple.second))
     ]

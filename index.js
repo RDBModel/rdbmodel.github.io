@@ -73,7 +73,17 @@ views:
           'uses - ring-1': []
       delivery-2:
         x: 300
-        y: 300`;
+        y: 300
+  view-2:
+    elements:
+      actor-1:
+        x: 100
+        y: 100
+        relations:
+          'uses - delivery-1': []
+      delivery-1:
+        x: 200
+        y: 200`;
 
 const app = Elm.Main.init({
   node: document.getElementById("root")
@@ -120,31 +130,35 @@ require(['vs/editor/editor.main'], () => {
 
 function removePoint(currentModel, message) {
   const elementName = message.elementKey;
+  const view = message.view;
   const relationName = message.relation;
   const indexToDelete = parseInt(message.pointIndex);
-  currentModel['views']['view-1']['elements'][elementName]['relations'][relationName].splice(indexToDelete, 1);
+  currentModel['views'][view]['elements'][elementName]['relations'][relationName].splice(indexToDelete, 1);
 }
 
 function addPoint(currentModel, message) {
   const elementName = message.elementKey;
+  const view = message.view;
   const relationName = message.relation;
   const index = parseInt(message.pointIndex);
-  const targetRelation = currentModel['views']['view-1']['elements'][elementName]['relations'][relationName];
+  const targetRelation = currentModel['views'][view]['elements'][elementName]['relations'][relationName];
   targetRelation.splice(index, 0, {});
   updateCoords(targetRelation[index], message.x, message.y);
 }
 
 function updateElementPosition(currentModel, message) {
   const elementName = message.elementKey;
-  const targetElement = currentModel['views']['view-1']['elements'][elementName];
+  const view = message.view;
+  const targetElement = currentModel['views'][view]['elements'][elementName];
   updateCoords(targetElement, message.x, message.y);
 }
 
 function updatePointPosition(currentModel, message) {
   const elementName = message.elementKey;
   const relationName = message.relation;
+  const view = message.view;
   const index = parseInt(message.pointIndex);
-  const targetRelation = currentModel['views']['view-1']['elements'][elementName]['relations'][relationName];
+  const targetRelation = currentModel['views'][view]['elements'][elementName]['relations'][relationName];
   targetRelation[index] = targetRelation[index] || {};
   updateCoords(targetRelation[index], message.x, message.y);
 }
