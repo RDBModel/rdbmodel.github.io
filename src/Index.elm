@@ -7,7 +7,6 @@ import Html exposing (Html)
 import Element.Border exposing (rounded)
 import Route exposing (editorRoute)
 import Color
-import Element exposing (wrappedRow)
 
 index : Html msg
 index =
@@ -27,8 +26,8 @@ header : Element msg
 header =
   row [ width fill, height <| px 50, blockPadding, spacing 20 ]
     [ el [ Font.size 32 ] <| text "RDB modeling"
-    , text "...a way to simplify your C4 model"
-    , link [ Color.blue |> mapColor |> Font.color, alignRight, defaultFontSize ] { label = text "Source", url = "https://github.com/RDBModel/rdbmodel.github.io" }
+    , el [ defaultFontSize, Font.light ] <| text "...a way to simplify your C4 model"
+    , link [ Color.blue |> mapColor |> Font.color, alignRight, Font.size 22 ] { label = text "[Source]", url = "https://github.com/RDBModel/rdbmodel.github.io" }
     ]
 
 body : Element msg
@@ -105,14 +104,14 @@ editor =
 
 editorLink : Element msg
 editorLink =
-  el [ width fill, height <| px 100, blockPadding ] editorButton
+  el [ width fill, height <| px 120, blockPadding ] editorButton
 
 editorButton : Element msg
 editorButton =
   el [centerX, centerY]
   <| link [ Color.lightBlue |> mapColor |> Background.color, rounded 5 ]
     { url = "/" ++ editorRoute
-    , label = el [ paddingXY 150 30, defaultFontSize ] <| text "See the demo ☀️"
+    , label = el [ paddingXY 150 20, defaultFontSize ] <| text "See the demo ☀️"
     }
 
 footer : Element msg

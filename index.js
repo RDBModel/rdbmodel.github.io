@@ -104,6 +104,8 @@ function initMonaco() {
       app.ports.monacoEditorValue.send(editor.getValue());
     }
   );
+
+  app.ports.monacoEditorValue.send(editor.getValue());
 }
 
 require(['vs/editor/editor.main'], () => {
