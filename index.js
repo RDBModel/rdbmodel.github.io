@@ -120,14 +120,13 @@ function initMonaco() {
       vertical: 'auto'
     }
   });
-  console.log(editor)
 
-  // editor.addCommand(
-  //   monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-  //   function () {
-  //     app.ports.monacoEditorValue.send(editor.getValue());
-  //   }
-  // );
+  editor.addCommand(
+    monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+    function () {
+      app.ports.monacoEditorValue.send(editor.getValue());
+    }
+  );
 
   app.ports.monacoEditorValue.send(editor.getValue());
 }
