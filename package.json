@@ -2,7 +2,6 @@
   "name": "rdb",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
   "dependencies": {
     "monaco-editor": "0.31.0",
     "yaml": "^1.10.2"

@@ -10,9 +10,9 @@
             "problemMatcher": []
         },
         {
-            "label": "Review",
+            "label": "Build",
             "type": "shell",
-            "command": "npx elm-review --template jfmengels/elm-review-unused/example",
+            "command": "npx parcel build index.html",
             "problemMatcher": []
         },
         {
