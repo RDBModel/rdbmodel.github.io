@@ -2,15 +2,16 @@
   "name": "rdb",
   "version": "1.0.0",
   "description": "",
+  "main": "index.js",
   "dependencies": {
     "monaco-editor": "0.31.0",
     "yaml": "^1.10.2"
   },
   "devDependencies": {
-    "@parcel/transformer-elm": "^2.3.2",
+    "@parcel/transformer-elm": "^2.4.1",
+    "buffer": "^6.0.3",
     "elm": "^0.19.1-5",
-    "elm-review": "^2.7.0",
-    "parcel": "^2.3.2",
+    "parcel": "^2.4.1",
     "process": "^0.11.10"
   },
   "scripts": {

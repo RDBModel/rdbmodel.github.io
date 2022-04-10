@@ -1,57 +1,94 @@
-port module Main exposing (..)
+module Main exposing (..)
 
-import Browser
-import SplitPane exposing (Orientation(..), ViewConfig, createViewConfig)
-import Browser.Dom as Dom
 import Basics.Extra exposing (maxSafeInteger)
+import SplitPane exposing (Orientation(..), ViewConfig, createViewConfig)
+import Browser exposing (Document)
+import Browser.Dom as Dom
+import Browser.Navigation as Nav
 import Browser.Events as Events
 import Json.Decode as Decode
 import Yaml.Decode as D
-import Html exposing (Html, div, text)
-import Html.Events.Extra.Mouse as Mouse
+import Html exposing (Html, div, text, a)
+import Html.Attributes exposing (href, style)
+import Html.Events.Extra.Mouse as Mouse exposing (Event)
 import TypedSvg exposing (svg, defs, g)
 import TypedSvg.Attributes as Attrs exposing ( class,  x, y, id)
 import TypedSvg.Types exposing ( Length(..))
 import TypedSvg.Core exposing (Svg, Attribute)
--- import Graph exposing (Graph, Node, Edge, NodeContext, NodeId, Adjacency)
 import Zoom exposing (Zoom, OnZoom)
 import Task
-import Html.Attributes
 import Elements exposing
     ( renderContainer, renderContainerSelected
     , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, edgeStrokeWidthExtend, gridCellSize
     , selectItemsRect
     )
-import Html.Events.Extra.Mouse exposing (Event)
 import DomainDecoder exposing (..)
 import Dict exposing (Dict)
 import Domain exposing (..)
+import Url exposing (Url)
+import Route exposing (Route)
+import JsInterop exposing (initMonacoResponse, removePoint, encodeRemovePoint, monacoEditorValue, initMonacoRequest
+    , RemovePointMessage, PointMessage, encodePointMessage, addPoint, UpdateElementPositionMessage, updateElementPosition
+    , encodeUpdateElementPosition, updatePointPosition)
+import Index exposing (index)
 
-port messageReceiver : (String -> msg) -> Sub msg
 
-port sendMessage : String -> Cmd msg
+initMonaco : Cmd Msg
+initMonaco = initMonacoResponse ()
 
-
-
-main : Program () Model Msg
+main : Program (String, String) Model Msg
 main =
-  Browser.element { init = init, update = update, view = view, subscriptions = subscriptions }
+  Browser.application
+    { init = init
+    , update = update
+    , view = view
+    , subscriptions = subscriptions
+    , onUrlRequest = ClickedLink
+    , onUrlChange = ChangedUrl
+    }
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    (Model (SplitPane.init Horizontal) Init "", getElementPosition)
+init : (String, String) -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init gifLinks url navKey  =
+    changeRouteTo gifLinks (Route.fromUrl url) navKey
 
-type alias Model =
+
+getNavKey : Model -> Nav.Key
+getNavKey model =
+    case model of
+        Home key _ -> key
+        Editor key _ _ -> key
+
+changeRouteTo : (String, String) ->  Maybe Route -> Nav.Key -> ( Model, Cmd Msg )
+changeRouteTo gifLinks maybeRoute key =
+    case maybeRoute of
+        Nothing ->
+            ( Home key gifLinks, Cmd.none )
+
+        Just Route.Home ->
+            ( Home key gifLinks, Cmd.none )
+
+        Just (Route.Editor selectedView) ->
+            ( Editor key gifLinks (EditorsModel (SplitPane.init Horizontal) Init Dict.empty Nothing selectedView ""), getMonacoElementPosition )
+
+
+type alias EditorsModel =
     { pane : SplitPane.State
-    , root : Root
+    , viewEditor : ViewEditor
+    , views : Dict String View
+    , domain : Maybe Domain
+    , selectedView : Maybe String
     , errors : String
     }
 
+type Model
+    = Home Nav.Key (String, String)
+    | Editor Nav.Key (String, String) EditorsModel
 
 type Msg
     = ZoomMsg OnZoom
     | Resize
     | ReceiveElementPosition (Result Dom.Error Dom.Element)
+    | ReceiveMonacoElementPosition (Result Dom.Error Dom.Element)
     | DragViewElementStart ViewElementKey ( Float, Float )
     | ClickEdgeStart ViewRelationKey ( Float, Float )
     | DragPointStart ViewRelationPointKey ( Float, Float )
@@ -59,279 +96,336 @@ type Msg
     | MouseMove ( Float, Float )
     | MouseMoveEnd
     | PaneMsg SplitPane.Msg
-    | MonacoEditorValueChanged String
-    | MonacoSendValue String
+    | MonacoEditorValueReceived String
+    | InitMonacoRequestReceived ()
     | SetPanMode Bool
     | SelectItemsStart (Float, Float)
     | NoOp
+    | ClickedLink Browser.UrlRequest
+    | ChangedUrl Url
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case model.root of
-        Init ->
-            case msg of
-                ReceiveElementPosition (Ok { element }) ->
-                    ( { model | root = Ready
-                        { drag = Nothing
-                        , element = element
-                        , zoom = initZoom element
-                        , views = Dict.empty
-                        , selectedView = Nothing
-                        , panMode = False
-                        , brush = Nothing
-                        , selectedItems = []
-                        , domain = Nothing
-                        }
-                    }
-                    , Cmd.none
+    case (msg, model) of
+        (ReceiveMonacoElementPosition (Ok _ ), _) ->
+            ( model
+            , initMonaco
+            )
+
+        (ReceiveMonacoElementPosition (Err _), _) ->
+            ( model, Cmd.none )
+
+        (ClickedLink urlRequest, _ ) ->
+            case urlRequest of
+                Browser.Internal url ->
+                    ( model
+                    , Nav.pushUrl (getNavKey model) (Url.toString url)
                     )
 
-                ReceiveElementPosition (Err _) ->
-                    ( model, Cmd.none )
-
-                PaneMsg paneMsg ->
-                    ( { model | pane = SplitPane.update paneMsg model.pane }, Cmd.none )
-
-                Resize ->
-                    ( model, getElementPosition )
-
-                _ ->  ( model, Cmd.none )
-        Ready state ->
-            case msg of
-                SelectItemsStart xy ->
-                    let
-                        shiftedXY = shiftPosition state.zoom (0, 0) xy
-                    in
-                    ( { model | root = Ready { state | brush = Just <| Brush shiftedXY shiftedXY } }
-                    , Cmd.none
+                Browser.External href ->
+                    ( model
+                    , Nav.load href
                     )
 
-                SetPanMode value ->
-                    ( { model | root = Ready { state | panMode = value } }
-                    , Cmd.none
+        (ChangedUrl url, Home _ links ) ->
+            changeRouteTo links (Route.fromUrl url) (getNavKey model)
+
+        (ChangedUrl url, Editor _ links _) ->
+            changeRouteTo links (Route.fromUrl url) (getNavKey model)
+
+        (_, Home _ _) ->
+            (model, Cmd.none)
+
+        (MonacoEditorValueReceived val, Editor navKey gifLinks editorModel) ->
+            case D.fromString rdbDecoder val of
+                Ok (domain, views) ->
+                    (   { editorModel
+                        | errors = ""
+                        , views = views
+                        , domain = Just domain
+                        } |> Editor navKey gifLinks
+                    , getElementPosition
                     )
 
-                ReceiveElementPosition (Ok { element }) ->
-                    ( { model | root = Ready { state | element = element } }
-                    , Cmd.none
-                    )
+                Err err ->
+                    case err of
+                        D.Parsing errMsg -> ( { editorModel | errors = errMsg } |> Editor navKey gifLinks, Cmd.none)
+                        D.Decoding errMsg -> ( { editorModel | errors = errMsg } |> Editor navKey gifLinks, Cmd.none)
 
-                ReceiveElementPosition (Err _) ->
-                    ( model, Cmd.none )
+        (ReceiveElementPosition (Err _), _ ) ->
+            ( model, Cmd.none )
 
-                MonacoEditorValueChanged val ->
-                    case D.fromString rdbDecoder val of
-                        Ok (domain, views) ->
-                            (   { model
-                                | errors = ""
-                                , root = Ready { state | views = views, domain = Just domain, selectedView = Dict.keys views |> List.head }
+        (_, Editor navKey gifLinks editorModel ) ->
+            case editorModel.viewEditor of
+                Init ->
+                    case msg of
+                        ReceiveElementPosition (Ok { element }) ->
+                            ( { editorModel | viewEditor = Ready
+                                { drag = Nothing
+                                , element = element
+                                , zoom = initZoom element
+                                , panMode = False
+                                , brush = Nothing
+                                , selectedItems = []
                                 }
+                            } |> Editor navKey gifLinks
                             , Cmd.none
                             )
 
-                        Err err ->
-                            case err of
-                                D.Parsing errMsg -> ( { model | errors = errMsg }, Cmd.none)
-                                D.Decoding errMsg -> ( { model | errors = errMsg }, Cmd.none)
+                        InitMonacoRequestReceived _ ->
+                            (model, initMonaco)
 
-                MonacoSendValue val ->
-                    ( model, sendMessage val )
+                        PaneMsg paneMsg ->
+                            ( { editorModel | pane = SplitPane.update paneMsg editorModel.pane } |> Editor navKey gifLinks, Cmd.none )
 
-                Resize ->
-                    ( model, getElementPosition )
+                        Resize ->
+                            ( model, getElementPosition )
 
-                ZoomMsg zoomMsg ->
-                    ( { model | root = Ready { state | zoom = Zoom.update zoomMsg state.zoom } }
-                    , Cmd.none
-                    )
-
-                DragViewElementStart viewElementKey xy ->
-                    let
-                        (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
-
-                        selectedElementKeys = getSelectedElementKeysAndDeltas state.selectedItems
-                            |> List.map Tuple.first
-
-                        isWithinAlreadySelected = selectedElementKeys
-                            |> List.member viewElementKey
-
-                        elementsOfCurrentView = getCurrentView state.selectedView state.views
-                            |> getViewElementsOfCurrentView
-
-                        updatedSelectedItems = 
-                            if List.isEmpty state.selectedItems || not isWithinAlreadySelected then
-                                elementsOfCurrentView
-                                    |> getElement viewElementKey
-                                    |> Maybe.map (\ve -> ( shiftedStartX - ve.x, shiftedStartY - ve.y ))
-                                    |> SelectedItem (ElementKey viewElementKey)
-                                    |> List.singleton
-                            else
-                                updateSelectedItemsDeltas elementsOfCurrentView (shiftedStartX, shiftedStartY) state.selectedItems
-                    in
-                    ( { model | root = Ready
-                        { state
-                        | drag = Just { start = xy, current = xy }
-                        , selectedItems = updatedSelectedItems
-                        }
-                    }
-                    , Cmd.none
-                    )
-
-                DragPointStart viewRelationPointKey xy ->
-                    let
-                        (viewElementKey, relation, pointIndex) = viewRelationPointKey
-                        (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
-
-                        selectedPointKeys = getSelectedPointKeysAndDeltas state.selectedItems
-                            |> List.map Tuple.first
-
-                        isWithinAlreadySelected = selectedPointKeys
-                            |> List.member viewRelationPointKey
-
-                        elementsOfCurrentView = getCurrentView state.selectedView state.views
-                            |> getViewElementsOfCurrentView
-
-                        updatedSelectedItems = 
-                            if List.isEmpty state.selectedItems || not isWithinAlreadySelected then
-                                elementsOfCurrentView
-                                    |> getElement viewElementKey
-                                    |> getRelationPoints relation
-                                    |> getPoint pointIndex
-                                    |> Maybe.map (\tp -> ( shiftedStartX - tp.x, shiftedStartY - tp.y ))
-                                    |> SelectedItem (PointKey viewRelationPointKey)
-                                    |> List.singleton
-                            else
-                                updateSelectedItemsDeltas elementsOfCurrentView (shiftedStartX, shiftedStartY) state.selectedItems
-                    in
-                    ( { model | root = Ready
-                        { state
-                        | drag = Just { start = xy, current = xy }
-                        , selectedItems = updatedSelectedItems
-                        }
-                    }
-                    , Cmd.none
-                    )
-
-                RemovePoint (viewElementKey, relation, pointIndex) ->
-                    let
-                        removePointAtIndex list = List.take pointIndex list ++ List.drop (pointIndex + 1) list
-                        
-                        updatedViews =
-                            updatePointsInRelations relation removePointAtIndex
-                            |> updateRelationsInElements viewElementKey
-                            |> updateElementsInViews state.selectedView state.views
-                    in
-                    ( { model | root = Ready { state | views = updatedViews } }
-                    , sendMessage (viewElementKey ++ "|" ++ getStringFromRelation relation ++ "|del|" ++ String.fromInt pointIndex )
-                    )
-
-                ClickEdgeStart (viewElementKey, relation) xy ->
-                    let
-                        spxy = shiftPosition state.zoom (state.element.x, state.element.y) xy
-
-                        currentView = getCurrentView state.selectedView state.views
-
-                        sourceXY = currentView |> getViewElementsOfCurrentView
-                            |> getElement viewElementKey
-                            |> Maybe.map (\s -> (s.x, s.y))
-
-                        targetXY = currentView |> getViewElementsOfCurrentView
-                            |> getElement (Tuple.first relation)
-                            |> Maybe.map (\s -> (s.x, s.y))
-
-                    in
-                    case (sourceXY, targetXY, currentView) of
-                        (Just sxy, Just txy, Just cv) ->
+                        _ ->  ( model, Cmd.none )
+                Ready state ->
+                    case msg of
+                        SelectItemsStart xy ->
                             let
-                                magicIntMax = maxSafeInteger
-                                allPoints = sxy :: (getViewRelationPoints (viewElementKey, relation) cv) ++ [ txy ]
-
-                                -- as the actual edge is wider then visible, we are extending the search area
-                                extendPoints (x1, y1) (x2, y2) =
-                                    let
-                                        extend v1 v2 =
-                                            if v1 < v2 || v1 == v2 then
-                                                (v1 - edgeStrokeWidthExtend, v2 + edgeStrokeWidthExtend)
-                                            else
-                                                (v2 - edgeStrokeWidthExtend, v1 + edgeStrokeWidthExtend)
-
-                                        (ux1, ux2) = extend x1 x2
-                                        (uy1, uy2) = extend y1 y2
-                                    in
-                                    ((ux1, uy1), (ux2, uy2))
-
-                                (_ , (insertAfterValue, _)) = 
-                                    List.foldr
-                                    (\currentPoint -> \(previousPoint, (insertAfterPoint, val)) ->
-                                        let
-                                            z = distanceToLine spxy (currentPoint , previousPoint)
-
-                                            (extendedA, extendedPrev) = extendPoints currentPoint previousPoint
-                                        in
-                                        if not (isNaN z) && betweenPoints spxy (extendedA, extendedPrev) && z < val then
-                                            (currentPoint, (currentPoint, z))
-                                        else 
-                                            (currentPoint, (insertAfterPoint, val))
-                                    )
-                                    (txy, (txy, magicIntMax))
-                                    allPoints
-
-                                (listWithNewPoint, indexOfNewPoint, _ ) = List.foldr
-                                    (\a -> \(b, i, found) ->
-                                        if insertAfterValue == a then
-                                            (a :: spxy :: b, i, True)
-                                        else
-                                            (a :: b, if found then i else i + 1, found)
-                                    )
-                                    ([], 0, False)
-                                    allPoints
-
-                                updatedList = listWithNewPoint
-                                    |> List.drop 1
-                                    |> List.reverse
-                                    |> List.drop 1
-                                    |> List.reverse
-
-                                updatedPoints = \_ -> updatedList |> List.map (\(x, y) -> ViewRelationPoint x y)
-                                
-                                updatedViewsValue =
-                                    updatedPoints
-                                    |> updatePointsInRelations relation 
-                                    |> updateRelationsInElements viewElementKey
-                                    |> updateElementsInViews state.selectedView state.views
-
+                                shiftedXY = shiftPosition state.zoom (0, 0) xy
                             in
-                            ( { model | root = Ready { state | views = updatedViewsValue } }
-                            ,  sendMessage (viewElementKey ++ "|" ++ getStringFromRelation relation ++ "|add|" ++ String.fromInt (List.length updatedList - indexOfNewPoint)
-                                    ++ "|" ++ String.fromFloat (Tuple.first spxy) ++ "," ++ String.fromFloat (Tuple.second spxy))
-                            )
-                        _ -> ( model, Cmd.none )
-
-                MouseMove xy ->
-                    let
-                        (updatedRoot, cmdMsg) = handleMouseMove xy state
-                    in
-                    ( { model | root = updatedRoot }, cmdMsg)
-
-                MouseMoveEnd ->
-                    case state.brush of 
-                        Just _ ->
-                            ( { model | root = Ready { state | brush = Nothing } }
+                            ( { editorModel | viewEditor = Ready { state | brush = Just <| Brush shiftedXY shiftedXY }  } |> Editor navKey gifLinks
                             , Cmd.none
                             )
-                        Nothing ->
-                            case state.drag of
-                                Just _ ->
-                                    ( { model | root = Ready { state | drag = Nothing, selectedItems = [] } }
-                                    , updateMonacoValues state.selectedView state.views state.selectedItems
+
+                        SetPanMode value ->
+                            ( { editorModel | viewEditor = Ready { state | panMode = value } } |> Editor navKey gifLinks
+                            , Cmd.none
+                            )
+
+                        ReceiveElementPosition (Ok { element }) ->
+                            ( { editorModel | viewEditor = Ready { state | element = element } } |> Editor navKey gifLinks
+                            , Cmd.none 
+                            )
+
+                        Resize ->
+                            ( model, getElementPosition )
+
+                        ZoomMsg zoomMsg ->
+                            ( { editorModel | viewEditor = Ready { state | zoom = Zoom.update zoomMsg state.zoom } } |> Editor navKey gifLinks
+                            , Cmd.none
+                            )
+
+                        DragViewElementStart viewElementKey xy ->
+                            let
+                                (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
+
+                                selectedElementKeys = getSelectedElementKeysAndDeltas state.selectedItems
+                                    |> List.map Tuple.first
+
+                                isWithinAlreadySelected = selectedElementKeys
+                                    |> List.member viewElementKey
+
+                                elementsOfCurrentView = getCurrentView editorModel.selectedView editorModel.views
+                                    |> getViewElementsOfCurrentView
+
+                                updatedSelectedItems = 
+                                    if List.isEmpty state.selectedItems || not isWithinAlreadySelected then
+                                        elementsOfCurrentView
+                                            |> getElement viewElementKey
+                                            |> Maybe.map (\ve -> ( shiftedStartX - ve.x, shiftedStartY - ve.y ))
+                                            |> SelectedItem (ElementKey viewElementKey)
+                                            |> List.singleton
+                                    else
+                                        updateSelectedItemsDeltas elementsOfCurrentView (shiftedStartX, shiftedStartY) state.selectedItems
+                            in
+                            ( { editorModel | viewEditor = Ready
+                                { state
+                                | drag = Just { start = xy, current = xy }
+                                , selectedItems = updatedSelectedItems
+                                }
+                            } |> Editor navKey gifLinks
+                            , Cmd.none
+                            )
+
+                        DragPointStart viewRelationPointKey xy ->
+                            let
+                                (viewElementKey, relation, pointIndex) = viewRelationPointKey
+                                (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
+
+                                selectedPointKeys = getSelectedPointKeysAndDeltas state.selectedItems
+                                    |> List.map Tuple.first
+
+                                isWithinAlreadySelected = selectedPointKeys
+                                    |> List.member viewRelationPointKey
+
+                                elementsOfCurrentView = getCurrentView editorModel.selectedView editorModel.views
+                                    |> getViewElementsOfCurrentView
+
+                                updatedSelectedItems = 
+                                    if List.isEmpty state.selectedItems || not isWithinAlreadySelected then
+                                        elementsOfCurrentView
+                                            |> getElement viewElementKey
+                                            |> getRelationPoints relation
+                                            |> getPoint pointIndex
+                                            |> Maybe.map (\tp -> ( shiftedStartX - tp.x, shiftedStartY - tp.y ))
+                                            |> SelectedItem (PointKey viewRelationPointKey)
+                                            |> List.singleton
+                                    else
+                                        updateSelectedItemsDeltas elementsOfCurrentView (shiftedStartX, shiftedStartY) state.selectedItems
+                            in
+                            ( { editorModel | viewEditor = Ready
+                                { state
+                                | drag = Just { start = xy, current = xy }
+                                , selectedItems = updatedSelectedItems
+                                }
+                            } |> Editor navKey gifLinks
+                            , Cmd.none
+                            )
+
+                        RemovePoint (viewElementKey, relation, pointIndex) ->
+                            let
+                                removePointAtIndex list = List.take pointIndex list ++ List.drop (pointIndex + 1) list
+
+                                updatedViews =
+                                    updatePointsInRelations relation removePointAtIndex
+                                    |> updateRelationsInElements viewElementKey
+                                    |> updateElementsInViews editorModel.selectedView editorModel.views
+
+                                removePointMessage =
+                                    case editorModel.selectedView of
+                                        Just v ->
+                                            RemovePointMessage v viewElementKey relation pointIndex
+                                                |> encodeRemovePoint |> removePoint
+                                        Nothing ->
+                                            Cmd.none
+                            in
+                            ( { editorModel | views = updatedViews } |> Editor navKey gifLinks
+                            , removePointMessage
+                            )
+
+                        ClickEdgeStart (viewElementKey, relation) xy ->
+                            let
+                                spxy = shiftPosition state.zoom (state.element.x, state.element.y) xy
+
+                                currentView = getCurrentView editorModel.selectedView editorModel.views
+
+                                sourceXY = currentView |> getViewElementsOfCurrentView
+                                    |> getElement viewElementKey
+                                    |> Maybe.map (\s -> (s.x, s.y))
+
+                                targetXY = currentView |> getViewElementsOfCurrentView
+                                    |> getElement (Tuple.first relation)
+                                    |> Maybe.map (\s -> (s.x, s.y))
+                            in
+                            case (sourceXY, targetXY, currentView) of
+                                (Just sxy, Just txy, Just cv) ->
+                                    let
+                                        magicIntMax = maxSafeInteger
+                                        allPoints = sxy :: (getViewRelationPoints (viewElementKey, relation) cv) ++ [ txy ]
+
+                                        -- as the actual edge is wider then visible, we are extending the search area
+                                        extendPoints (x1, y1) (x2, y2) =
+                                            let
+                                                extend v1 v2 =
+                                                    if v1 < v2 || v1 == v2 then
+                                                        (v1 - edgeStrokeWidthExtend, v2 + edgeStrokeWidthExtend)
+                                                    else
+                                                        (v2 - edgeStrokeWidthExtend, v1 + edgeStrokeWidthExtend)
+
+                                                (ux1, ux2) = extend x1 x2
+                                                (uy1, uy2) = extend y1 y2
+                                            in
+                                            ((ux1, uy1), (ux2, uy2))
+
+                                        (_ , (insertAfterValue, _)) = 
+                                            List.foldr
+                                            (\currentPoint -> \(previousPoint, (insertAfterPoint, val)) ->
+                                                let
+                                                    z = distanceToLine spxy (currentPoint , previousPoint)
+
+                                                    (extendedA, extendedPrev) = extendPoints currentPoint previousPoint
+                                                in
+                                                if not (isNaN z) && betweenPoints spxy (extendedA, extendedPrev) && z < val then
+                                                    (currentPoint, (currentPoint, z))
+                                                else 
+                                                    (currentPoint, (insertAfterPoint, val))
+                                            )
+                                            (txy, (txy, magicIntMax))
+                                            allPoints
+
+                                        (listWithNewPoint, indexOfNewPoint, _ ) = List.foldr
+                                            (\a -> \(b, i, found) ->
+                                                if insertAfterValue == a then
+                                                    (a :: spxy :: b, i, True)
+                                                else
+                                                    (a :: b, if found then i else i + 1, found)
+                                            )
+                                            ([], 0, False)
+                                            allPoints
+
+                                        updatedList = listWithNewPoint
+                                            |> List.drop 1
+                                            |> List.reverse
+                                            |> List.drop 1
+                                            |> List.reverse
+
+                                        updatedPoints = \_ -> updatedList |> List.map (\(x, y) -> ViewRelationPoint x y)
+                                        
+                                        updatedViewsValue =
+                                            updatedPoints
+                                            |> updatePointsInRelations relation 
+                                            |> updateRelationsInElements viewElementKey
+                                            |> updateElementsInViews editorModel.selectedView editorModel.views
+
+                                        addPointMessage =
+                                            case editorModel.selectedView of
+                                                Just v ->
+                                                    PointMessage v viewElementKey relation (List.length updatedList - indexOfNewPoint) spxy
+                                                        |> encodePointMessage |> addPoint
+                                                Nothing ->
+                                                    Cmd.none
+
+                                    in
+                                    ( { editorModel | views = updatedViewsValue } |> Editor navKey gifLinks
+                                    , addPointMessage
                                     )
-                                _ ->
-                                    ( model, Cmd.none )
+                                _ -> ( model, Cmd.none )
 
-                PaneMsg paneMsg ->
-                    ( { model | pane = SplitPane.update paneMsg model.pane }, Cmd.none )
+                        MouseMove xy ->
+                            let
+                                selectedView = getCurrentView editorModel.selectedView editorModel.views
+                                updatedViewEditor = handleMouseMove xy state selectedView
 
-                NoOp -> ( model, Cmd.none )
+                                updatedViews =
+                                    case (state.brush, state.drag) of
+                                        (Nothing, Just _ ) ->
+                                            updateElementAndPointPosition state.selectedItems xy state
+                                                |> updateElementsInViews editorModel.selectedView editorModel.views
+                                        _ ->
+                                            editorModel.views
+                            in
+                            ( { editorModel
+                                | viewEditor = updatedViewEditor
+                                , views = updatedViews
+                                } |> Editor navKey gifLinks
+                            , Cmd.none)
+
+                        MouseMoveEnd ->
+                            case state.brush of
+                                Just _ ->
+                                    ( { editorModel | viewEditor = Ready { state | brush = Nothing } } |> Editor navKey gifLinks
+                                    , Cmd.none
+                                    )
+                                Nothing ->
+                                    case state.drag of
+                                        Just _ ->
+                                            ( { editorModel | viewEditor = Ready { state | drag = Nothing, selectedItems = [] } } |> Editor navKey gifLinks
+                                            , updateMonacoValues editorModel.selectedView editorModel.views state.selectedItems
+                                            )
+                                        _ ->
+                                            ( model, Cmd.none )
+
+                        PaneMsg paneMsg ->
+                            ( { editorModel | pane = SplitPane.update paneMsg editorModel.pane } |> Editor navKey gifLinks
+                            , Cmd.none
+                            )
+
+                        _ -> ( model, Cmd.none )
 
 updateSelectedItemsDeltas : Maybe (Dict ViewElementKey ViewElement) -> (Float, Float) -> List SelectedItem -> List SelectedItem
 updateSelectedItemsDeltas viewElementsOfCurrentView (shiftedStartX, shiftedStartY) selectedItems =
@@ -364,47 +458,57 @@ updateSelectedItemsDeltas viewElementsOfCurrentView (shiftedStartX, shiftedStart
 
 updateMonacoValues : Maybe String -> Dict String View -> List SelectedItem -> Cmd msg
 updateMonacoValues selectedView views selectedItems =
-    let
-        createMessage (elementKey, element) =
-            elementKey ++ "|" ++ String.fromFloat element.x ++ "," ++ String.fromFloat element.y
-
-        createPointMessage (viewRelationPointKey, viewRelationPoint) =
+    case selectedView of
+        Just v ->
             let
-                (viewElementKey, relation, viewRelationPointIndex) = viewRelationPointKey
-                x = viewRelationPoint.x
-                y = viewRelationPoint.y
+                createMessage (elementKey, element) =
+                    UpdateElementPositionMessage v elementKey (element.x, element.y)
+
+                createPointMessage (viewRelationPointKey, viewRelationPoint) =
+                    let
+                        (viewElementKey, relation, viewRelationPointIndex) = viewRelationPointKey
+                    in
+                    PointMessage v viewElementKey relation viewRelationPointIndex (viewRelationPoint.x, viewRelationPoint.y)
+                viewElements =
+                    getCurrentView selectedView views
+                    |> getViewElementsOfCurrentView
+
+                currentViewElementsXY = viewElements
+                    |> getElements (getSelectedElementKeysAndDeltas selectedItems |> List.map Tuple.first)
+
+                currentRelationPointXY = viewElements
+                    |> getPoints (getSelectedPointKeysAndDeltas selectedItems |> List.map Tuple.first)
+                updateElementPositionMessages = currentViewElementsXY
+                    |> List.map (createMessage >> encodeUpdateElementPosition >> updateElementPosition)
+
+                updateElementPointsPositionMessages = currentRelationPointXY
+                    |> List.map (createPointMessage >> encodePointMessage >> updatePointPosition)
             in
-            viewElementKey ++ "|" ++ getStringFromRelation relation ++ "|" ++ String.fromInt viewRelationPointIndex
-                ++ "|" ++ String.fromFloat x ++ "," ++ String.fromFloat y
-        viewElements =
-            getCurrentView selectedView views
-            |> getViewElementsOfCurrentView
-        
-        currentViewElementsXY = viewElements
-            |> getElements (getSelectedElementKeysAndDeltas selectedItems |> List.map Tuple.first)
+            (updateElementPositionMessages ++ updateElementPointsPositionMessages)
+                |> Cmd.batch
+        Nothing ->
+            Cmd.none
 
-        currentRelationPointXY = viewElements
-            |> getPoints (getSelectedPointKeysAndDeltas selectedItems |> List.map Tuple.first)
-        
-        updateElementPositionMessages = currentViewElementsXY
-            |> List.map (createMessage >> sendMessage)
-        
-        updateElementPointsPositionMessages = currentRelationPointXY
-            |> List.map (createPointMessage >> sendMessage)
-    in
-    (updateElementPositionMessages ++ updateElementPointsPositionMessages)
-        |> Cmd.batch
-
-
-view : Model -> Html Msg
-view { pane, root } =
-    div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
-        [ SplitPane.view
-            viewConfig
-            (svgView root)
-            (div [ id "monaco", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%"] [])
-            pane
-        ]
+view : Model -> Document Msg
+view model =
+    case model of
+        Home _ gifLinks ->
+            { title = "RDB Model"
+            , body = [ index gifLinks ]
+            }
+        Editor _ _ { pane, viewEditor, domain, views, selectedView } ->
+            { title = "RDB Model Editor"
+            , body =
+                [ div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
+                    [ SplitPane.view
+                        viewConfig
+                        (svgView (views, domain, selectedView) viewEditor)
+                        (div [ id "monaco", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%"] [])
+                        pane
+                    , div [ style "position" "fixed", style "bottom" "0", style "left" "0", style "font-size" "9px" ] [ text "v0.0.1"]
+                    ]
+                ]
+            }
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -418,7 +522,7 @@ subscriptions model =
                     (Decode.map (\_ -> MouseMoveEnd) Mouse.eventDecoder)
                 ]
 
-        readySubscriptions : AppState -> Sub Msg
+        readySubscriptions : ViewEditorState -> Sub Msg
         readySubscriptions { zoom, brush, drag } =
             Sub.batch
                 [ Zoom.subscriptions zoom ZoomMsg
@@ -429,18 +533,26 @@ subscriptions model =
                 ]
     in
     Sub.batch
-        [ case model.root of
-            Init ->
-                Sub.none
+        [ case model of 
+            Home _ _ -> Sub.none
+            Editor _ _ { viewEditor } ->
+                case viewEditor of
+                    Init ->
+                        Sub.none
 
-            Ready state ->
-                readySubscriptions state
+                    Ready state ->
+                        readySubscriptions state
         , Events.onResize (\_ -> \_ -> Resize)
         , Events.onKeyDown (keyDecoder |> setPanMode True)
         , Events.onKeyUp (keyDecoder |> setPanMode False)
-        , Sub.map PaneMsg <| SplitPane.subscriptions model.pane
-        , messageReceiver MonacoEditorValueChanged
+        , case model of 
+            Home _ _ -> Sub.none
+            Editor _ _ { pane } ->
+                Sub.map PaneMsg <| SplitPane.subscriptions pane
+        , monacoEditorValue MonacoEditorValueReceived
+        , initMonacoRequest InitMonacoRequestReceived
         ]
+
 
 keyDecoder : Decode.Decoder String
 keyDecoder =
@@ -450,26 +562,22 @@ setPanMode : Bool -> Decode.Decoder String -> Decode.Decoder Msg
 setPanMode value =
     Decode.map (\key -> if key == "Control" then SetPanMode value else NoOp)
 
-type Root
+type ViewEditor
     = Init
-    | Ready AppState
+    | Ready ViewEditorState
 
 type alias SubPathEdge = 
     { points : List (Float, Float)
     }
 
-type alias AppState =
+type alias ViewEditorState =
     { drag : Maybe Drag
-    -- , graph : Graph Container SubPathEdge
-    , views : Dict String View
-    , selectedView : Maybe String
     , zoom : Zoom
     -- The position and dimensions of the svg element.
     , element : Element
     , panMode : Bool
     , brush : Maybe Brush
     , selectedItems : List SelectedItem
-    , domain : Maybe Domain
     }
 
 type alias Brush =
@@ -503,6 +611,11 @@ elementId =
 getElementPosition : Cmd Msg
 getElementPosition =
     Task.attempt ReceiveElementPosition (Dom.getElement elementId)
+
+
+getMonacoElementPosition : Cmd Msg
+getMonacoElementPosition =
+    Task.attempt ReceiveMonacoElementPosition (Dom.getElement "monaco")
 
 
 {-| is it enough to put the point ?
@@ -539,41 +652,33 @@ floatRemainderBy : Float -> Float -> Float
 floatRemainderBy divisor n =
   n - toFloat(truncate (n / divisor)) * divisor
 
-handleMouseMove : ( Float, Float ) -> AppState -> ( Root, Cmd Msg )
-handleMouseMove xy ({ drag, brush, selectedItems } as state) =
+handleMouseMove : ( Float, Float ) -> ViewEditorState -> Maybe View -> ViewEditor
+handleMouseMove xy ({ drag, brush, selectedItems } as state) currentView =
     case brush of
         Just b ->
             let
                 shiftedXY = shiftPosition state.zoom (0, 0) xy
                 updatedBrush = { b | end = shiftedXY }
-                elementKeysWithinBrush = getCurrentView state.selectedView state.views
+                elementKeysWithinBrush = currentView
                     |> getViewElementsOfCurrentView
                     |> getViewElementKeysByCondition (elementWithinBrush updatedBrush)
                     |> List.map (\i -> SelectedItem (ElementKey i) Nothing)
 
-                pointKeysWithinBrush = getCurrentView state.selectedView state.views
+                pointKeysWithinBrush = currentView
                     |> getViewElementsOfCurrentView
                     |> getElementAndItsKeys
                     |> List.concatMap (\(k, v) -> v.relations |> Dict.toList |> List.map (\(relation, points) -> (k, relation, points)))
                     |> List.concatMap (\(k, relation, points) -> points |> getViewPointKeysByCondition (pointWithinBrush updatedBrush) |> List.map (\pointIndex -> (k, relation, pointIndex)))
                     |> List.map (\i -> SelectedItem (PointKey i) Nothing)
             in
-            ( Ready { state | brush = Just updatedBrush, selectedItems = elementKeysWithinBrush ++ pointKeysWithinBrush }
-            , Cmd.none
-            )
+            Ready { state | brush = Just updatedBrush, selectedItems = elementKeysWithinBrush ++ pointKeysWithinBrush }
         Nothing ->
             case drag of
                 Just { start } ->
-                    ( Ready
-                        { state
-                            | drag = Just { start = start, current = xy }
-                            , views = updateElementAndPointPosition selectedItems xy state
-                        }
-                    , Cmd.none
-                    )
+                    Ready { state | drag = Just { start = start, current = xy } }
 
                 _ ->
-                    ( Ready state, Cmd.none )
+                    Ready state
 
 
 elementWithinBrush : Brush -> ViewElementKey -> ViewElement -> Bool
@@ -594,7 +699,7 @@ pointWithinBrush { start, end } {x , y} =
     x > min startX1 endX2 && x < max startX1 endX2
         && y > min startY1 endY2 && y < max startY1 endY2
 
-updateElementAndPointPosition : List SelectedItem -> ( Float, Float ) -> AppState -> Dict String View
+updateElementAndPointPosition : List SelectedItem -> ( Float, Float ) -> ViewEditorState -> (Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement)
 updateElementAndPointPosition selectedItems xy state =
     let
         selectedElementDeltas = getSelectedElementKeysAndDeltas selectedItems
@@ -646,15 +751,11 @@ updateElementAndPointPosition selectedItems xy state =
         updatedRelations : ViewElementKey -> ViewElement -> ViewElement
         updatedRelations viewElementKey viewElement =
             { viewElement | relations = updatedPoints viewElementKey viewElement.relations}
-
-        updatedElements : Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
-        updatedElements =
-            Dict.map (\viewElementKey ve ->
-                updateElementXY viewElementKey ve
-                |> updatedRelations viewElementKey 
-            )
     in
-    updateElementsInViews state.selectedView state.views updatedElements
+    Dict.map (\viewElementKey ve ->
+        updateElementXY viewElementKey ve
+        |> updatedRelations viewElementKey 
+    )
 
 {-| The mouse events for drag start, drag at and drag end read the client
 position of the cursor, which is relative to the browser viewport. However,
@@ -679,8 +780,8 @@ viewConfig =
         , customSplitter = Nothing
         }
 
-svgView : Root -> Html Msg
-svgView model =
+svgView : (Dict String View, Maybe Domain, Maybe String) -> ViewEditor -> Html Msg
+svgView (views, domain, selectedView) model =
     let
         selectItemsEvents : Attribute Msg
         selectItemsEvents = 
@@ -724,7 +825,8 @@ svgView model =
 
         ( x, y ) = getXY
     in
-    svg
+    div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
+    [ svg
         [ id elementId
         , Attrs.width <| Percent 100
         , Attrs.height <| Percent 100
@@ -739,15 +841,24 @@ svgView model =
         , gridRect gridRectEvents
         , g
             [ zoomTransformAttr ]
-            [ renderCurrentView model
+            [ renderCurrentView (views, domain, selectedView) model
             , renderSelectRect model
             ]
         ]
+    -- , div
+    --     [ style "position" "fixed"
+    --     , style "top" "0"
+    --     , style "left" "0"
+    --     , style "font-size" "16px"
+    --     , style "user-select" "none"
+    --     , Mouse.onContextMenu (\_ -> NoOp)
+    --     ] [ text "view-1"]
+    ]
 
 
 -- Grid comes from https://gist.github.com/leonardfischer/fc4d1086c64b2c1324c93dcd0beed004
 
-renderSelectRect : Root -> Svg Msg
+renderSelectRect : ViewEditor -> Svg Msg
 renderSelectRect model =
     case model of
         Init ->
@@ -761,13 +872,13 @@ renderSelectRect model =
                     text ""
 
 
-renderCurrentView : Root -> Svg Msg
-renderCurrentView model =
+renderCurrentView : (Dict String View, Maybe Domain, Maybe String) -> ViewEditor -> Svg Msg
+renderCurrentView (views, domain, selectedView) model =
     case model of
         Init ->
             text ""
 
-        Ready { views, selectedView, panMode, selectedItems, domain } ->
+        Ready { panMode, selectedItems } ->
             case (getCurrentView selectedView views, domain) of
                 (Just v, Just d) ->
                     g []

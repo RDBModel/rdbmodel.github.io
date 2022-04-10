@@ -7,11 +7,12 @@
 [ ] display errors (how?)
 [ ] display validation errors
 
-[ ] support github
-
 [ ] support parent container (nice to have)
 
+[ ] help
+
 ------
+[x] select view
 [x] delete points under containers (temporary)
 [x] show additional information via mouseover
 [x] show name in containers

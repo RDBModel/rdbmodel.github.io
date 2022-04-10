@@ -3,6 +3,9 @@ import EditorWorker from 'url:monaco-editor/esm/vs/editor/editor.worker.js';
 import * as monaco from 'monaco-editor';
 import { Elm } from './src/Main.elm';
 
+import diagramGif from 'url:./src/img/diagram.gif';
+import editorGif from 'url:./src/img/editor.gif';
+
 window.MonacoEnvironment = {
 	getWorkerUrl: function (moduleId, label) {
 		return EditorWorker;
@@ -82,74 +85,103 @@ views:
           'uses - ring-1': []
       delivery-2:
         x: 300
-        y: 300`;
+        y: 300
+  view-2:
+    elements:
+      actor-1:
+        x: 100
+        y: 100
+        relations:
+          'uses - delivery-1': []
+      delivery-1:
+        x: 200
+        y: 200`;
 
 const app = Elm.Main.init({
-  node: document.getElementById("root")
+  node: document.getElementById("root"),
+  flags: [diagramGif, editorGif]
 });
 
-const editor = monaco.editor.create(document.getElementById("monaco"), {
-  theme: 'vs-dark',
-  value: v,
-  language: 'yaml',
-  wordWrap: 'off',
-  automaticLayout: true,
-  lineNumbers: 'off',
-  glyphMargin: false,
-  minimap: {
-    enabled: false
-  },
-  scrollbar: {
-    vertical: 'auto'
-  }
-});
+let editor;
 
-editor.addCommand(
-  monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-  function () {
-    app.ports.messageReceiver.send(editor.getValue());
-  }
-);
+function initMonaco() {
+  editor = monaco.editor.create(document.getElementById("monaco"), {
+    theme: 'vs-dark',
+    value: v,
+    language: 'yaml',
+    wordWrap: 'off',
+    automaticLayout: true,
+    lineNumbers: 'off',
+    glyphMargin: false,
+    minimap: {
+      enabled: false
+    },
+    scrollbar: {
+      vertical: 'auto'
+    }
+  });
+  console.log(editor)
 
-// TODO refactor
-app.ports.sendMessage.subscribe((message) => {
+  // editor.addCommand(
+  //   monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+  //   function () {
+  //     app.ports.monacoEditorValue.send(editor.getValue());
+  //   }
+  // );
+
+  app.ports.monacoEditorValue.send(editor.getValue());
+}
+
+app.ports.removePoint.subscribe((message) => unityOfWork(removePoint, message));
+app.ports.addPoint.subscribe((message) => unityOfWork(addPoint, message));
+app.ports.initMonacoResponse.subscribe(() => initMonaco());
+app.ports.updateElementPosition.subscribe((message) => unityOfWork(updateElementPosition, message));
+app.ports.updatePointPosition.subscribe((message) => unityOfWork(updatePointPosition, message));
+// delay monaco initialization (via Elm)
+app.ports.initMonacoRequest.send(null);
+
+function removePoint(currentModel, message) {
+  const elementName = message.elementKey;
+  const view = message.view;
+  const relationName = message.relation;
+  const indexToDelete = parseInt(message.pointIndex);
+  currentModel['views'][view]['elements'][elementName]['relations'][relationName].splice(indexToDelete, 1);
+}
+
+function addPoint(currentModel, message) {
+  const elementName = message.elementKey;
+  const view = message.view;
+  const relationName = message.relation;
+  const index = parseInt(message.pointIndex);
+  const targetRelation = currentModel['views'][view]['elements'][elementName]['relations'][relationName];
+  targetRelation.splice(index, 0, {});
+  updateCoords(targetRelation[index], message.x, message.y);
+}
+
+function updateElementPosition(currentModel, message) {
+  const elementName = message.elementKey;
+  const view = message.view;
+  const targetElement = currentModel['views'][view]['elements'][elementName];
+  updateCoords(targetElement, message.x, message.y);
+}
+
+function updatePointPosition(currentModel, message) {
+  const elementName = message.elementKey;
+  const relationName = message.relation;
+  const view = message.view;
+  const index = parseInt(message.pointIndex);
+  const targetRelation = currentModel['views'][view]['elements'][elementName]['relations'][relationName];
+  targetRelation[index] = targetRelation[index] || {};
+  updateCoords(targetRelation[index], message.x, message.y);
+}
+
+function updateCoords(item, x, y) {
+  item['x'] = x;
+  item['y'] = y;
+}
+
+function unityOfWork(func, message) {
   const currentModel = YAML.parse(editor.getValue());
-  const splitted = message.split('|');
-  if (splitted.length == 2) {
-    // element moved
-    const elementName = splitted[0];
-    const xy = splitted[1].split(',');
-    currentModel['views']['view-1']['elements'][elementName]['x'] = parseFloat(xy[0]);
-    currentModel['views']['view-1']['elements'][elementName]['y'] = parseFloat(xy[1]);
-    editor.setValue(YAML.stringify(currentModel));
-  } else if (splitted.length == 4) {
-    const elementName = splitted[0];
-    const relationName = splitted[1];
-    if (splitted[2] === 'del') {
-      const indexToDelete = parseInt(splitted[3]);
-      currentModel['views']['view-1']['elements'][elementName]['relations'][relationName].splice(indexToDelete, 1);
-    } else {
-      const index = parseInt(splitted[2]);
-      const xy = splitted[3].split(',');
-      if (!currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]) {
-        currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index] = {};
-      }
-      currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['x'] = parseFloat(xy[0]);
-      currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['y'] = parseFloat(xy[1]);
-    }
-    editor.setValue(YAML.stringify(currentModel));
-  } else if (splitted.length == 5) {
-    const elementName = splitted[0];
-    const relationName = splitted[1];
-    const type = splitted[2];
-    if (type === 'add') {
-      const index = parseInt(splitted[3]);
-      const xy = splitted[4].split(',');
-      currentModel['views']['view-1']['elements'][elementName]['relations'][relationName].splice(index, 0, {});
-      currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['x'] = parseFloat(xy[0]);
-      currentModel['views']['view-1']['elements'][elementName]['relations'][relationName][index]['y'] = parseFloat(xy[1]);
-      editor.setValue(YAML.stringify(currentModel));
-    }
-  }
-  console.log(message)
-});
+  func(currentModel, message);
+  editor.setValue(YAML.stringify(currentModel));
+}
