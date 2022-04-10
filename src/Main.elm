@@ -36,7 +36,7 @@ import Index exposing (index)
 initMonaco : Cmd Msg
 initMonaco = initMonacoResponse ()
 
-main : Program () Model Msg
+main : Program (String, String) Model Msg
 main =
   Browser.application
     { init = init
@@ -47,28 +47,28 @@ main =
     , onUrlChange = ChangedUrl
     }
 
-init : () -> Url -> Nav.Key -> ( Model, Cmd Msg )
-init _ url navKey  =
-    changeRouteTo (Route.fromUrl url) navKey
+init : (String, String) -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init gifLinks url navKey  =
+    changeRouteTo gifLinks (Route.fromUrl url) navKey
 
 
 getNavKey : Model -> Nav.Key
 getNavKey model =
     case model of
-        Home key -> key
-        Editor key _ -> key
+        Home key _ -> key
+        Editor key _ _ -> key
 
-changeRouteTo : Maybe Route -> Nav.Key -> ( Model, Cmd Msg )
-changeRouteTo maybeRoute key =
+changeRouteTo : (String, String) ->  Maybe Route -> Nav.Key -> ( Model, Cmd Msg )
+changeRouteTo gifLinks maybeRoute key =
     case maybeRoute of
         Nothing ->
-            ( Home key, Cmd.none )
+            ( Home key gifLinks, Cmd.none )
 
         Just Route.Home ->
-            ( Home key, Cmd.none )
+            ( Home key gifLinks, Cmd.none )
 
         Just (Route.Editor selectedView) ->
-            ( Editor key (EditorsModel (SplitPane.init Horizontal) Init Dict.empty Nothing selectedView ""), getMonacoElementPosition )
+            ( Editor key gifLinks (EditorsModel (SplitPane.init Horizontal) Init Dict.empty Nothing selectedView ""), getMonacoElementPosition )
 
 
 type alias EditorsModel =
@@ -81,8 +81,8 @@ type alias EditorsModel =
     }
 
 type Model
-    = Home Nav.Key
-    | Editor Nav.Key EditorsModel
+    = Home Nav.Key (String, String)
+    | Editor Nav.Key (String, String) EditorsModel
 
 type Msg
     = ZoomMsg OnZoom
@@ -127,32 +127,35 @@ update msg model =
                     , Nav.load href
                     )
 
-        (ChangedUrl url, _ ) ->
-            changeRouteTo (Route.fromUrl url) (getNavKey model)
+        (ChangedUrl url, Home _ links ) ->
+            changeRouteTo links (Route.fromUrl url) (getNavKey model)
 
-        (_, Home _) ->
+        (ChangedUrl url, Editor _ links _) ->
+            changeRouteTo links (Route.fromUrl url) (getNavKey model)
+
+        (_, Home _ _) ->
             (model, Cmd.none)
 
-        (MonacoEditorValueReceived val, Editor navKey editorModel) ->
+        (MonacoEditorValueReceived val, Editor navKey gifLinks editorModel) ->
             case D.fromString rdbDecoder val of
                 Ok (domain, views) ->
                     (   { editorModel
                         | errors = ""
                         , views = views
                         , domain = Just domain
-                        } |> Editor navKey
+                        } |> Editor navKey gifLinks
                     , getElementPosition
                     )
 
                 Err err ->
                     case err of
-                        D.Parsing errMsg -> ( { editorModel | errors = errMsg } |> Editor navKey, Cmd.none)
-                        D.Decoding errMsg -> ( { editorModel | errors = errMsg } |> Editor navKey, Cmd.none)
+                        D.Parsing errMsg -> ( { editorModel | errors = errMsg } |> Editor navKey gifLinks, Cmd.none)
+                        D.Decoding errMsg -> ( { editorModel | errors = errMsg } |> Editor navKey gifLinks, Cmd.none)
 
         (ReceiveElementPosition (Err _), _ ) ->
             ( model, Cmd.none )
 
-        (_, Editor navKey editorModel ) ->
+        (_, Editor navKey gifLinks editorModel ) ->
             case editorModel.viewEditor of
                 Init ->
                     case msg of
@@ -165,7 +168,7 @@ update msg model =
                                 , brush = Nothing
                                 , selectedItems = []
                                 }
-                            } |> Editor navKey
+                            } |> Editor navKey gifLinks
                             , Cmd.none
                             )
 
@@ -173,7 +176,7 @@ update msg model =
                             (model, initMonaco)
 
                         PaneMsg paneMsg ->
-                            ( { editorModel | pane = SplitPane.update paneMsg editorModel.pane } |> Editor navKey, Cmd.none )
+                            ( { editorModel | pane = SplitPane.update paneMsg editorModel.pane } |> Editor navKey gifLinks, Cmd.none )
 
                         Resize ->
                             ( model, getElementPosition )
@@ -185,17 +188,17 @@ update msg model =
                             let
                                 shiftedXY = shiftPosition state.zoom (0, 0) xy
                             in
-                            ( { editorModel | viewEditor = Ready { state | brush = Just <| Brush shiftedXY shiftedXY }  } |> Editor navKey
+                            ( { editorModel | viewEditor = Ready { state | brush = Just <| Brush shiftedXY shiftedXY }  } |> Editor navKey gifLinks
                             , Cmd.none
                             )
 
                         SetPanMode value ->
-                            ( { editorModel | viewEditor = Ready { state | panMode = value } } |> Editor navKey
+                            ( { editorModel | viewEditor = Ready { state | panMode = value } } |> Editor navKey gifLinks
                             , Cmd.none
                             )
 
                         ReceiveElementPosition (Ok { element }) ->
-                            ( { editorModel | viewEditor = Ready { state | element = element } } |> Editor navKey
+                            ( { editorModel | viewEditor = Ready { state | element = element } } |> Editor navKey gifLinks
                             , Cmd.none 
                             )
 
@@ -203,7 +206,7 @@ update msg model =
                             ( model, getElementPosition )
 
                         ZoomMsg zoomMsg ->
-                            ( { editorModel | viewEditor = Ready { state | zoom = Zoom.update zoomMsg state.zoom } } |> Editor navKey
+                            ( { editorModel | viewEditor = Ready { state | zoom = Zoom.update zoomMsg state.zoom } } |> Editor navKey gifLinks
                             , Cmd.none
                             )
 
@@ -235,7 +238,7 @@ update msg model =
                                 | drag = Just { start = xy, current = xy }
                                 , selectedItems = updatedSelectedItems
                                 }
-                            } |> Editor navKey
+                            } |> Editor navKey gifLinks
                             , Cmd.none
                             )
 
@@ -270,7 +273,7 @@ update msg model =
                                 | drag = Just { start = xy, current = xy }
                                 , selectedItems = updatedSelectedItems
                                 }
-                            } |> Editor navKey
+                            } |> Editor navKey gifLinks
                             , Cmd.none
                             )
 
@@ -291,7 +294,7 @@ update msg model =
                                         Nothing ->
                                             Cmd.none
                             in
-                            ( { editorModel | views = updatedViews } |> Editor navKey
+                            ( { editorModel | views = updatedViews } |> Editor navKey gifLinks
                             , removePointMessage
                             )
 
@@ -378,7 +381,7 @@ update msg model =
                                                     Cmd.none
 
                                     in
-                                    ( { editorModel | views = updatedViewsValue } |> Editor navKey
+                                    ( { editorModel | views = updatedViewsValue } |> Editor navKey gifLinks
                                     , addPointMessage
                                     )
                                 _ -> ( model, Cmd.none )
@@ -399,26 +402,26 @@ update msg model =
                             ( { editorModel
                                 | viewEditor = updatedViewEditor
                                 , views = updatedViews
-                                } |> Editor navKey
+                                } |> Editor navKey gifLinks
                             , Cmd.none)
 
                         MouseMoveEnd ->
                             case state.brush of
                                 Just _ ->
-                                    ( { editorModel | viewEditor = Ready { state | brush = Nothing } } |> Editor navKey
+                                    ( { editorModel | viewEditor = Ready { state | brush = Nothing } } |> Editor navKey gifLinks
                                     , Cmd.none
                                     )
                                 Nothing ->
                                     case state.drag of
                                         Just _ ->
-                                            ( { editorModel | viewEditor = Ready { state | drag = Nothing, selectedItems = [] } } |> Editor navKey
+                                            ( { editorModel | viewEditor = Ready { state | drag = Nothing, selectedItems = [] } } |> Editor navKey gifLinks
                                             , updateMonacoValues editorModel.selectedView editorModel.views state.selectedItems
                                             )
                                         _ ->
                                             ( model, Cmd.none )
 
                         PaneMsg paneMsg ->
-                            ( { editorModel | pane = SplitPane.update paneMsg editorModel.pane } |> Editor navKey
+                            ( { editorModel | pane = SplitPane.update paneMsg editorModel.pane } |> Editor navKey gifLinks
                             , Cmd.none
                             )
 
@@ -489,11 +492,11 @@ updateMonacoValues selectedView views selectedItems =
 view : Model -> Document Msg
 view model =
     case model of
-        Home _ ->
+        Home _ gifLinks ->
             { title = "RDB Model"
-            , body = [ index ]
+            , body = [ index gifLinks ]
             }
-        Editor _ { pane, viewEditor, domain, views, selectedView } ->
+        Editor _ _ { pane, viewEditor, domain, views, selectedView } ->
             { title = "RDB Model Editor"
             , body =
                 [ div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
@@ -531,8 +534,8 @@ subscriptions model =
     in
     Sub.batch
         [ case model of 
-            Home _ -> Sub.none
-            Editor _ { viewEditor } ->
+            Home _ _ -> Sub.none
+            Editor _ _ { viewEditor } ->
                 case viewEditor of
                     Init ->
                         Sub.none
@@ -543,8 +546,8 @@ subscriptions model =
         , Events.onKeyDown (keyDecoder |> setPanMode True)
         , Events.onKeyUp (keyDecoder |> setPanMode False)
         , case model of 
-            Home _ -> Sub.none
-            Editor _ { pane } ->
+            Home _ _ -> Sub.none
+            Editor _ _ { pane } ->
                 Sub.map PaneMsg <| SplitPane.subscriptions pane
         , monacoEditorValue MonacoEditorValueReceived
         , initMonacoRequest InitMonacoRequestReceived

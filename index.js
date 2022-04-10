@@ -1,4 +1,16 @@
-import { YAML } from './node_modules/yaml/browser/dist/index.js';
+import YAML from 'yaml';
+import EditorWorker from 'url:monaco-editor/esm/vs/editor/editor.worker.js';
+import * as monaco from 'monaco-editor';
+import { Elm } from './src/Main.elm';
+
+import diagramGif from 'url:./src/img/diagram.gif';
+import editorGif from 'url:./src/img/editor.gif';
+
+window.MonacoEnvironment = {
+	getWorkerUrl: function (moduleId, label) {
+		return EditorWorker;
+	}
+};
 
 const v = 
 `domain:
@@ -86,7 +98,8 @@ views:
         y: 200`;
 
 const app = Elm.Main.init({
-  node: document.getElementById("root")
+  node: document.getElementById("root"),
+  flags: [diagramGif, editorGif]
 });
 
 let editor;
@@ -107,26 +120,25 @@ function initMonaco() {
       vertical: 'auto'
     }
   });
+  console.log(editor)
 
-  editor.addCommand(
-    monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-    function () {
-      app.ports.monacoEditorValue.send(editor.getValue());
-    }
-  );
+  // editor.addCommand(
+  //   monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+  //   function () {
+  //     app.ports.monacoEditorValue.send(editor.getValue());
+  //   }
+  // );
 
   app.ports.monacoEditorValue.send(editor.getValue());
 }
 
-require(['vs/editor/editor.main'], () => {
-  app.ports.removePoint.subscribe((message) => unityOfWork(removePoint, message));
-  app.ports.addPoint.subscribe((message) => unityOfWork(addPoint, message));
-  app.ports.initMonacoResponse.subscribe(() => initMonaco());
-  app.ports.updateElementPosition.subscribe((message) => unityOfWork(updateElementPosition, message));
-  app.ports.updatePointPosition.subscribe((message) => unityOfWork(updatePointPosition, message));
-  // delay monaco initialization (via Elm)
-  app.ports.initMonacoRequest.send(null);
-});
+app.ports.removePoint.subscribe((message) => unityOfWork(removePoint, message));
+app.ports.addPoint.subscribe((message) => unityOfWork(addPoint, message));
+app.ports.initMonacoResponse.subscribe(() => initMonaco());
+app.ports.updateElementPosition.subscribe((message) => unityOfWork(updateElementPosition, message));
+app.ports.updatePointPosition.subscribe((message) => unityOfWork(updatePointPosition, message));
+// delay monaco initialization (via Elm)
+app.ports.initMonacoRequest.send(null);
 
 function removePoint(currentModel, message) {
   const elementName = message.elementKey;

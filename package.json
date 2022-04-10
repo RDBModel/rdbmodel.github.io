@@ -8,8 +8,11 @@
     "yaml": "^1.10.2"
   },
   "devDependencies": {
-    "elm-live": "^4.0.2",
-    "parcel": "^2.3.2"
+    "@parcel/transformer-elm": "^2.4.1",
+    "buffer": "^6.0.3",
+    "elm": "^0.19.1-5",
+    "parcel": "^2.4.1",
+    "process": "^0.11.10"
   },
   "scripts": {
     "start": "elm-live src/Main.elm -- --output=main.js --debug",

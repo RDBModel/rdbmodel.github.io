@@ -8,16 +8,16 @@ import Element.Border exposing (rounded)
 import Route exposing (editorRoute)
 import Color
 
-index : Html msg
-index =
+index : (String, String) -> Html msg
+index gifLinks =
   Element.layout []
-        indexMain
+        (indexMain gifLinks)
 
-indexMain : Element msg
-indexMain = 
+indexMain : (String, String) -> Element msg
+indexMain gifLinks = 
   column [width fill, height fill]
     [ header
-    , body
+    , body gifLinks
     , editorLink
     , footer
     ]
@@ -30,11 +30,11 @@ header =
     , link [ Color.blue |> mapColor |> Font.color, alignRight, Font.size 22 ] { label = text "[Source]", url = "https://github.com/RDBModel/rdbmodel.github.io" }
     ]
 
-body : Element msg
-body = 
+body : (String, String) -> Element msg
+body (diagramUrl, editorUrl)= 
   column [ width fill]
-    [ diagram
-    , editor
+    [ diagram diagramUrl
+    , editor editorUrl
     ]
 
 blockPadding : Element.Attribute msg
@@ -64,10 +64,10 @@ digramDescription =
     , yamlItem "Zoom, scroll, and navigate through the view"
     ]
 
-diagram : Element msg
-diagram =
+diagram : String -> Element msg
+diagram url =
   row [ width fill, blockPadding ]
-  [ el [ width shrink ] (image [] { src = "src/img/diagram.gif", description = "diagram" })
+  [ el [ width shrink ] (image [] { src = url, description = "diagram" })
   , el [ width fill ] digramDescription
   ]
 
@@ -95,11 +95,11 @@ mapColor : Color.Color -> Element.Color
 mapColor =
   Color.toRgba >> (\{red, green, blue, alpha} -> rgba red green blue alpha)
 
-editor : Element msg
-editor =
+editor : String -> Element msg
+editor url =
   row [ width fill, blockPadding ]
   [ el [ width fill ] editorDescription
-  , el [ width shrink ] (image [] { src = "src/img/editor.gif", description = "editor" })
+  , el [ width shrink ] (image [] { src = url, description = "editor" })
   ]
 
 editorLink : Element msg
