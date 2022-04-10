@@ -11,9 +11,16 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v1
+      
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: npm-
 
       - name: Npm install
-        run: npm install
+        run: npm ci
 
       - name: Generate dict
         run: npx parcel build index.html
