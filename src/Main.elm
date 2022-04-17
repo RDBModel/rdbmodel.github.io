@@ -76,7 +76,7 @@ type alias EditorsModel =
     , viewEditor : ViewEditor
     , views : Dict String View
     , domain : Maybe Domain
-    , selectedView : Maybe String
+    , selectedView : String
     , errors : String
     }
 
@@ -287,12 +287,8 @@ update msg model =
                                     |> updateElementsInViews editorModel.selectedView editorModel.views
 
                                 removePointMessage =
-                                    case editorModel.selectedView of
-                                        Just v ->
-                                            RemovePointMessage v viewElementKey relation pointIndex
-                                                |> encodeRemovePoint |> removePoint
-                                        Nothing ->
-                                            Cmd.none
+                                    RemovePointMessage editorModel.selectedView viewElementKey relation pointIndex
+                                        |> encodeRemovePoint |> removePoint
                             in
                             ( { editorModel | views = updatedViews } |> Editor navKey gifLinks
                             , removePointMessage
@@ -373,12 +369,8 @@ update msg model =
                                             |> updateElementsInViews editorModel.selectedView editorModel.views
 
                                         addPointMessage =
-                                            case editorModel.selectedView of
-                                                Just v ->
-                                                    PointMessage v viewElementKey relation (List.length updatedList - indexOfNewPoint) spxy
-                                                        |> encodePointMessage |> addPoint
-                                                Nothing ->
-                                                    Cmd.none
+                                            PointMessage editorModel.selectedView viewElementKey relation (List.length updatedList - indexOfNewPoint) spxy
+                                                |> encodePointMessage |> addPoint
 
                                     in
                                     ( { editorModel | views = updatedViewsValue } |> Editor navKey gifLinks
@@ -456,38 +448,34 @@ updateSelectedItemsDeltas viewElementsOfCurrentView (shiftedStartX, shiftedStart
     in
         selectedElementsWithDeltas ++ selectedPointsWithDeltas
 
-updateMonacoValues : Maybe String -> Dict String View -> List SelectedItem -> Cmd msg
+updateMonacoValues : String -> Dict String View -> List SelectedItem -> Cmd msg
 updateMonacoValues selectedView views selectedItems =
-    case selectedView of
-        Just v ->
+    let
+        createMessage (elementKey, element) =
+            UpdateElementPositionMessage selectedView elementKey (element.x, element.y)
+
+        createPointMessage (viewRelationPointKey, viewRelationPoint) =
             let
-                createMessage (elementKey, element) =
-                    UpdateElementPositionMessage v elementKey (element.x, element.y)
-
-                createPointMessage (viewRelationPointKey, viewRelationPoint) =
-                    let
-                        (viewElementKey, relation, viewRelationPointIndex) = viewRelationPointKey
-                    in
-                    PointMessage v viewElementKey relation viewRelationPointIndex (viewRelationPoint.x, viewRelationPoint.y)
-                viewElements =
-                    getCurrentView selectedView views
-                    |> getViewElementsOfCurrentView
-
-                currentViewElementsXY = viewElements
-                    |> getElements (getSelectedElementKeysAndDeltas selectedItems |> List.map Tuple.first)
-
-                currentRelationPointXY = viewElements
-                    |> getPoints (getSelectedPointKeysAndDeltas selectedItems |> List.map Tuple.first)
-                updateElementPositionMessages = currentViewElementsXY
-                    |> List.map (createMessage >> encodeUpdateElementPosition >> updateElementPosition)
-
-                updateElementPointsPositionMessages = currentRelationPointXY
-                    |> List.map (createPointMessage >> encodePointMessage >> updatePointPosition)
+                (viewElementKey, relation, viewRelationPointIndex) = viewRelationPointKey
             in
-            (updateElementPositionMessages ++ updateElementPointsPositionMessages)
-                |> Cmd.batch
-        Nothing ->
-            Cmd.none
+            PointMessage selectedView viewElementKey relation viewRelationPointIndex (viewRelationPoint.x, viewRelationPoint.y)
+        viewElements =
+            getCurrentView selectedView views
+            |> getViewElementsOfCurrentView
+
+        currentViewElementsXY = viewElements
+            |> getElements (getSelectedElementKeysAndDeltas selectedItems |> List.map Tuple.first)
+
+        currentRelationPointXY = viewElements
+            |> getPoints (getSelectedPointKeysAndDeltas selectedItems |> List.map Tuple.first)
+        updateElementPositionMessages = currentViewElementsXY
+            |> List.map (createMessage >> encodeUpdateElementPosition >> updateElementPosition)
+
+        updateElementPointsPositionMessages = currentRelationPointXY
+            |> List.map (createPointMessage >> encodePointMessage >> updatePointPosition)
+    in
+    (updateElementPositionMessages ++ updateElementPointsPositionMessages)
+        |> Cmd.batch
 
 view : Model -> Document Msg
 view model =
@@ -780,7 +768,7 @@ viewConfig =
         , customSplitter = Nothing
         }
 
-svgView : (Dict String View, Maybe Domain, Maybe String) -> ViewEditor -> Html Msg
+svgView : (Dict String View, Maybe Domain, String) -> ViewEditor -> Html Msg
 svgView (views, domain, selectedView) model =
     let
         selectItemsEvents : Attribute Msg
@@ -872,7 +860,7 @@ renderSelectRect model =
                     text ""
 
 
-renderCurrentView : (Dict String View, Maybe Domain, Maybe String) -> ViewEditor -> Svg Msg
+renderCurrentView : (Dict String View, Maybe Domain, String) -> ViewEditor -> Svg Msg
 renderCurrentView (views, domain, selectedView) model =
     case model of
         Init ->

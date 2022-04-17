@@ -1,11 +1,10 @@
 module Route exposing (Route(..), fromUrl, editorRoute)
-import Url.Parser as Parser exposing ((</>), (<?>), Parser, oneOf, s)
-import Url.Parser.Query as Query
+import Url.Parser as Parser exposing ((</>), (<?>), Parser, oneOf, s, string)
 import Url exposing (Url)
 
 type Route
     = Home
-    | Editor (Maybe String)
+    | Editor String
 
 
 
@@ -13,7 +12,7 @@ parser : Parser (Route -> a) a
 parser =
     oneOf
         [ Parser.map Home Parser.top
-        , Parser.map Editor (s "editor" <?> Query.string "view")
+        , Parser.map Editor (s "editor" </> string)
         ]
 
 -- PUBLIC HELPERS
@@ -21,9 +20,10 @@ parser =
 
 fromUrl : Url -> Maybe Route
 fromUrl url =
-    Parser.parse parser url
+    { url | path = Maybe.withDefault "" url.fragment, fragment = Nothing }
+        |> Parser.parse parser
 
 -- INTERNAL
 
 editorRoute : String
-editorRoute = "editor?view=view-1"
+editorRoute = "#/editor/view-1"

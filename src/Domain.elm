@@ -151,12 +151,9 @@ getContainers (domain, currentView) =
         |> Maybe.map (\(name, description) -> Container name viewElementKey description (Tuple.pair viewElement.x viewElement.y))
     )
 
-updateElementsInViews : Maybe String -> Dict String View -> (Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement) -> Dict String View
+updateElementsInViews : String -> Dict String View -> (Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement) -> Dict String View
 updateElementsInViews selectedView views updateElements =
-  case selectedView of
-    Just sv ->
-      Dict.update sv (Maybe.map (\v -> { v | elements = updateElements v.elements } )) views
-    Nothing -> views
+  Dict.update selectedView (Maybe.map (\v -> { v | elements = updateElements v.elements } )) views
 
 updateRelationsInElements : ViewElementKey ->  (Dict Relation (List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint)) -> Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
 updateRelationsInElements viewElementKey updatedRelationsFunc =
@@ -183,8 +180,8 @@ getElementAndItsKeys =
   Maybe.map (Dict.toList) >> Maybe.withDefault []
 
 
-getCurrentView : Maybe String -> Dict String View -> Maybe View
-getCurrentView selectedView views = selectedView |> Maybe.andThen (\sv -> Dict.get sv views)
+getCurrentView : String -> Dict String View -> Maybe View
+getCurrentView selectedView views = Dict.get selectedView views
 
 
 getElement : ViewElementKey -> Maybe (Dict ViewElementKey ViewElement) -> Maybe ViewElement

@@ -14,7 +14,7 @@
     "process": "^0.11.10"
   },
   "scripts": {
-    "start": "elm-live src/Main.elm -- --output=main.js --debug",
+    "start": "npx parcel index.html",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
