@@ -84,7 +84,7 @@ editorDescription =
       [ yamlItem "Modify views (domain representations) manually via 💣"
       , link [ Color.blue |> mapColor |> Font.color ] { label = text "Monaco editor", url = "https://microsoft.github.io/monaco-editor/" }
       ]
-    , yamlItem "Check changes from view edior in realtime"
+    , yamlItem "Check changes from view editor in realtime"
     , yamlItem "Use key shortcuts to save, navigate and modify the domain and views"
     , yamlItem "See validation errors in the domain and views immediately"
     , yamlItem "Use many views to represent the domain from different perspectives"
