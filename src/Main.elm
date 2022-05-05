@@ -544,7 +544,7 @@ subscriptions model =
 
 keyDecoder : Decode.Decoder String
 keyDecoder =
-  Decode.field "key" Decode.string
+    Decode.field "key" Decode.string
 
 setPanMode : Bool -> Decode.Decoder String -> Decode.Decoder Msg
 setPanMode value =
@@ -871,7 +871,6 @@ renderCurrentView (views, domain, selectedView) model =
                 (Just v, Just d) ->
                     g []
                         [ getEdges (d, v)
-                            -- |> Debug.todo "called at each rendering and can be cashed?"
                             |> List.map (drawEdge panMode selectedItems)
                             |> g [ class [ "links" ] ]
                         , getContainers (d, v)
