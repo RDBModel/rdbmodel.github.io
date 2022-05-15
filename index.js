@@ -105,28 +105,30 @@ const app = Elm.Main.init({
 let editor;
 
 function initMonaco() {
-  editor = monaco.editor.create(document.getElementById("monaco"), {
-    theme: 'vs-dark',
-    value: v,
-    language: 'yaml',
-    wordWrap: 'off',
-    automaticLayout: true,
-    lineNumbers: 'off',
-    glyphMargin: false,
-    minimap: {
-      enabled: false
-    },
-    scrollbar: {
-      vertical: 'auto'
-    }
-  });
+  if (editor == null) {
+    editor = monaco.editor.create(document.getElementById("monaco"), {
+      theme: 'vs-dark',
+      value: v,
+      language: 'yaml',
+      wordWrap: 'off',
+      automaticLayout: true,
+      lineNumbers: 'off',
+      glyphMargin: false,
+      minimap: {
+        enabled: false
+      },
+      scrollbar: {
+        vertical: 'auto'
+      }
+    });
 
-  editor.addCommand(
-    monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-    function () {
-      app.ports.monacoEditorValue.send(editor.getValue());
-    }
-  );
+    editor.addCommand(
+      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+      function () {
+        app.ports.monacoEditorValue.send(editor.getValue());
+      }
+    );
+  }
 
   app.ports.monacoEditorValue.send(editor.getValue());
 }
