@@ -641,7 +641,7 @@ floatRemainderBy divisor n =
   n - toFloat(truncate (n / divisor)) * divisor
 
 handleMouseMove : ( Float, Float ) -> ViewEditorState -> Maybe View -> ViewEditor
-handleMouseMove xy ({ drag, brush, selectedItems } as state) currentView =
+handleMouseMove xy ({ drag, brush } as state) currentView =
     case brush of
         Just b ->
             let
