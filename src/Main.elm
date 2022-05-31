@@ -31,6 +31,7 @@ import JsInterop exposing (initMonacoResponse, removePoint, encodeRemovePoint, m
     , RemovePointMessage, PointMessage, encodePointMessage, addPoint, UpdateElementPositionMessage, updateElementPosition
     , encodeUpdateElementPosition, updatePointPosition)
 import Index exposing (index)
+import UndoList exposing (UndoList)
 
 
 initMonaco : Cmd Msg
@@ -68,8 +69,11 @@ changeRouteTo gifLinks maybeRoute key =
             ( Home key gifLinks, Cmd.none )
 
         Just (Route.Editor selectedView) ->
-            ( Editor key gifLinks (EditorsModel (SplitPane.init Horizontal) Init Dict.empty Nothing selectedView ""), getMonacoElementPosition )
+            ( Editor key gifLinks (getUndoRedoEditorsModel selectedView), getMonacoElementPosition )
 
+getUndoRedoEditorsModel : String -> UndoList EditorsModel
+getUndoRedoEditorsModel selectedView = 
+    EditorsModel (SplitPane.init Horizontal) Init Dict.empty Nothing selectedView "" |> UndoList.fresh
 
 type alias EditorsModel =
     { pane : SplitPane.State
@@ -80,9 +84,11 @@ type alias EditorsModel =
     , errors : String
     }
 
+type alias UndoRedoEditorsModel = UndoList EditorsModel
+
 type Model
     = Home Nav.Key (String, String)
-    | Editor Nav.Key (String, String) EditorsModel
+    | Editor Nav.Key (String, String) UndoRedoEditorsModel
 
 type Msg
     = ZoomMsg OnZoom
@@ -103,6 +109,8 @@ type Msg
     | NoOp
     | ClickedLink Browser.UrlRequest
     | ChangedUrl Url
+    | PossibleUndo
+    | Undo
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -136,39 +144,71 @@ update msg model =
         (_, Home _ _) ->
             (model, Cmd.none)
 
-        (MonacoEditorValueReceived val, Editor navKey gifLinks editorModel) ->
+        (Undo, Editor navKey gifLinks undoRedoEditorsModel) ->
+            (Editor navKey gifLinks (UndoList.undo undoRedoEditorsModel), Cmd.none)
+
+        (PossibleUndo, Editor navKey gifLinks undoRedoEditorsModel) ->
+            (Editor navKey gifLinks (UndoList.undo undoRedoEditorsModel), Cmd.none)
+
+        (MonacoEditorValueReceived val, Editor navKey gifLinks undoRedoEditorsModel) ->
             case D.fromString rdbDecoder val of
                 Ok (domain, views) ->
-                    (   { editorModel
-                        | errors = ""
-                        , views = views
-                        , domain = Just domain
-                        } |> Editor navKey gifLinks
+                    let
+                        currentModel = undoRedoEditorsModel.present
+                        newModel =
+                            { currentModel
+                            | errors = ""
+                            , views = views
+                            , domain = Just domain
+                            }
+                    in
+                    ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorsModel)
                     , getElementPosition
                     )
 
                 Err err ->
                     case err of
-                        D.Parsing errMsg -> ( { editorModel | errors = errMsg } |> Editor navKey gifLinks, Cmd.none)
-                        D.Decoding errMsg -> ( { editorModel | errors = errMsg } |> Editor navKey gifLinks, Cmd.none)
+                        D.Parsing errMsg ->
+                            let
+                                currentModel = undoRedoEditorsModel.present
+                                newModel =
+                                    { currentModel
+                                    | errors = errMsg
+                                    }
+                            in
+                            ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorsModel), Cmd.none)
+                        D.Decoding errMsg ->
+                            let
+                                currentModel = undoRedoEditorsModel.present
+                                newModel =
+                                    { currentModel
+                                    | errors = errMsg
+                                    }
+                            in
+                            ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorsModel), Cmd.none)
 
         (ReceiveElementPosition (Err _), _ ) ->
             ( model, Cmd.none )
 
-        (_, Editor navKey gifLinks editorModel ) ->
-            case editorModel.viewEditor of
+        (_, Editor navKey gifLinks undoRedoEditorModel ) ->
+            case undoRedoEditorModel.present.viewEditor of
                 Init ->
                     case msg of
                         ReceiveElementPosition (Ok { element }) ->
-                            ( { editorModel | viewEditor = Ready
-                                { drag = Nothing
-                                , element = element
-                                , zoom = initZoom element
-                                , panMode = False
-                                , brush = Nothing
-                                , selectedItems = []
-                                }
-                            } |> Editor navKey gifLinks
+                            let
+                                currentModel = undoRedoEditorModel.present
+                                newModel =
+                                    { currentModel | viewEditor = Ready
+                                        { drag = Nothing
+                                        , element = element
+                                        , zoom = initZoom element
+                                        , panMode = False
+                                        , brush = Nothing
+                                        , selectedItems = []
+                                        }
+                                    }
+                            in
+                            ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorModel)
                             , Cmd.none
                             )
 
@@ -176,7 +216,13 @@ update msg model =
                             (model, initMonaco)
 
                         PaneMsg paneMsg ->
-                            ( { editorModel | pane = SplitPane.update paneMsg editorModel.pane } |> Editor navKey gifLinks, Cmd.none )
+                            let
+                                currentModel = undoRedoEditorModel.present
+                                newModel =
+                                    { currentModel | pane = SplitPane.update paneMsg currentModel.pane
+                                    }
+                            in
+                            ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorModel), Cmd.none )
 
                         Resize ->
                             ( model, getElementPosition )
@@ -187,18 +233,34 @@ update msg model =
                         SelectItemsStart xy ->
                             let
                                 shiftedXY = shiftPosition state.zoom (0, 0) xy
+                                currentModel = undoRedoEditorModel.present
+                                newModel =
+                                    { currentModel | viewEditor = Ready { state | brush = Just <| Brush shiftedXY shiftedXY }
+                                    }
                             in
-                            ( { editorModel | viewEditor = Ready { state | brush = Just <| Brush shiftedXY shiftedXY }  } |> Editor navKey gifLinks
+                            ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorModel)
                             , Cmd.none
                             )
 
                         SetPanMode value ->
-                            ( { editorModel | viewEditor = Ready { state | panMode = value } } |> Editor navKey gifLinks
+                            let
+                                currentModel = undoRedoEditorModel.present
+                                newModel =
+                                    { currentModel | viewEditor = Ready { state | panMode = value }
+                                    }
+                            in
+                            ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorModel)
                             , Cmd.none
                             )
 
                         ReceiveElementPosition (Ok { element }) ->
-                            ( { editorModel | viewEditor = Ready { state | element = element } } |> Editor navKey gifLinks
+                            let
+                                currentModel = undoRedoEditorModel.present
+                                newModel =
+                                    { currentModel | viewEditor = Ready { state | element = element }
+                                    }
+                            in
+                            ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorModel)
                             , Cmd.none 
                             )
 
@@ -206,12 +268,20 @@ update msg model =
                             ( model, getElementPosition )
 
                         ZoomMsg zoomMsg ->
-                            ( { editorModel | viewEditor = Ready { state | zoom = Zoom.update zoomMsg state.zoom } } |> Editor navKey gifLinks
+                            let
+                                currentModel = undoRedoEditorModel.present
+                                newModel =
+                                    { currentModel | viewEditor = Ready { state | zoom = Zoom.update zoomMsg state.zoom }
+                                    }
+                            in
+                            ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorModel)
                             , Cmd.none
                             )
 
                         DragViewElementStart viewElementKey xy ->
                             let
+                                currentModel = undoRedoEditorModel.present
+
                                 (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
 
                                 selectedElementKeys = getSelectedElementKeysAndDeltas state.selectedItems
@@ -220,7 +290,7 @@ update msg model =
                                 isWithinAlreadySelected = selectedElementKeys
                                     |> List.member viewElementKey
 
-                                elementsOfCurrentView = getCurrentView editorModel.selectedView editorModel.views
+                                elementsOfCurrentView = getCurrentView currentModel.selectedView currentModel.views
                                     |> getViewElementsOfCurrentView
 
                                 updatedSelectedItems = 
@@ -232,18 +302,22 @@ update msg model =
                                             |> List.singleton
                                     else
                                         updateSelectedItemsDeltas elementsOfCurrentView (shiftedStartX, shiftedStartY) state.selectedItems
+                                newModel =
+                                    { currentModel | viewEditor = Ready
+                                        { state
+                                        | drag = Just { start = xy, current = xy }
+                                        , selectedItems = updatedSelectedItems
+                                        }
+                                    }
                             in
-                            ( { editorModel | viewEditor = Ready
-                                { state
-                                | drag = Just { start = xy, current = xy }
-                                , selectedItems = updatedSelectedItems
-                                }
-                            } |> Editor navKey gifLinks
+                            ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorModel)
                             , Cmd.none
                             )
 
                         DragPointStart viewRelationPointKey xy ->
                             let
+                                currentModel = undoRedoEditorModel.present
+
                                 (viewElementKey, relation, pointIndex) = viewRelationPointKey
                                 (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
 
@@ -253,7 +327,7 @@ update msg model =
                                 isWithinAlreadySelected = selectedPointKeys
                                     |> List.member viewRelationPointKey
 
-                                elementsOfCurrentView = getCurrentView editorModel.selectedView editorModel.views
+                                elementsOfCurrentView = getCurrentView currentModel.selectedView currentModel.views
                                     |> getViewElementsOfCurrentView
 
                                 updatedSelectedItems = 
@@ -267,38 +341,46 @@ update msg model =
                                             |> List.singleton
                                     else
                                         updateSelectedItemsDeltas elementsOfCurrentView (shiftedStartX, shiftedStartY) state.selectedItems
+                                newModel =
+                                    { currentModel | viewEditor = Ready
+                                        { state
+                                        | drag = Just { start = xy, current = xy }
+                                        , selectedItems = updatedSelectedItems
+                                        }
+                                    }
                             in
-                            ( { editorModel | viewEditor = Ready
-                                { state
-                                | drag = Just { start = xy, current = xy }
-                                , selectedItems = updatedSelectedItems
-                                }
-                            } |> Editor navKey gifLinks
+                            ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorModel)
                             , Cmd.none
                             )
 
                         RemovePoint (viewElementKey, relation, pointIndex) ->
                             let
+                                currentModel = undoRedoEditorModel.present
                                 removePointAtIndex list = List.take pointIndex list ++ List.drop (pointIndex + 1) list
 
                                 updatedViews =
                                     updatePointsInRelations relation removePointAtIndex
                                     |> updateRelationsInElements viewElementKey
-                                    |> updateElementsInViews editorModel.selectedView editorModel.views
+                                    |> updateElementsInViews currentModel.selectedView currentModel.views
 
                                 removePointMessage =
-                                    RemovePointMessage editorModel.selectedView viewElementKey relation pointIndex
+                                    RemovePointMessage currentModel.selectedView viewElementKey relation pointIndex
                                         |> encodeRemovePoint |> removePoint
+
+                                newModel =
+                                    { currentModel | views = updatedViews
+                                    }
                             in
-                            ( { editorModel | views = updatedViews } |> Editor navKey gifLinks
+                            ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorModel)
                             , removePointMessage
                             )
 
                         ClickEdgeStart (viewElementKey, relation) xy ->
                             let
+                                currentModel = undoRedoEditorModel.present
                                 spxy = shiftPosition state.zoom (state.element.x, state.element.y) xy
 
-                                currentView = getCurrentView editorModel.selectedView editorModel.views
+                                currentView = getCurrentView currentModel.selectedView currentModel.views
 
                                 sourceXY = currentView |> getViewElementsOfCurrentView
                                     |> getElement viewElementKey
@@ -366,54 +448,78 @@ update msg model =
                                             updatedPoints
                                             |> updatePointsInRelations relation 
                                             |> updateRelationsInElements viewElementKey
-                                            |> updateElementsInViews editorModel.selectedView editorModel.views
+                                            |> updateElementsInViews currentModel.selectedView currentModel.views
 
                                         addPointMessage =
-                                            PointMessage editorModel.selectedView viewElementKey relation (List.length updatedList - indexOfNewPoint) spxy
+                                            PointMessage currentModel.selectedView viewElementKey relation (List.length updatedList - indexOfNewPoint) spxy
                                                 |> encodePointMessage |> addPoint
 
+                                        newModel =
+                                            { currentModel | views = updatedViewsValue
+                                            }
                                     in
-                                    ( { editorModel | views = updatedViewsValue } |> Editor navKey gifLinks
+                                    ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorModel)
                                     , addPointMessage
                                     )
                                 _ -> ( model, Cmd.none )
 
                         MouseMove xy ->
                             let
-                                selectedView = getCurrentView editorModel.selectedView editorModel.views
+                                currentModel = undoRedoEditorModel.present
+                                selectedView = getCurrentView currentModel.selectedView currentModel.views
                                 updatedViewEditor = handleMouseMove xy state selectedView
 
                                 updatedViews =
                                     case (state.brush, state.drag) of
                                         (Nothing, Just _ ) ->
                                             updateElementAndPointPosition state.selectedItems xy state
-                                                |> updateElementsInViews editorModel.selectedView editorModel.views
+                                                |> updateElementsInViews currentModel.selectedView currentModel.views
                                         _ ->
-                                            editorModel.views
+                                            currentModel.views
+
+                                newModel =
+                                    { currentModel
+                                    | viewEditor = updatedViewEditor
+                                    , views = updatedViews
+                                    }
                             in
-                            ( { editorModel
-                                | viewEditor = updatedViewEditor
-                                , views = updatedViews
-                                } |> Editor navKey gifLinks
+                            ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorModel)
                             , Cmd.none)
 
                         MouseMoveEnd ->
                             case state.brush of
                                 Just _ ->
-                                    ( { editorModel | viewEditor = Ready { state | brush = Nothing } } |> Editor navKey gifLinks
+                                    let
+                                        currentModel = undoRedoEditorModel.present
+                                        newModel =
+                                            { currentModel | viewEditor = Ready { state | brush = Nothing }
+                                            }
+                                    in
+                                    ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorModel)
                                     , Cmd.none
                                     )
                                 Nothing ->
                                     case state.drag of
                                         Just _ ->
-                                            ( { editorModel | viewEditor = Ready { state | drag = Nothing, selectedItems = [] } } |> Editor navKey gifLinks
-                                            , updateMonacoValues editorModel.selectedView editorModel.views state.selectedItems
+                                            let
+                                                currentModel = undoRedoEditorModel.present
+                                                newModel =
+                                                    { currentModel | viewEditor = Ready { state | drag = Nothing, selectedItems = [] }
+                                                    }
+                                            in
+                                            ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorModel)
+                                            , updateMonacoValues currentModel.selectedView currentModel.views state.selectedItems
                                             )
                                         _ ->
                                             ( model, Cmd.none )
 
                         PaneMsg paneMsg ->
-                            ( { editorModel | pane = SplitPane.update paneMsg editorModel.pane } |> Editor navKey gifLinks
+                            let
+                                currentModel = undoRedoEditorModel.present
+                                newModel =
+                                    { currentModel | pane = SplitPane.update paneMsg currentModel.pane }
+                            in
+                            ( Editor navKey gifLinks (UndoList.new newModel undoRedoEditorModel)
                             , Cmd.none
                             )
 
@@ -484,7 +590,10 @@ view model =
             { title = "RDB Model"
             , body = [ index gifLinks ]
             }
-        Editor _ _ { pane, viewEditor, domain, views, selectedView } ->
+        Editor _ _ undoRedoEditorModel ->
+            let
+                { pane, viewEditor, domain, views, selectedView } = undoRedoEditorModel.present
+            in
             { title = "RDB Model Editor"
             , body =
                 [ div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
@@ -523,7 +632,10 @@ subscriptions model =
     Sub.batch
         [ case model of 
             Home _ _ -> Sub.none
-            Editor _ _ { viewEditor } ->
+            Editor _ _ undoRedoEditorModel ->
+                let
+                    { viewEditor } = undoRedoEditorModel.present
+                in
                 case viewEditor of
                     Init ->
                         Sub.none
@@ -535,7 +647,10 @@ subscriptions model =
         , Events.onKeyUp (keyDecoder |> setPanMode False)
         , case model of 
             Home _ _ -> Sub.none
-            Editor _ _ { pane } ->
+            Editor _ _ undoRedoEditorModel ->
+                let
+                    { pane } = undoRedoEditorModel.present
+                in
                 Sub.map PaneMsg <| SplitPane.subscriptions pane
         , monacoEditorValue MonacoEditorValueReceived
         , initMonacoRequest InitMonacoRequestReceived

@@ -18,6 +18,7 @@
             "elm-community/graph": "6.0.0",
             "elm-community/intdict": "3.0.0",
             "elm-community/typed-svg": "7.0.0",
+            "elm-community/undo-redo": "3.0.0",
             "folkertdev/one-true-path-experiment": "6.0.0",
             "gampleman/elm-visualization": "2.3.0",
             "mdgriffith/elm-ui": "1.1.8",
