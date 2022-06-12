@@ -704,9 +704,6 @@ keyDecoder =
 setCtrlAndOtherState : Bool -> Decode.Decoder String -> Decode.Decoder Msg
 setCtrlAndOtherState value =
     Decode.map (\key ->
-        let
-            _ = Debug.log "key1" key
-        in
         if key == "Control" then
             SetCtrlIsDown value
         else if key == "z" then
