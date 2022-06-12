@@ -105,36 +105,37 @@ const app = Elm.Main.init({
 let editor;
 
 function initMonaco() {
-  if (editor == null) {
-    editor = monaco.editor.create(document.getElementById("monaco"), {
-      theme: 'vs-dark',
-      value: v,
-      language: 'yaml',
-      wordWrap: 'off',
-      automaticLayout: true,
-      lineNumbers: 'off',
-      glyphMargin: false,
-      minimap: {
-        enabled: false
-      },
-      scrollbar: {
-        vertical: 'auto'
-      }
-    });
-
-    editor.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-      function () {
-        app.ports.monacoEditorSavedValue.send(editor.getValue());
-      }
-    );
-
-    document.getElementById("main-graph").addEventListener('click', (ev) => {
-      if (editor.hasWidgetFocus()) {
-        document.activeElement.blur();
-      }
-    })
+  if (editor != null) {
+    editor.dispose()
   }
+  editor = monaco.editor.create(document.getElementById("monaco"), {
+    theme: 'vs-dark',
+    value: v,
+    language: 'yaml',
+    wordWrap: 'off',
+    automaticLayout: true,
+    lineNumbers: 'off',
+    glyphMargin: false,
+    minimap: {
+      enabled: false
+    },
+    scrollbar: {
+      vertical: 'auto'
+    }
+  });
+
+  editor.addCommand(
+    monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+    function () {
+      app.ports.monacoEditorSavedValue.send(editor.getValue());
+    }
+  );
+
+  document.getElementById("main-graph").addEventListener('click', (ev) => {
+    if (editor.hasWidgetFocus()) {
+      document.activeElement.blur();
+    }
+  })
   app.ports.monacoEditorValue.send(editor.getValue());
 }
 
@@ -145,7 +146,7 @@ app.ports.updateElementPosition.subscribe((message) => unityOfWork(updateElement
 app.ports.updatePointPosition.subscribe((message) => unityOfWork(updatePointPosition, message));
 app.ports.updateMonacoValue.subscribe((message) => updateMonacoValue(message));
 // delay monaco initialization (via Elm)
-//app.ports.initMonacoRequest.send(null);
+app.ports.initMonacoRequest.send(null);
 
 function updateMonacoValue( message) {
   editor.setValue(message);
