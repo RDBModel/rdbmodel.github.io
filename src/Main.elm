@@ -29,7 +29,7 @@ import Url exposing (Url)
 import Route exposing (Route)
 import JsInterop exposing (initMonacoResponse, removePoint, encodeRemovePoint, monacoEditorValue, initMonacoRequest
     , RemovePointMessage, PointMessage, encodePointMessage, addPoint, UpdateElementPositionMessage, updateElementPosition
-    , encodeUpdateElementPosition, updatePointPosition, updateMonacoValue)
+    , encodeUpdateElementPosition, updatePointPosition, updateMonacoValue, monacoEditorSavedValue)
 import Index exposing (index)
 import UndoList exposing (UndoList)
 import Scale exposing (domain)
@@ -112,7 +112,7 @@ type Msg
     | MouseMove ( Float, Float )
     | MouseMoveEnd
     | PaneMsg SplitPane.Msg
-    | MonacoEditorValueReceived String
+    | MonacoEditorValueReceived Bool String
     | InitMonacoRequestReceived ()
     | SetCtrlIsDown Bool
     | SelectItemsStart (Float, Float)
@@ -154,7 +154,7 @@ update msg model =
         (_, Home _ _) ->
             (model, Cmd.none)
 
-        (MonacoEditorValueReceived val, Editor navKey gifLinks editorsModel) ->
+        (MonacoEditorValueReceived isNewState val, Editor navKey gifLinks editorsModel) ->
             case D.fromString rdbDecoder val of
                 Ok (domain, views) ->
                     let
@@ -167,7 +167,20 @@ update msg model =
                         newModel =
                             { editorsModel
                             | errors = ""
-                            , monacoValue = UndoList.mapPresent newMonacoValue editorsModel.monacoValue
+                            , monacoValue =
+                                if isNewState then
+                                    let
+                                        currentMonacoValue = editorsModel.monacoValue.present
+                                        updatedMonacoValue =
+                                            { currentMonacoValue
+                                            |  domain = Just domain
+                                            , views = views
+                                            , value = val
+                                            }
+                                    in
+                                    UndoList.new updatedMonacoValue editorsModel.monacoValue
+                                else
+                                    UndoList.mapPresent newMonacoValue editorsModel.monacoValue
                             }
                     in
                     ( Editor navKey gifLinks newModel
@@ -678,7 +691,8 @@ subscriptions model =
             Home _ _ -> Sub.none
             Editor _ _ { pane } ->
                 Sub.map PaneMsg <| SplitPane.subscriptions pane
-        , monacoEditorValue MonacoEditorValueReceived
+        , monacoEditorValue <| MonacoEditorValueReceived False
+        , monacoEditorSavedValue <| MonacoEditorValueReceived True
         , initMonacoRequest InitMonacoRequestReceived
         ]
 

@@ -1,11 +1,12 @@
 port module JsInterop exposing (monacoEditorValue, initMonacoResponse, initMonacoRequest, RemovePointMessage
   , removePoint, encodeRemovePoint, PointMessage, encodePointMessage, addPoint, encodeUpdateElementPosition
-  , UpdateElementPositionMessage, updateElementPosition, updatePointPosition, updateMonacoValue)
+  , UpdateElementPositionMessage, updateElementPosition, updatePointPosition, updateMonacoValue, monacoEditorSavedValue)
 import Json.Encode as E
 import Domain exposing (Relation)
 import Domain exposing (getStringFromRelation)
 
 port monacoEditorValue : (String -> msg) -> Sub msg
+port monacoEditorSavedValue : (String -> msg) -> Sub msg
 port initMonacoRequest : (() -> msg) -> Sub msg
 
 port updateElementPosition : E.Value -> Cmd msg

@@ -125,7 +125,7 @@ function initMonaco() {
     editor.addCommand(
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
       function () {
-        app.ports.monacoEditorValue.send(editor.getValue());
+        app.ports.monacoEditorSavedValue.send(editor.getValue());
       }
     );
 
