@@ -128,6 +128,12 @@ function initMonaco() {
         app.ports.monacoEditorValue.send(editor.getValue());
       }
     );
+
+    document.getElementById("main-graph").addEventListener('click', (ev) => {
+      if (editor.hasWidgetFocus()) {
+        document.activeElement.blur();
+      }
+    })
   }
   app.ports.monacoEditorValue.send(editor.getValue());
 }
