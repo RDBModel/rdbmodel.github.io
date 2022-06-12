@@ -1,5 +1,4 @@
 
-[ ] undo/redo support (https://package.elm-lang.org/packages/elm-community/undo-redo)
 
 [ ] create parser for rgb (https://package.elm-lang.org/packages/elm/parser/latest/) (nice to have)
 
@@ -16,6 +15,8 @@
 [ ] web3 storage
 
 ------
+[x] undo/redo support (https://package.elm-lang.org/packages/elm-community/undo-redo)
+
 [x] select view
 [x] delete points under containers (temporary)
 [x] show additional information via mouseover
