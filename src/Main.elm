@@ -29,7 +29,7 @@ import Url exposing (Url)
 import Route exposing (Route)
 import JsInterop exposing (initMonacoResponse, removePoint, encodeRemovePoint, monacoEditorValue, initMonacoRequest
     , RemovePointMessage, PointMessage, encodePointMessage, addPoint, UpdateElementPositionMessage, updateElementPosition
-    , encodeUpdateElementPosition, updatePointPosition)
+    , encodeUpdateElementPosition, updatePointPosition, updateMonacoValue)
 import Index exposing (index)
 import UndoList exposing (UndoList)
 import Scale exposing (domain)
@@ -78,7 +78,7 @@ getEditorsModel selectedView =
 
 getUndoRedoMonacoValue : UndoRedoMonacoValue
 getUndoRedoMonacoValue =
-    MonacoValue Dict.empty Nothing |> UndoList.fresh
+    MonacoValue Dict.empty Nothing "" |> UndoList.fresh
 
 type alias EditorsModel =
     { pane : SplitPane.State
@@ -91,6 +91,7 @@ type alias EditorsModel =
 type alias MonacoValue =
     { views : Dict String View
     , domain : Maybe Domain
+    , value: String
     }
 
 type alias UndoRedoMonacoValue = UndoList MonacoValue
@@ -119,6 +120,7 @@ type Msg
     | ClickedLink Browser.UrlRequest
     | ChangedUrl Url
     | Undo
+    | Redo
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -156,16 +158,16 @@ update msg model =
             case D.fromString rdbDecoder val of
                 Ok (domain, views) ->
                     let
-                        currentMonacoValue =  editorsModel.monacoValue.present
-                        newMonacoValue =
-                            { currentMonacoValue
+                        newMonacoValue a =
+                            { a
                             | domain = Just domain
                             , views = views
+                            , value = val
                             }
                         newModel =
                             { editorsModel
                             | errors = ""
-                            , monacoValue = UndoList.new newMonacoValue editorsModel.monacoValue
+                            , monacoValue = UndoList.mapPresent newMonacoValue editorsModel.monacoValue
                             }
                     in
                     ( Editor navKey gifLinks newModel
@@ -255,7 +257,20 @@ update msg model =
                                     | monacoValue = if state.panMode then UndoList.undo editorModel.monacoValue else editorModel.monacoValue
                                     }
                             in
-                            (Editor navKey gifLinks newModel, Cmd.none)
+                            ( Editor navKey gifLinks newModel
+                            , updateMonacoValue newModel.monacoValue.present.value
+                            )
+
+                        Redo->
+                            let
+                                newModel =
+                                    { editorModel
+                                    | monacoValue = if state.panMode then UndoList.redo editorModel.monacoValue else editorModel.monacoValue
+                                    }
+                            in
+                            ( Editor navKey gifLinks newModel
+                            , updateMonacoValue newModel.monacoValue.present.value
+                            )
 
                         ReceiveElementPosition (Ok { element }) ->
                             let
@@ -311,6 +326,7 @@ update msg model =
                                         | drag = Just { start = xy, current = xy }
                                         , selectedItems = updatedSelectedItems
                                         }
+                                    , monacoValue = UndoList.new editorModel.monacoValue.present editorModel.monacoValue
                                     }
                             in
                             ( Editor navKey gifLinks newModel
@@ -351,6 +367,7 @@ update msg model =
                                         | drag = Just { start = xy, current = xy }
                                         , selectedItems = updatedSelectedItems
                                         }
+                                    , monacoValue = UndoList.new editorModel.monacoValue.present editorModel.monacoValue
                                     }
                             in
                             ( Editor navKey gifLinks newModel
@@ -371,11 +388,13 @@ update msg model =
                                     RemovePointMessage currentModel.selectedView viewElementKey relation pointIndex
                                         |> encodeRemovePoint |> removePoint
 
-                                updatedPresentMonacoValue a =
-                                    { a | views = updatedViews }
+                                currentMonacoValue = editorModel.monacoValue.present
+                                updatedPresentMonacoValue =
+                                    { currentMonacoValue | views = updatedViews }
 
                                 newModel =
-                                    { editorModel | monacoValue = UndoList.mapPresent updatedPresentMonacoValue editorModel.monacoValue
+                                    { editorModel
+                                    | monacoValue = UndoList.new updatedPresentMonacoValue editorModel.monacoValue
                                     }
                             in
                             ( Editor navKey gifLinks newModel
@@ -461,11 +480,13 @@ update msg model =
                                             PointMessage currentModel.selectedView viewElementKey relation (List.length updatedList - indexOfNewPoint) spxy
                                                 |> encodePointMessage |> addPoint
 
-                                        updatedPresentMonacoValue a =
-                                            { a | views = updatedViewsValue }
+                                        currentMonacoValue = editorModel.monacoValue.present
+                                        updatedPresentMonacoValue =
+                                            { currentMonacoValue | views = updatedViewsValue }
 
                                         newModel =
-                                            { editorModel | monacoValue = UndoList.mapPresent updatedPresentMonacoValue editorModel.monacoValue
+                                            { editorModel
+                                            | monacoValue = UndoList.new updatedPresentMonacoValue editorModel.monacoValue
                                             }
                                     in
                                     ( Editor navKey gifLinks newModel
@@ -676,6 +697,8 @@ setCtrlAndOtherState value =
             SetCtrlIsDown value
         else if key == "z" then
             Undo
+        else if key == "y" then
+            Redo
         else
             NoOp)
 

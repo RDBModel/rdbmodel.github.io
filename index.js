@@ -129,7 +129,6 @@ function initMonaco() {
       }
     );
   }
-
   app.ports.monacoEditorValue.send(editor.getValue());
 }
 
@@ -138,8 +137,13 @@ app.ports.addPoint.subscribe((message) => unityOfWork(addPoint, message));
 app.ports.initMonacoResponse.subscribe(() => initMonaco());
 app.ports.updateElementPosition.subscribe((message) => unityOfWork(updateElementPosition, message));
 app.ports.updatePointPosition.subscribe((message) => unityOfWork(updatePointPosition, message));
+app.ports.updateMonacoValue.subscribe((message) => updateMonacoValue(message));
 // delay monaco initialization (via Elm)
-app.ports.initMonacoRequest.send(null);
+//app.ports.initMonacoRequest.send(null);
+
+function updateMonacoValue( message) {
+  editor.setValue(message);
+}
 
 function removePoint(currentModel, message) {
   const elementName = message.elementKey;
@@ -184,5 +188,7 @@ function updateCoords(item, x, y) {
 function unityOfWork(func, message) {
   const currentModel = YAML.parse(editor.getValue());
   func(currentModel, message);
-  editor.setValue(YAML.stringify(currentModel));
+  const newModel = YAML.stringify(currentModel)
+  editor.setValue(newModel);
+  app.ports.monacoEditorValue.send(newModel);
 }
