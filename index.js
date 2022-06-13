@@ -1,10 +1,5 @@
 import YAML from 'yaml';
 import EditorWorker from 'url:monaco-editor/esm/vs/editor/editor.worker.js';
-import JSONWorker from 'url:monaco-editor/esm/vs/language/json/json.worker.js';
-import CSSWorker from 'url:monaco-editor/esm/vs/language/css/css.worker.js';
-import HTMLWorker from 'url:monaco-editor/esm/vs/language/html/html.worker.js';
-import TSWorker from 'url:monaco-editor/esm/vs/language/typescript/ts.worker.js';
-import EditorWorker from 'url:monaco-editor/esm/vs/editor/editor.worker.js';
 import * as monaco from 'monaco-editor';
 import { Elm } from './src/Main.elm';
 
@@ -13,18 +8,6 @@ import editorGif from 'url:./src/img/editor.gif';
 
 window.MonacoEnvironment = {
 	getWorkerUrl: function (_moduleId, label) {
-    if (label === 'json') {
-      return JSONWorker;
-    }
-    if (label === 'css' || label === 'scss' || label === 'less') {
-      return CSSWorker;
-    }
-    if (label === 'html' || label === 'handlebars' || label === 'razor') {
-      return HTMLWorker;
-    }
-    if (label === 'typescript' || label === 'javascript') {
-      return TSWorker;
-    }
     return EditorWorker;
   },
 };
@@ -128,7 +111,7 @@ function initMonaco() {
   editor = monaco.editor.create(document.getElementById("monaco"), {
     theme: 'vs-dark',
     value: YAML.stringify(YAML.parse(v)),
-    language: 'json',
+    language: 'yaml',
     wordWrap: 'off',
     automaticLayout: true,
     lineNumbers: 'off',
