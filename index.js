@@ -128,7 +128,7 @@ function initMonaco() {
   editor = monaco.editor.create(document.getElementById("monaco"), {
     theme: 'vs-dark',
     value: YAML.stringify(YAML.parse(v)),
-    language: 'yaml',
+    language: 'json',
     wordWrap: 'off',
     automaticLayout: true,
     lineNumbers: 'off',
