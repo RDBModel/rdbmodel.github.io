@@ -23,7 +23,7 @@ jobs:
         run: npm ci
 
       - name: Generate dict
-        run: npx parcel build ./node_modules/monaco-editor/esm/vs/editor/editor.worker.js --no-source-maps --log-level error && npx parcel build index.html
+        run: npx parcel build index.html
 
       - name: Publish generated content to GitHub Pages
         uses: tsunematsu21/actions-publish-gh-pages@v1.0.2
