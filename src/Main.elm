@@ -19,8 +19,8 @@ import Zoom exposing (Zoom, OnZoom)
 import Task
 import Elements exposing
     ( renderContainer, renderContainerSelected
-    , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, edgeStrokeWidthExtend, gridCellSize
-    , selectItemsRect
+    , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, gridCellSize
+    , selectItemsRect, extendPoints
     )
 import DomainDecoder exposing (..)
 import Dict exposing (Dict)
@@ -432,22 +432,7 @@ update msg model =
                             case (sourceXY, targetXY, currentView) of
                                 (Just sxy, Just txy, Just cv) ->
                                     let
-                                        magicIntMax = maxSafeInteger
                                         allPoints = sxy :: (getViewRelationPoints (viewElementKey, relation) cv) ++ [ txy ]
-
-                                        -- as the actual edge is wider then visible, we are extending the search area
-                                        extendPoints (x1, y1) (x2, y2) =
-                                            let
-                                                extend v1 v2 =
-                                                    if v1 < v2 || v1 == v2 then
-                                                        (v1 - edgeStrokeWidthExtend, v2 + edgeStrokeWidthExtend)
-                                                    else
-                                                        (v2 - edgeStrokeWidthExtend, v1 + edgeStrokeWidthExtend)
-
-                                                (ux1, ux2) = extend x1 x2
-                                                (uy1, uy2) = extend y1 y2
-                                            in
-                                            ((ux1, uy1), (ux2, uy2))
 
                                         (_ , (insertAfterValue, _)) = 
                                             List.foldr
@@ -462,7 +447,7 @@ update msg model =
                                                 else 
                                                     (currentPoint, (insertAfterPoint, val))
                                             )
-                                            (txy, (txy, magicIntMax))
+                                            (txy, (txy, maxSafeInteger))
                                             allPoints
 
                                         (listWithNewPoint, indexOfNewPoint, _ ) = List.foldr
@@ -482,7 +467,7 @@ update msg model =
                                             |> List.reverse
 
                                         updatedPoints = \_ -> updatedList |> List.map (\(x, y) -> ViewRelationPoint x y)
-                                        
+
                                         updatedViewsValue =
                                             updatedPoints
                                             |> updatePointsInRelations relation 

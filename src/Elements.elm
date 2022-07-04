@@ -1,7 +1,6 @@
 module Elements exposing
-     ( renderContainerSelected, renderContainer
-     , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, edgeStrokeWidthExtend, gridCellSize
-     , selectItemsRect
+     ( renderContainerSelected, renderContainer, markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, gridCellSize
+     , selectItemsRect, extendPoints
      )
 import TypedSvg exposing (rect, circle, pattern, marker, g, text_, title)
 import TypedSvg.Attributes as Attrs exposing
@@ -184,6 +183,21 @@ gridRect events =
 
 edgeStrokeWidthExtend : number
 edgeStrokeWidthExtend = 3
+
+ -- as the actual edge is wider then visible, we are extending the search area
+extendPoints : (number, number) -> (number, number) -> ((number, number), (number, number))
+extendPoints (x1, y1) (x2, y2) =
+    let
+        extend v1 v2 =
+            if v1 < v2 || v1 == v2 then
+                (v1 - edgeStrokeWidthExtend, v2 + edgeStrokeWidthExtend)
+            else
+                (v2 - edgeStrokeWidthExtend, v1 + edgeStrokeWidthExtend)
+
+        (ux1, ux2) = extend x1 x2
+        (uy1, uy2) = extend y1 y2
+    in
+    ((ux1, uy1), (ux2, uy2))
 
 edgeBetweenContainers : Edge -> Maybe (Attribute msg) -> Maybe (Int -> Attribute msg) -> List Int -> Svg msg
 edgeBetweenContainers edge addPointEvent removeOrDragPointEvent selectedIndexes =
