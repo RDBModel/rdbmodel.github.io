@@ -4,7 +4,7 @@
   "description": "",
   "dependencies": {
     "monaco-editor": "0.31.0",
-    "yaml": "^1.10.2"
+    "yaml": "^2.1.1"
   },
   "devDependencies": {
     "@parcel/transformer-elm": "^2.4.1",

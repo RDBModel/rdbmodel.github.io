@@ -1,4 +1,4 @@
-import YAML from 'yaml';
+import YAML, { Scalar, YAMLMap, YAMLSeq } from 'yaml';
 import EditorWorker from 'url:monaco-editor/esm/vs/editor/editor.worker.js';
 import * as monaco from 'monaco-editor';
 import { Elm } from './src/Main.elm';
@@ -103,6 +103,7 @@ const app = Elm.Main.init({
 });
 
 let editor;
+let decorations = [];
 
 function initMonaco() {
   if (editor != null) {
@@ -131,11 +132,13 @@ function initMonaco() {
     }
   );
 
+  // remove editor focus if we clicked outside of it
   document.getElementById("main-graph").addEventListener('click', (ev) => {
     if (editor.hasWidgetFocus()) {
       document.activeElement.blur();
     }
   })
+
   app.ports.monacoEditorValue.send(editor.getValue());
 }
 
@@ -145,8 +148,95 @@ app.ports.initMonacoResponse.subscribe(() => initMonaco());
 app.ports.updateElementPosition.subscribe((message) => unityOfWork(updateElementPosition, message));
 app.ports.updatePointPosition.subscribe((message) => unityOfWork(updatePointPosition, message));
 app.ports.updateMonacoValue.subscribe((message) => updateMonacoValue(message));
+app.ports.validationErrors.subscribe((message) => {
+  const newDecorators = []
+  if (message !== '') showErrors(message, newDecorators);
+  decorations = editor.deltaDecorations(
+    decorations,
+    newDecorators
+  );
+});
 // delay monaco initialization (via Elm)
 app.ports.initMonacoRequest.send(null);
+
+function showErrors(message, newDecorators) {
+  console.log(message)
+  const allErrors = []
+  const errorsByType = message.split(';');
+  for (const errorByType of errorsByType) {
+    const splittedErrorByType = errorByType.split(':')
+    if (splittedErrorByType.length === 3) {
+      const [viewName, name, errors] = errorByType.split(':');
+      const splittedErrors = [...new Set(errors.split(','))];
+      for (const error of splittedErrors) {
+        allErrors.push([name, error])
+      }
+    } else if (splittedErrorByType.length === 2) {
+      const [name, errors] = errorByType.split(':');
+      const splittedErrors = [...new Set(errors.split(','))];
+      for (const error of splittedErrors) {
+        allErrors.push([name, error])
+      }
+    } else {
+      console.log('Unsupported error')
+      console.error(errorByType)
+    }
+  }
+  const value = editor.getValue();
+  const lineCounter = new YAML.LineCounter();
+  const currentDocument = YAML.parseDocument(value, { lineCounter: lineCounter, keepSourceTokens: true });
+  console.dir(currentDocument, {depth: null})
+
+  const content = currentDocument.contents
+
+  populateAnalyzers(content, 0)
+
+  function populateAnalyzers (value, isDomainOrView) {
+    if ('items' in value) {
+      for (const subValue of value.items) {
+        if ('key' in subValue && subValue.key.type === 'PLAIN') {
+          if (subValue.key.value === 'domain') {
+            isDomainOrView = 1
+          } else if (subValue.key.value === 'views') {
+            isDomainOrView = 2
+          }
+          for (const [name, error] of allErrors) {
+            const case1 = (name === 'Elements with empty names' && isDomainOrView === 1) || name !== 'Elements with empty names'
+            if (subValue.key.value === error && case1) {
+              const { line, col } = lineCounter.linePos(subValue.key.srcToken.offset)
+              newDecorators.push({
+                range: new monaco.Range(line, col, line, col + error.length + 1),
+                options: {
+                  inlineClassName: 'myInlineDecoration',
+                  hoverMessage: { value: name }
+                }
+              });
+            }
+          }
+        }
+        if (subValue instanceof YAMLMap) {
+          populateAnalyzers(subValue, isDomainOrView)
+        } else if ('type' in subValue && subValue.type === 'PLAIN') {
+          for (const [name, error] of allErrors) {
+            if (subValue.value === error) {
+              console.log(subValue.value)
+              const { line, col } = lineCounter.linePos(subValue.srcToken.offset)
+              newDecorators.push({
+                range: new monaco.Range(line, col, line, col + error.length + 1),
+                options: {
+                  inlineClassName: 'myInlineDecoration',
+                  hoverMessage: { value: name }
+                }
+              });
+            }
+          }
+        } else if (subValue.value instanceof YAMLMap || subValue.value instanceof YAMLSeq) {
+          populateAnalyzers(subValue.value, isDomainOrView)
+        }
+      }
+    }
+  }
+}
 
 function updateMonacoValue( message) {
   editor.setValue(message);

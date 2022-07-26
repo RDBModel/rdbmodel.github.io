@@ -7,9 +7,15 @@ import Set exposing (..)
 validateDomain : Domain -> Result String Domain
 validateDomain domain =
   let
+    forbiddenCharsInKeys = [ " ", ",", ";" ]
     elementKeysAndNames = getElementsKeysAndNames domain
 
     elementKeys = elementKeysAndNames |> List.map Tuple.first
+
+    elementKeyContainsForbiddenChar = elementKeys
+      |> List.filter (\k -> forbiddenCharsInKeys |> List.any (\f -> String.contains f k))
+      |> String.join ","
+      |> addPrefixIfNotEmpty "EKCFC:" --"Element key contains forbidden char:"
 
     relations = getRelations domain |> List.map Tuple.second
 
@@ -33,7 +39,8 @@ validateDomain domain =
       |> addPrefixIfNotEmpty "Duplicated element keys:"
 
     finalResult =
-      [emptyNames, nonExistingTarget, duplicatedElements] |> List.filter (String.isEmpty >> not) |> String.join ";"
+      [elementKeyContainsForbiddenChar, emptyNames, nonExistingTarget, duplicatedElements]
+        |> List.filter (String.isEmpty >> not) |> String.join ";"
   in
   -- unique keys at the same level and root element are ignored by decoder -- TODO
   -- non-empty names
@@ -141,3 +148,5 @@ getRelations domain =
 getUniqueRelations : Domain -> Set (String, Relation)
 getUniqueRelations = 
   getRelations >> Set.fromList
+
+
