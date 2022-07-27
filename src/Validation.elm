@@ -8,15 +8,9 @@ import Yaml.Encode exposing (..)
 validateDomain : Domain -> Result String Domain
 validateDomain domain =
   let
-    forbiddenCharsInKeys = [ " ", ",", ";" ]
     elementKeysAndNames = domain |> getElementsKeysAndNames
 
     elementKeys = elementKeysAndNames |> List.map Tuple.first
-
-    elementKeyContainsForbiddenChar = elementKeys
-      |> List.filter (\k -> forbiddenCharsInKeys |> List.any (\f -> String.contains f k))
-      |> String.join ","
-      |> addPrefixIfNotEmpty "Element key contains forbidden char:"
 
     relations = getRelations domain |> List.map Tuple.second
 
@@ -26,23 +20,24 @@ validateDomain domain =
           if List.member (Tuple.first currentRelation) elementKeys then
             result
           else
-            addComma result ++ (getStringFromRelation currentRelation)
+            (getStringFromRelation currentRelation) :: result
       in
-      List.foldl nonExistingTargetInRelation "" relations
-        |> addPrefixIfNotEmpty "Not existing targets:"
+      List.foldl nonExistingTargetInRelation [] relations
 
     emptyNames = elementKeysAndNames
       |> List.filterMap (\(k, name) -> if String.isEmpty name then Just k else Nothing)
-      |> String.join ","
-      |> addPrefixIfNotEmpty "Elements with empty names:"
     duplicatedElements = elementKeys
       |> duplicates 
-      |> String.join ","
-      |> addPrefixIfNotEmpty "Duplicated element keys:"
 
     finalResult =
-      [elementKeyContainsForbiddenChar, emptyNames, nonExistingTarget, duplicatedElements]
-        |> List.filter (String.isEmpty >> not) |> String.join ";"
+      [ ( "Elements with empty names", emptyNames ),
+        ( "Not existing targets", nonExistingTarget ),
+        ( "Duplicated element keys", duplicatedElements )
+      ]
+        |> List.filter (\(_, v) -> List.isEmpty v |> not)
+        |> Dict.fromList
+        |> dict identity (list string)
+        |> toString 2
   in
   -- unique keys at the same level and root element are ignored by decoder -- TODO
   -- non-empty names
