@@ -3,13 +3,20 @@ module Validation exposing (validateDomain, validateViews)
 import Domain exposing (..)
 import Dict exposing (Dict)
 import Set exposing (..)
+import Yaml.Encode exposing (..)
 
 validateDomain : Domain -> Result String Domain
 validateDomain domain =
   let
-    elementKeysAndNames = getElementsKeysAndNames domain
+    forbiddenCharsInKeys = [ " ", ",", ";" ]
+    elementKeysAndNames = domain |> getElementsKeysAndNames
 
     elementKeys = elementKeysAndNames |> List.map Tuple.first
+
+    elementKeyContainsForbiddenChar = elementKeys
+      |> List.filter (\k -> forbiddenCharsInKeys |> List.any (\f -> String.contains f k))
+      |> String.join ","
+      |> addPrefixIfNotEmpty "Element key contains forbidden char:"
 
     relations = getRelations domain |> List.map Tuple.second
 
@@ -28,12 +35,14 @@ validateDomain domain =
       |> List.filterMap (\(k, name) -> if String.isEmpty name then Just k else Nothing)
       |> String.join ","
       |> addPrefixIfNotEmpty "Elements with empty names:"
-    duplicatedElements = duplicates elementKeys
+    duplicatedElements = elementKeys
+      |> duplicates 
       |> String.join ","
       |> addPrefixIfNotEmpty "Duplicated element keys:"
 
     finalResult =
-      [emptyNames, nonExistingTarget, duplicatedElements] |> List.filter (String.isEmpty >> not) |> String.join ";"
+      [elementKeyContainsForbiddenChar, emptyNames, nonExistingTarget, duplicatedElements]
+        |> List.filter (String.isEmpty >> not) |> String.join ";"
   in
   -- unique keys at the same level and root element are ignored by decoder -- TODO
   -- non-empty names
@@ -141,3 +150,5 @@ getRelations domain =
 getUniqueRelations : Domain -> Set (String, Relation)
 getUniqueRelations = 
   getRelations >> Set.fromList
+
+
