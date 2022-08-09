@@ -118,13 +118,16 @@ footer : Element msg
 footer =
   row [ width fill, defaultPadding ]
     [ paragraph []
-        [ text "created by "
-        , link [ Color.blue |> mapColor |> Font.color ] { label = text "Yauhen Pyl", url = "https://www.linkedin.com/in/yauhenpyl/" }
-        ]
+      [ text "created by "
+      , link [ Color.blue |> mapColor |> Font.color ] { label = text "Yauhen Pyl", url = "https://www.linkedin.com/in/yauhenpyl/" }
+      ]
+    , paragraph []
+      [ link [ Color.blue |> mapColor |> Font.color ] { label = text "Thanks to MaybeJustJames", url = "https://github.com/MaybeJustJames/yaml" }
+      ]
     , paragraph [ alignRight, width shrink ]
-        [ text "written in ❤️ "
-        , link [ Color.blue |> mapColor |> Font.color ] { label = text "Elm lang", url = "https://elm-lang.org/" }
-        ]
+      [ text "written in ❤️ "
+      , link [ Color.blue |> mapColor |> Font.color ] { label = text "Elm lang", url = "https://elm-lang.org/" }
+      ]
     ]
 
 
