@@ -1,4 +1,5 @@
 module Domain exposing (..)
+
 import Dict exposing (Dict)
 
 type alias Container =
@@ -8,7 +9,7 @@ type alias Container =
   , xy : (Float, Float)
   }
 
-type alias Edge = 
+type alias Edge =
   { source : Container
   , target : Container
   , points : List (Float, Float)
@@ -17,7 +18,6 @@ type alias Edge =
 
 type alias ViewElementKey = String
 
-
 type alias Domain =
   { name : String
   , description : String
@@ -25,7 +25,7 @@ type alias Domain =
   , rings : Dict String Ring
   }
 
-type alias Actor = 
+type alias Actor =
   { name : String
   , description : String
   , relations : List Relation
@@ -57,7 +57,7 @@ type alias View =
   { elements: Dict ViewElementKey ViewElement
   }
 
-type alias ViewElement = 
+type alias ViewElement =
   { x : Float
   , y : Float
   , relations : Dict Relation (List ViewRelationPoint)
@@ -76,7 +76,6 @@ type alias ViewRelationPointKey = (ViewElementKey, Relation, ViewRelationPointIn
 type ViewItemKey
   = ElementKey ViewElementKey
   | PointKey ViewRelationPointKey
-
 
 getSourceAndTargetElements : ViewRelationKey -> View -> (Maybe ViewElement, Maybe ViewElement)
 getSourceAndTargetElements (viewElementKey, relation) view =
@@ -109,7 +108,7 @@ getEdges (domain, currentView) =
             sourceNameAndDescription = getNameAndDescriptionByKey viewElementKey elementsNamesAndDescriptions
           in
           case sourceNameAndDescription of
-            Just (sourceName, sourceDescription) -> 
+            Just (sourceName, sourceDescription) ->
               let
                 sourceContainer = Container sourceName viewElementKey sourceDescription source
               in
@@ -125,7 +124,7 @@ getEdges (domain, currentView) =
                     description = Tuple.second relation
                   in
                   elementsNamesAndDescriptions
-                    |> getNameAndDescriptionByKey targetElementKey 
+                    |> getNameAndDescriptionByKey targetElementKey
                     |> Maybe.map (\(targetName, targetDescription) ->
                       let
                         targetContainer = Container targetName targetElementKey targetDescription target
@@ -138,7 +137,6 @@ getEdges (domain, currentView) =
     Dict.toList currentView.elements
       |> List.concatMap getTargetAndPoints
 
-
 getContainers : (Domain, View) -> List Container
 getContainers (domain, currentView) =
   let
@@ -147,7 +145,7 @@ getContainers (domain, currentView) =
   Dict.toList currentView.elements
     |> List.filterMap (\(viewElementKey, viewElement) ->
       elementsNamesAndDescriptions
-        |> getNameAndDescriptionByKey viewElementKey 
+        |> getNameAndDescriptionByKey viewElementKey
         |> Maybe.map (\(name, description) -> Container name viewElementKey description (Tuple.pair viewElement.x viewElement.y))
     )
 
@@ -159,35 +157,28 @@ updateRelationsInElements : ViewElementKey ->  (Dict Relation (List ViewRelation
 updateRelationsInElements viewElementKey updatedRelationsFunc =
   Dict.update viewElementKey <| Maybe.map (\ve -> { ve | relations = updatedRelationsFunc ve.relations } )
 
-
 updatePointsInRelations : Relation -> (List ViewRelationPoint -> List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint)
 updatePointsInRelations relation updatedPoints =
   Dict.update relation <| Maybe.map updatedPoints
-
 
 getViewElementsOfCurrentView : Maybe View -> Maybe (Dict ViewElementKey ViewElement)
 getViewElementsOfCurrentView =
   Maybe.map .elements
 
-
 getViewElementKeysByCondition : (ViewElementKey -> ViewElement -> Bool) -> Maybe (Dict ViewElementKey ViewElement) -> List ViewElementKey
 getViewElementKeysByCondition condition =
   Maybe.map (Dict.filter condition >> Dict.keys) >> Maybe.withDefault []
-
 
 getElementAndItsKeys :  Maybe (Dict ViewElementKey ViewElement) -> List (ViewElementKey, ViewElement)
 getElementAndItsKeys =
   Maybe.map (Dict.toList) >> Maybe.withDefault []
 
-
 getCurrentView : String -> Dict String View -> Maybe View
 getCurrentView selectedView views = Dict.get selectedView views
-
 
 getElement : ViewElementKey -> Maybe (Dict ViewElementKey ViewElement) -> Maybe ViewElement
 getElement viewElementKey =
   Maybe.andThen (Dict.get viewElementKey)
-
 
 getElements : List ViewElementKey -> Maybe (Dict ViewElementKey ViewElement) -> List (ViewElementKey, ViewElement)
 getElements viewElementKeys maybeDict =
@@ -200,7 +191,6 @@ getRelationPoints : Relation -> Maybe ViewElement -> Maybe (List ViewRelationPoi
 getRelationPoints relation =
   Maybe.map .relations >> Maybe.andThen (Dict.get relation)
 
-
 getViewPointKeysByCondition : (ViewRelationPoint -> Bool) -> List ViewRelationPoint -> List ViewRelationPointIndex
 getViewPointKeysByCondition condition =
   List.indexedMap (\i point -> (i, point)) >> List.filterMap (\(i, point) ->
@@ -209,20 +199,18 @@ getViewPointKeysByCondition condition =
     else
       Nothing )
 
-
 getPoints : List ViewRelationPointKey -> Maybe (Dict ViewElementKey ViewElement) -> List (ViewRelationPointKey, ViewRelationPoint)
 getPoints relationPointKeys maybeDict =
   case maybeDict of
     Just dict ->
       relationPointKeys
-        |> List.filterMap (\(vek, relation, index) -> 
+        |> List.filterMap (\(vek, relation, index) ->
           Dict.get vek dict
             |> Maybe.andThen (\el -> el.relations |> Dict.get relation)
             |> Maybe.map (List.drop index)
             |> Maybe.andThen (List.head)
             |> Maybe.map (\p -> ((vek, relation, index), p)))
     Nothing -> []
-
 
 getPoint : Int -> Maybe (List ViewRelationPoint) -> Maybe ViewRelationPoint
 getPoint index =
@@ -231,21 +219,17 @@ getPoint index =
 relationSplitter : String
 relationSplitter = " - "
 
-
 getStringFromRelation : Relation -> String
 getStringFromRelation relation =
   Tuple.second relation ++ relationSplitter ++ Tuple.first relation
-
 
 getViewRelationKeyFromEdge : Edge -> ViewRelationKey
 getViewRelationKeyFromEdge edge =
   (edge.source.key, (edge.target.key, edge.description))
 
-
 getViewRelationKeyFromViewRelationPointKey : ViewRelationPointKey -> ViewRelationKey
 getViewRelationKeyFromViewRelationPointKey (viewElementKey, relation, viewRelationPointIndex) =
   (viewElementKey, relation)
-
 
 getNameAndDescriptionByKey : ViewElementKey -> List (String, String, String) -> Maybe (String, String)
 getNameAndDescriptionByKey viewElementKey =

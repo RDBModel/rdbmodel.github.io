@@ -1,4 +1,4 @@
-import YAML, { Scalar, YAMLMap, YAMLSeq } from 'yaml';
+import YAML, { YAMLMap, YAMLSeq } from 'yaml';
 import EditorWorker from 'url:monaco-editor/esm/vs/editor/editor.worker.js';
 import * as monaco from 'monaco-editor';
 import { Elm } from './src/Main.elm';
@@ -12,7 +12,7 @@ window.MonacoEnvironment = {
   },
 };
 
-const v = 
+const initialValue =
 `domain:
   name: Name
   description: Description
@@ -110,8 +110,8 @@ function initMonaco() {
     editor.dispose()
   }
   editor = monaco.editor.create(document.getElementById("monaco"), {
-    theme: 'vs-dark',
-    value: YAML.stringify(YAML.parse(v)),
+    // theme: 'vs-dark',
+    value: YAML.stringify(YAML.parse(initialValue.trim())),
     language: 'yaml',
     wordWrap: 'off',
     automaticLayout: true,
@@ -161,35 +161,46 @@ app.ports.initMonacoRequest.send(null);
 
 function showErrors(message, newDecorators) {
   console.log(message)
-  const allErrors = []
-  const errorsByType = message.split(';');
-  for (const errorByType of errorsByType) {
-    const splittedErrorByType = errorByType.split(':')
-    if (splittedErrorByType.length === 3) {
-      const [viewName, name, errors] = errorByType.split(':');
-      const splittedErrors = [...new Set(errors.split(','))];
-      for (const error of splittedErrors) {
-        allErrors.push([name, error])
-      }
-    } else if (splittedErrorByType.length === 2) {
-      const [name, errors] = errorByType.split(':');
-      const splittedErrors = [...new Set(errors.split(','))];
-      for (const error of splittedErrors) {
-        allErrors.push([name, error])
-      }
-    } else {
-      console.log('Unsupported error')
-      console.error(errorByType)
-    }
-  }
-  const value = editor.getValue();
-  const lineCounter = new YAML.LineCounter();
-  const currentDocument = YAML.parseDocument(value, { lineCounter: lineCounter, keepSourceTokens: true });
-  console.dir(currentDocument, {depth: null})
+  // todo: as we are receiving yaml here, need to parse it using yaml
+  const parsed = YAML.parse(message)
 
-  const content = currentDocument.contents
+  // const allErrors = []
+  // for (const key in parsed) {
+  //   allErrors.push([key, error])
+  // }
+  // if (message.indexOf('Non-unique keys in record:') > -1) {
 
-  populateAnalyzers(content, 0)
+  // } else {
+  //   const errorsByType = message.split(';');
+  //   for (const errorByType of errorsByType) {
+  //     const splittedErrorByType = errorByType.split(':')
+  //     if (splittedErrorByType.length === 3) {
+  //       const [viewName, name, errors] = errorByType.split(':');
+  //       const splittedErrors = [...new Set(errors.split(','))];
+  //       for (const error of splittedErrors) {
+  //         allErrors.push([name, error])
+  //       }
+  //     } else if (splittedErrorByType.length === 2) {
+  //       const [name, errors] = errorByType.split(':');
+  //       const splittedErrors = [...new Set(errors.split(','))];
+  //       for (const error of splittedErrors) {
+  //         allErrors.push([name, error])
+  //       }
+  //     } else {
+  //       console.log('Unsupported error')
+  //       console.error(errorByType)
+  //     }
+  //   }
+  // }
+  // const value = editor.getValue();
+  // const lineCounter = new YAML.LineCounter();
+  // const currentDocument = YAML.parseDocument(value, { lineCounter: lineCounter, keepSourceTokens: true });
+  // console.dir(allErrors, {depth: null})
+  // console.dir(currentDocument, {depth: null})
+
+  // const content = currentDocument.contents
+
+  // populateAnalyzers(content, 0)
 
   function populateAnalyzers (value, isDomainOrView) {
     if ('items' in value) {

@@ -191,10 +191,7 @@ update msg model =
                 Err err ->
                     case err of
                         D.Parsing errMsg ->
-                            let
-                                newModel = { editorsModel | errors = errMsg }
-                            in
-                            ( Editor navKey gifLinks newModel, Cmd.none)
+                            ( model, validationErrors errMsg )
                         D.Decoding errMsg ->
                             ( model, validationErrors errMsg )
 

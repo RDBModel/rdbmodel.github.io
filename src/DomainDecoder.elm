@@ -5,18 +5,18 @@ import Domain exposing (..)
 import Dict exposing (Dict)
 import Validation exposing (validateViews, validateDomain)
 
-
 rdbDecoder : Decoder (Domain, Dict String View)
 rdbDecoder =
+  let
+    domain = domainDecoder |> andThen (validateDomain >> fromResult)
+  in
   map2 Tuple.pair
-    (domainDecoder |> andThen (validateDomain >> fromResult))
+    domain
     viewsDecoder
   |> andThen (validateViews >> fromResult)
 
-
 domainDecoder : Decoder Domain
 domainDecoder = field "domain" internalDomainDecoder
-
 
 viewsDecoder : Decoder (Dict String View)
 viewsDecoder = field "views" internalViewsDecoder
@@ -90,7 +90,7 @@ mapViewRelationDecoder = map convertDictKeys
 convertDictKeys : Dict String (List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint)
 convertDictKeys dict =
   dict |> Dict.foldl
-    (\k v newD -> 
+    (\k v newD ->
       case getRelationFromString k of
         Ok relation ->
           Dict.insert relation v newD
