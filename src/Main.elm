@@ -33,6 +33,7 @@ import JsInterop exposing (initMonacoResponse, removePoint, encodeRemovePoint, m
 import Index exposing (index)
 import UndoList exposing (UndoList)
 import Scale exposing (domain)
+import JsInterop exposing (validationErrors)
 
 
 initMonaco : Cmd Msg
@@ -184,21 +185,15 @@ update msg model =
                             }
                     in
                     ( Editor navKey gifLinks newModel
-                    , getElementPosition
+                    , Cmd.batch [getElementPosition, validationErrors ""]
                     )
 
                 Err err ->
                     case err of
                         D.Parsing errMsg ->
-                            let
-                                newModel = { editorsModel | errors = errMsg }
-                            in
-                            ( Editor navKey gifLinks newModel, Cmd.none)
+                            ( model, validationErrors errMsg )
                         D.Decoding errMsg ->
-                            let
-                                newModel = { editorsModel | errors = errMsg }
-                            in
-                            ( Editor navKey gifLinks newModel, Cmd.none)
+                            ( model, validationErrors errMsg )
 
         (ReceiveElementPosition (Err _), _ ) ->
             ( model, Cmd.none )
