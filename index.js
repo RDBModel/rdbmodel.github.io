@@ -159,48 +159,50 @@ app.ports.validationErrors.subscribe((message) => {
 // delay monaco initialization (via Elm)
 app.ports.initMonacoRequest.send(null);
 
+// TODO: import from ELM
+const domainErrorKeys = ['Elements with empty name', 'Not existing target', 'Duplicated element key']
+const yamlParseError = 'Non-unique keys in record'
 function showErrors(message, newDecorators) {
   console.log(message)
-  // todo: as we are receiving yaml here, need to parse it using yaml
-  const parsed = YAML.parse(message)
+  const allErrors = []
+  if (message.includes(yamlParseError)) {
+    const elementName = message.split(`${yamlParseError}:`)[1].trim()
+    allErrors.push([yamlParseError, elementName])
+  } else {
+    const parsedMessage = JSON.parse(message)
+    for (const key in parsedMessage) {
+      if (domainErrorKeys.includes(key)) {
+        for (const error of parsedMessage[key]) {
+          allErrors.push([key, error])
+        }
+      } else {
+        const viewName = key
+        for (const viewError of parsedMessage[viewName]) {
+          for (const viewErrorKey in viewError) {
+            if (viewErrorKey === 'Not existing element in domain') {
+              for (const error of viewError[viewErrorKey]) {
+                allErrors.push([viewErrorKey, error])
+              }
+            } else if (viewErrorKey === 'Not existing relation in domain') {
+              for (const containerKey in viewError[viewErrorKey]) {
+                console.log(viewError[viewErrorKey])
+                allErrors.push([viewErrorKey, viewError[viewErrorKey][containerKey]])
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  const value = editor.getValue();
+  const lineCounter = new YAML.LineCounter();
+  const currentDocument = YAML.parseDocument(value, { lineCounter: lineCounter, keepSourceTokens: true });
+  console.dir(allErrors, {depth: null})
+  console.dir(currentDocument, {depth: null})
 
-  // const allErrors = []
-  // for (const key in parsed) {
-  //   allErrors.push([key, error])
-  // }
-  // if (message.indexOf('Non-unique keys in record:') > -1) {
+  const content = currentDocument.contents
 
-  // } else {
-  //   const errorsByType = message.split(';');
-  //   for (const errorByType of errorsByType) {
-  //     const splittedErrorByType = errorByType.split(':')
-  //     if (splittedErrorByType.length === 3) {
-  //       const [viewName, name, errors] = errorByType.split(':');
-  //       const splittedErrors = [...new Set(errors.split(','))];
-  //       for (const error of splittedErrors) {
-  //         allErrors.push([name, error])
-  //       }
-  //     } else if (splittedErrorByType.length === 2) {
-  //       const [name, errors] = errorByType.split(':');
-  //       const splittedErrors = [...new Set(errors.split(','))];
-  //       for (const error of splittedErrors) {
-  //         allErrors.push([name, error])
-  //       }
-  //     } else {
-  //       console.log('Unsupported error')
-  //       console.error(errorByType)
-  //     }
-  //   }
-  // }
-  // const value = editor.getValue();
-  // const lineCounter = new YAML.LineCounter();
-  // const currentDocument = YAML.parseDocument(value, { lineCounter: lineCounter, keepSourceTokens: true });
-  // console.dir(allErrors, {depth: null})
-  // console.dir(currentDocument, {depth: null})
-
-  // const content = currentDocument.contents
-
-  // populateAnalyzers(content, 0)
+  populateAnalyzers(content, 0)
 
   function populateAnalyzers (value, isDomainOrView) {
     if ('items' in value) {
@@ -212,14 +214,14 @@ function showErrors(message, newDecorators) {
             isDomainOrView = 2
           }
           for (const [name, error] of allErrors) {
-            const case1 = (name === 'Elements with empty names' && isDomainOrView === 1) || name !== 'Elements with empty names'
-            const case2 = (name === 'Duplicated element keys' && isDomainOrView === 1) || name !== 'Duplicated element keys'
+            const case1 = (name === 'Elements with empty name' && isDomainOrView === 1) || name !== 'Elements with empty name'
+            const case2 = (name === 'Duplicated element key' && isDomainOrView === 1) || name !== 'Duplicated element key'
             if (subValue.key.value === error && case1 && case2) {
               const { line, col } = lineCounter.linePos(subValue.key.srcToken.offset)
               newDecorators.push({
                 range: new monaco.Range(line, col, line, col + error.length + 1),
                 options: {
-                  inlineClassName: 'myInlineDecoration',
+                  inlineClassName: 'error',
                   hoverMessage: { value: name }
                 }
               });
@@ -236,7 +238,7 @@ function showErrors(message, newDecorators) {
               newDecorators.push({
                 range: new monaco.Range(line, col, line, col + error.length + 1),
                 options: {
-                  inlineClassName: 'myInlineDecoration',
+                  inlineClassName: 'error',
                   hoverMessage: { value: name }
                 }
               });

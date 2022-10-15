@@ -31,9 +31,9 @@ validateDomain domain =
       |> duplicates
 
     finalResult =
-      [ ( "Elements with empty names", emptyNames ),
-        ( "Not existing targets", nonExistingTarget ),
-        ( "Duplicated element keys", duplicatedElements )
+      [ ( "Elements with empty name", emptyNames ),
+        ( "Not existing target", nonExistingTarget ),
+        ( "Duplicated element key", duplicatedElements )
       ]
         |> List.filter (\(_, v) -> List.isEmpty v |> not)
         |> Dict.fromList
@@ -81,7 +81,6 @@ validateViews (domain, views) =
             |> Dict.map (\_ relation -> getStringFromRelation relation)
 
         in
-          -- TODO do not return empty values
           if (elementsErrors |> List.isEmpty |> not) && (relationErrors |> Dict.isEmpty |> not) then
             [
               Dict.singleton "Not existing element in domain" (elementsErrors |> list string),
@@ -98,7 +97,7 @@ validateViews (domain, views) =
           else
             []
       ) views
-      |> Dict.filter (\k v -> List.isEmpty v |> not)
+      |> Dict.filter (\_ v -> List.isEmpty v |> not)
       |> dict identity (list (dict identity identity) )
       |> encode 0
   in
