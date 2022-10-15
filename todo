@@ -1,9 +1,5 @@
 [ ] create parser for rgb (https://package.elm-lang.org/packages/elm/parser/latest/) (nice to have)
 
-[ ] return errors to js
-[ ] display errors (how?)
-[ ] display validation errors
-
 [ ] support parent container (nice to have)
 
 [ ] help
@@ -13,6 +9,10 @@
 [ ] web3 storage
 
 ------
+[x] return errors to js
+[x] display errors (how?)
+[x] display validation errors
+
 [x] undo/redo support (https://package.elm-lang.org/packages/elm-community/undo-redo)
 
 [x] select view
