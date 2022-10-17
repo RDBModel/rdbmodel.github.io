@@ -156,7 +156,7 @@ app.ports.validationErrors.subscribe((message) => {
     newDecorators
   );
 });
-// delay monaco initialization (via Elm)
+// delay monaco initialization (via Elm) test
 app.ports.initMonacoRequest.send(null);
 
 // TODO: import from ELM
