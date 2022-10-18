@@ -8,16 +8,15 @@ import Element.Border exposing (rounded)
 import Route exposing (editorRoute)
 import Color
 
-index : (String, String) -> Html msg
-index gifLinks =
-  Element.layout []
-        (indexMain gifLinks)
+index : Html msg
+index =
+  Element.layout [] indexMain
 
-indexMain : (String, String) -> Element msg
-indexMain gifLinks = 
+indexMain : Element msg
+indexMain =
   column [width fill, height fill]
     [ header
-    , body gifLinks
+    , body
     , editorLink
     , footer
     ]
@@ -30,16 +29,16 @@ header =
     , link [ Color.blue |> mapColor |> Font.color, alignRight, Font.size 22 ] { label = text "[Source]", url = "https://github.com/RDBModel/rdbmodel.github.io" }
     ]
 
-body : (String, String) -> Element msg
-body (diagramUrl, editorUrl)= 
+body : Element msg
+body =
   column [ width fill]
-    [ diagram diagramUrl
-    , editor editorUrl
+    [ diagram
+    , editor
     ]
 
 blockPadding : Element.Attribute msg
 blockPadding = padding 10
-{- 
+{-
   View models in svg format
   Modeling diagram in realtime
   Layout model elements and edges manually
@@ -64,10 +63,10 @@ digramDescription =
     , yamlItem "Zoom, scroll, and navigate through the view"
     ]
 
-diagram : String -> Element msg
-diagram url =
+diagram : Element msg
+diagram =
   row [ width fill, blockPadding ]
-  [ el [ width shrink ] (image [] { src = url, description = "diagram" })
+  [ el [ width shrink ] (image [] { src = "[VITE_PLUGIN_ELM_ASSET:/src/img/diagram.gif]", description = "diagram" })
   , el [ width fill ] digramDescription
   ]
 
@@ -95,11 +94,11 @@ mapColor : Color.Color -> Element.Color
 mapColor =
   Color.toRgba >> (\{red, green, blue, alpha} -> rgba red green blue alpha)
 
-editor : String -> Element msg
-editor url =
+editor : Element msg
+editor =
   row [ width fill, blockPadding ]
   [ el [ width fill ] editorDescription
-  , el [ width shrink ] (image [] { src = url, description = "editor" })
+  , el [ width shrink ] (image [] { src = "[VITE_PLUGIN_ELM_ASSET:/src/img/editor.gif]", description = "editor" })
   ]
 
 editorLink : Element msg

@@ -2,9 +2,6 @@ import YAML, { YAMLMap, YAMLSeq } from 'yaml';
 import * as monaco from 'monaco-editor';
 import { Elm } from './src/Main.elm';
 
-import diagramGif from './src/img/diagram.gif';
-import editorGif from './src/img/editor.gif';
-
 window.MonacoEnvironment = {
 	getWorkerUrl: function (_moduleId, label) {
     return EditorWorker;
@@ -97,8 +94,7 @@ views:
         y: 200`;
 
 const app = Elm.Main.init({
-  node: document.getElementById("root"),
-  flags: [diagramGif, editorGif]
+  node: document.getElementById("root")
 });
 
 let editor;

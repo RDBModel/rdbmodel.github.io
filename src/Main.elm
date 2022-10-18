@@ -39,7 +39,7 @@ import JsInterop exposing (validationErrors)
 initMonaco : Cmd Msg
 initMonaco = initMonacoResponse ()
 
-main : Program (String, String) Model Msg
+main : Program () Model Msg
 main =
   Browser.application
     { init = init
@@ -50,31 +50,31 @@ main =
     , onUrlChange = ChangedUrl
     }
 
-init : (String, String) -> Url -> Nav.Key -> ( Model, Cmd Msg )
-init gifLinks url navKey  =
-    changeRouteTo gifLinks (Route.fromUrl url) navKey
+init : () -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init _ url navKey  =
+    changeRouteTo (Route.fromUrl url) navKey
 
 
 getNavKey : Model -> Nav.Key
 getNavKey model =
     case model of
-        Home key _ -> key
-        Editor key _ _ -> key
+        Home key -> key
+        Editor key _ -> key
 
-changeRouteTo : (String, String) ->  Maybe Route -> Nav.Key -> ( Model, Cmd Msg )
-changeRouteTo gifLinks maybeRoute key =
+changeRouteTo : Maybe Route -> Nav.Key -> ( Model, Cmd Msg )
+changeRouteTo maybeRoute key =
     case maybeRoute of
         Nothing ->
-            ( Home key gifLinks, Cmd.none )
+            ( Home key, Cmd.none )
 
         Just Route.Home ->
-            ( Home key gifLinks, Cmd.none )
+            ( Home key, Cmd.none )
 
         Just (Route.Editor selectedView) ->
-            ( Editor key gifLinks (getEditorsModel selectedView), getMonacoElementPosition )
+            ( Editor key (getEditorsModel selectedView), getMonacoElementPosition )
 
 getEditorsModel : String -> EditorsModel
-getEditorsModel selectedView = 
+getEditorsModel selectedView =
     EditorsModel (SplitPane.init Horizontal) Init getUndoRedoMonacoValue selectedView ""
 
 getUndoRedoMonacoValue : UndoRedoMonacoValue
@@ -98,8 +98,8 @@ type alias MonacoValue =
 type alias UndoRedoMonacoValue = UndoList MonacoValue
 
 type Model
-    = Home Nav.Key (String, String)
-    | Editor Nav.Key (String, String) EditorsModel
+    = Home Nav.Key
+    | Editor Nav.Key EditorsModel
 
 type Msg
     = ZoomMsg OnZoom
@@ -146,16 +146,16 @@ update msg model =
                     , Nav.load href
                     )
 
-        (ChangedUrl url, Home _ links ) ->
-            changeRouteTo links (Route.fromUrl url) (getNavKey model)
+        (ChangedUrl url, Home _ ) ->
+            changeRouteTo (Route.fromUrl url) (getNavKey model)
 
-        (ChangedUrl url, Editor _ links _) ->
-            changeRouteTo links (Route.fromUrl url) (getNavKey model)
+        (ChangedUrl url, Editor _ _) ->
+            changeRouteTo (Route.fromUrl url) (getNavKey model)
 
-        (_, Home _ _) ->
+        (_, Home _) ->
             (model, Cmd.none)
 
-        (MonacoEditorValueReceived isNewState val, Editor navKey gifLinks editorsModel) ->
+        (MonacoEditorValueReceived isNewState val, Editor navKey editorsModel) ->
             case D.fromString rdbDecoder val of
                 Ok (domain, views) ->
                     let
@@ -184,7 +184,7 @@ update msg model =
                                     UndoList.mapPresent newMonacoValue editorsModel.monacoValue
                             }
                     in
-                    ( Editor navKey gifLinks newModel
+                    ( Editor navKey newModel
                     , Cmd.batch [getElementPosition, validationErrors ""]
                     )
 
@@ -198,9 +198,9 @@ update msg model =
         (ReceiveElementPosition (Err _), _ ) ->
             ( model, Cmd.none )
 
-        (_, Editor navKey gifLinks editorModel ) ->
+        (_, Editor navKey editorModel ) ->
             let
-                toEditor = Editor navKey gifLinks
+                toEditor = Editor navKey
             in
             case editorModel.viewEditor of
                 Init ->
@@ -270,7 +270,7 @@ update msg model =
 
                         ReceiveElementPosition (Ok { element }) ->
                             ({ editorModel | viewEditor = Ready { state | element = element } } |> toEditor
-                            , Cmd.none 
+                            , Cmd.none
                             )
 
                         Resize ->
@@ -297,7 +297,7 @@ update msg model =
                                 elementsOfCurrentView = getCurrentView currentModel.selectedView currentModel.monacoValue.present.views
                                     |> getViewElementsOfCurrentView
 
-                                updatedSelectedItems = 
+                                updatedSelectedItems =
                                     if List.isEmpty state.selectedItems || not isWithinAlreadySelected then
                                         elementsOfCurrentView
                                             |> getElement viewElementKey
@@ -307,7 +307,7 @@ update msg model =
                                     else
                                         updateSelectedItemsDeltas elementsOfCurrentView (shiftedStartX, shiftedStartY) state.selectedItems
                             in
-                            (   { editorModel 
+                            (   { editorModel
                                 | viewEditor = Ready
                                     { state
                                     | drag = Just { start = xy, current = xy }
@@ -334,7 +334,7 @@ update msg model =
                                 elementsOfCurrentView = getCurrentView currentModel.selectedView currentModel.monacoValue.present.views
                                     |> getViewElementsOfCurrentView
 
-                                updatedSelectedItems = 
+                                updatedSelectedItems =
                                     if List.isEmpty state.selectedItems || not isWithinAlreadySelected then
                                         elementsOfCurrentView
                                             |> getElement viewElementKey
@@ -399,7 +399,7 @@ update msg model =
                                     let
                                         allPoints = sxy :: (getViewRelationPoints (viewElementKey, relation) cv) ++ [ txy ]
 
-                                        (_ , (insertAfterValue, _)) = 
+                                        (_ , (insertAfterValue, _)) =
                                             List.foldr
                                             (\currentPoint -> \(previousPoint, (insertAfterPoint, val)) ->
                                                 let
@@ -409,7 +409,7 @@ update msg model =
                                                 in
                                                 if not (isNaN z) && betweenPoints spxy (extendedA, extendedPrev) && z < val then
                                                     (currentPoint, (currentPoint, z))
-                                                else 
+                                                else
                                                     (currentPoint, (insertAfterPoint, val))
                                             )
                                             (txy, (txy, maxSafeInteger))
@@ -431,7 +431,7 @@ update msg model =
 
                                         updatedViewsValue =
                                             updatedPoints
-                                            |> updatePointsInRelations relation 
+                                            |> updatePointsInRelations relation
                                             |> updateRelationsInElements viewElementKey
                                             |> updateElementsInViews editorModel.selectedView editorModel.monacoValue.present.views
 
@@ -563,11 +563,11 @@ updateMonacoValues selectedView views selectedItems =
 view : Model -> Document Msg
 view model =
     case model of
-        Home _ gifLinks ->
+        Home _ ->
             { title = "RDB Model"
-            , body = [ index gifLinks ]
+            , body = [ index ]
             }
-        Editor _ _ editorModel ->
+        Editor _ editorModel ->
             let
                 { pane, viewEditor, monacoValue, selectedView } = editorModel
                 { domain, views } = monacoValue.present
@@ -609,8 +609,8 @@ subscriptions model =
     in
     Sub.batch
         [ case model of
-            Home _ _ -> Sub.none
-            Editor _ _ { viewEditor } ->
+            Home _ -> Sub.none
+            Editor _ { viewEditor } ->
                 case viewEditor of
                     Init ->
                         Sub.none
@@ -621,8 +621,8 @@ subscriptions model =
         , Events.onKeyDown (keyDecoder |> setCtrlAndOtherState True)
         , Events.onKeyUp (keyDecoder |> setCtrlState False)
         , case model of
-            Home _ _ -> Sub.none
-            Editor _ _ { pane } ->
+            Home _ -> Sub.none
+            Editor _ { pane } ->
                 Sub.map PaneMsg <| SplitPane.subscriptions pane
         , monacoEditorValue <| MonacoEditorValueReceived False
         , monacoEditorSavedValue <| MonacoEditorValueReceived True
@@ -658,7 +658,7 @@ type ViewEditor
     = Init
     | Ready ViewEditorState
 
-type alias SubPathEdge = 
+type alias SubPathEdge =
     { points : List (Float, Float)
     }
 
@@ -846,7 +846,7 @@ updateElementAndPointPosition selectedItems xy state =
     in
     Dict.map (\viewElementKey ve ->
         updateElementXY viewElementKey ve
-        |> updatedRelations viewElementKey 
+        |> updatedRelations viewElementKey
     )
 
 {-| The mouse events for drag start, drag at and drag end read the client
@@ -876,7 +876,7 @@ svgView : (Dict String View, Maybe Domain, String) -> ViewEditor -> Html Msg
 svgView (views, domain, selectedView) model =
     let
         selectItemsEvents : Attribute Msg
-        selectItemsEvents = 
+        selectItemsEvents =
             mouseDownMain SelectItemsStart
 
         gridRectEvents : List (Attribute Msg)
@@ -886,7 +886,7 @@ svgView (views, domain, selectedView) model =
                     []
 
                 Ready { zoom, panMode } ->
-                    [Zoom.onDoubleClick zoom ZoomMsg, Zoom.onWheel zoom ZoomMsg] 
+                    [Zoom.onDoubleClick zoom ZoomMsg, Zoom.onWheel zoom ZoomMsg]
                         ++ (if panMode then Zoom.onDrag zoom ZoomMsg else [selectItemsEvents])
 
         zoomTransformAttr : Attribute Msg
@@ -898,7 +898,7 @@ svgView (views, domain, selectedView) model =
                 Ready { zoom } ->
                     Zoom.transform zoom
 
-        transform10 = 
+        transform10 =
             case model of
                 Init -> gridCellSize
                 Ready { zoom } ->
@@ -1020,7 +1020,7 @@ drawContainer panMode selectedItems container =
 getSelectedElementKeysAndDeltas : List SelectedItem -> List (ViewElementKey, Maybe (Float, Float))
 getSelectedElementKeysAndDeltas =
     let
-        extractViewElelementKeys v = 
+        extractViewElelementKeys v =
             case v.key of
                 ElementKey x -> Just (x, v.delta)
                 PointKey _ -> Nothing
@@ -1030,7 +1030,7 @@ getSelectedElementKeysAndDeltas =
 getSelectedPointKeysAndDeltas : List SelectedItem -> List (ViewRelationPointKey, Maybe(Float, Float))
 getSelectedPointKeysAndDeltas =
     let
-        extractPointKeys v = 
+        extractPointKeys v =
             case v.key of
                 PointKey x -> Just (x, v.delta)
                 ElementKey _ -> Nothing
