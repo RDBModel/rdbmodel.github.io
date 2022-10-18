@@ -1,28 +1,51 @@
 <!DOCTYPE html>
 <html>
-    <head><script type="module" src="/index.e4c333b0.js"></script><link rel="stylesheet" href="/index.2c2db378.css">
-        <style>html, body {
-  height: 100vh;
-  margin: 0;
-}
+    <head>
+      <script>self["MonacoEnvironment"] = (function (paths) {
+          return {
+            globalAPI: false,
+            getWorkerUrl : function (moduleId, label) {
+              var result =  paths[label];
+              if (/^((http:)|(https:)|(file:)|(\/\/))/.test(result)) {
+                var currentUrl = String(window.location);
+                var currentOrigin = currentUrl.substr(0, currentUrl.length - window.location.hash.length - window.location.search.length - window.location.pathname.length);
+                if (result.substring(0, currentOrigin.length) !== currentOrigin) {
+                  var js = '/*' + label + '*/importScripts("' + result + '");';
+                  var blob = new Blob([js], { type: 'application/javascript' });
+                  return URL.createObjectURL(blob);
+                }
+              }
+              return result;
+            }
+          };
+        })({
+  "editorWorkerService": "/monacoeditorwork/editor.worker.bundle.js"
+});</script>
 
-body > div {
-  height: 100vh;
-}
+        <style>
+            html,
+            body {
+              margin: 0;
+              height: 100vh;
+            }
 
-.error {
-  cursor: pointer;
-  font-style: oblique;
-  text-decoration-line: underline;
-  text-decoration-style: wavy;
-  color: #ff0000b3 !important;
-}
+            body > div { height: 100vh; }
 
-</style>
+            .error {
+              color: rgba(255, 0, 0, 0.7) !important;
+              cursor: pointer;
+              text-decoration-line: underline;
+              text-decoration-style: wavy;
+              font-style: oblique;
+            }
+          </style>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <base href="/">
+      <script type="module" crossorigin src="/assets/index.e118d3a4.js"></script>
+      <link rel="stylesheet" href="/assets/index.30d77c87.css">
     </head>
     <body>
         <div id="root"></div>
-        <script src="/index.ac3d45df.js" type="module"></script>
+        
     </body>
 </html>
