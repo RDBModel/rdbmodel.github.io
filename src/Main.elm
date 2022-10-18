@@ -10,13 +10,13 @@ import Json.Decode as Decode
 import Yaml.Decode as D
 import Html exposing (Html, div, text, a)
 import Html.Attributes exposing (href, style)
-import Html.Events.Extra.Mouse as Mouse exposing (Event)
 import TypedSvg exposing (svg, defs, g)
+import Html.Events.Extra.Mouse as Mouse exposing (Event)
+import Task
 import TypedSvg.Attributes as Attrs exposing ( class,  x, y, id)
 import TypedSvg.Types exposing ( Length(..))
 import TypedSvg.Core exposing (Svg, Attribute)
 import Zoom exposing (Zoom, OnZoom)
-import Task
 import Elements exposing
     ( renderContainer, renderContainerSelected
     , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, gridCellSize
@@ -34,7 +34,7 @@ import Index exposing (index)
 import UndoList exposing (UndoList)
 import Scale exposing (domain)
 import JsInterop exposing (validationErrors)
-
+import Select
 
 initMonaco : Cmd Msg
 initMonaco = initMonacoResponse ()
@@ -75,7 +75,24 @@ changeRouteTo maybeRoute key =
 
 getEditorsModel : String -> EditorsModel
 getEditorsModel selectedView =
-    EditorsModel (SplitPane.init Horizontal) Init getUndoRedoMonacoValue selectedView ""
+    EditorsModel
+        (SplitPane.init Horizontal)
+        Init
+        getUndoRedoMonacoValue
+        selectedView
+        (Select.init "selectView")
+        (Select.newConfig
+            { onSelect = OnSelect
+            , toLabel = \v -> v
+            , filter = \_ items -> Just items
+            , toMsg = SelectMsg
+            }
+        |> Select.withCutoff 12
+        |> Select.withEmptySearch True
+        |> Select.withNotFound "No matches"
+        |> Select.withClear False
+        |> Select.withPrompt "Select a view")
+        ""
 
 getUndoRedoMonacoValue : UndoRedoMonacoValue
 getUndoRedoMonacoValue =
@@ -86,6 +103,8 @@ type alias EditorsModel =
     , viewEditor : ViewEditor
     , monacoValue : UndoRedoMonacoValue
     , selectedView : String
+    , selectState : Select.State
+    , selectConfig : Select.Config Msg String
     , errors : String
     }
 
@@ -122,6 +141,8 @@ type Msg
     | ChangedUrl Url
     | Undo
     | Redo
+    | SelectMsg (Select.Msg String)
+    | OnSelect (Maybe String)
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -232,6 +253,26 @@ update msg model =
                         _ ->  ( model, Cmd.none )
                 Ready state ->
                     case msg of
+                        SelectMsg subMsg ->
+                            let
+                                ( updated, cmd ) =
+                                    Select.update
+                                        editorModel.selectConfig
+                                        subMsg
+                                        editorModel.selectState
+                            in
+                            ( { editorModel | selectState = updated } |> toEditor
+                            ,  cmd
+                            )
+                        OnSelect maybeView ->
+                            let
+                                selected =
+                                    maybeView
+                                        |> Maybe.withDefault editorModel.selectedView
+                            in
+                            ( { editorModel | selectedView = selected } |> toEditor
+                            , Nav.pushUrl (getNavKey model) ("/#/editor/" ++ selected)
+                            )
                         SelectItemsStart xy ->
                             let
                                 shiftedXY = shiftPosition state.zoom (0, 0) xy
@@ -569,7 +610,7 @@ view model =
             }
         Editor _ editorModel ->
             let
-                { pane, viewEditor, monacoValue, selectedView } = editorModel
+                { pane, viewEditor, monacoValue, selectedView, selectState, selectConfig } = editorModel
                 { domain, views } = monacoValue.present
             in
             { title = "RDB Model Editor"
@@ -577,7 +618,7 @@ view model =
                 [ div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
                     [ SplitPane.view
                         viewConfig
-                        (svgView (views, domain, selectedView) viewEditor)
+                        (svgView (views, domain) (selectedView, selectState, selectConfig) viewEditor)
                         (div [ id "monaco", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%"] [])
                         pane
                     , div [ style "position" "fixed", style "bottom" "0", style "left" "0", style "font-size" "9px" ] [ text "v0.0.1"]
@@ -603,8 +644,7 @@ subscriptions model =
                 [ Zoom.subscriptions zoom ZoomMsg
                 , case (brush, drag) of
                     (Nothing, Nothing) -> Sub.none
-                    _ ->
-                        dragSubscriptions
+                    _ -> dragSubscriptions
                 ]
     in
     Sub.batch
@@ -872,8 +912,8 @@ viewConfig =
         , customSplitter = Nothing
         }
 
-svgView : (Dict String View, Maybe Domain, String) -> ViewEditor -> Html Msg
-svgView (views, domain, selectedView) model =
+svgView : (Dict String View, Maybe Domain) -> (String, Select.State, Select.Config Msg String) -> ViewEditor -> Html Msg
+svgView (views, domain) (selectedView, selectState, selectConfig) model =
     let
         selectItemsEvents : Attribute Msg
         selectItemsEvents =
@@ -917,7 +957,7 @@ svgView (views, domain, selectedView) model =
 
         ( x, y ) = getXY
     in
-    div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
+    div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%", Html.Attributes.style "position" "relative" ]
     [ svg
         [ id elementId
         , Attrs.width <| Percent 100
@@ -937,14 +977,22 @@ svgView (views, domain, selectedView) model =
             , renderSelectRect model
             ]
         ]
-    -- , div
-    --     [ style "position" "fixed"
-    --     , style "top" "0"
-    --     , style "left" "0"
-    --     , style "font-size" "16px"
-    --     , style "user-select" "none"
-    --     , Mouse.onContextMenu (\_ -> NoOp)
-    --     ] [ text "view-1"]
+    , div
+        [ style "position" "absolute"
+        , style "top" "5px"
+        , style "left" "50%"
+        , style "transform" "translateX(-50%)"
+        , style "font-size" "16px"
+        , style "user-select" "none"
+        , style "border" "1px solid rgba(204, 204, 204, .6)"
+        --, Mouse.onContextMenu (\_ -> NoOp)
+        ]
+        [ Select.view
+            selectConfig
+            selectState
+            (Dict.keys views)
+            [selectedView]
+        ]
     ]
 
 
