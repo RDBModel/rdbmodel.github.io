@@ -1,10 +1,9 @@
 import YAML, { YAMLMap, YAMLSeq } from 'yaml';
-import EditorWorker from 'url:monaco-editor/esm/vs/editor/editor.worker.js';
 import * as monaco from 'monaco-editor';
 import { Elm } from './src/Main.elm';
 
-import diagramGif from 'url:./src/img/diagram.gif';
-import editorGif from 'url:./src/img/editor.gif';
+import diagramGif from './src/img/diagram.gif';
+import editorGif from './src/img/editor.gif';
 
 window.MonacoEnvironment = {
 	getWorkerUrl: function (_moduleId, label) {

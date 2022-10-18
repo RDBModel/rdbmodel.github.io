@@ -1,22 +1,20 @@
 {
   "name": "rdb",
-  "version": "1.0.0",
-  "description": "",
-  "dependencies": {
-    "monaco-editor": "0.31.0",
-    "yaml": "1.10.2"
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "devDependencies": {
-    "@parcel/transformer-elm": "2.4.1",
-    "buffer": "6.0.3",
-    "elm": "0.19.1-5",
-    "parcel": "2.4.1",
-    "process": "0.11.10"
+    "elm": "^0.19.1-5",
+    "vite": "^3.1.0",
+    "vite-plugin-elm": "^2.7.2",
+    "vite-plugin-monaco-editor": "^1.1.0"
   },
-  "scripts": {
-    "start": "npx parcel index.html",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC"
+  "dependencies": {
+    "yaml": "1.10.2"
+  }
 }

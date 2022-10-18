@@ -23,7 +23,7 @@ jobs:
         run: npm ci
 
       - name: Generate dict
-        run: npx parcel build index.html --no-optimize
+        run: npm run build
 
       - name: Publish generated content to GitHub Pages
         uses: tsunematsu21/actions-publish-gh-pages@v1.0.2
