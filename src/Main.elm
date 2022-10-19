@@ -1029,7 +1029,6 @@ svgView (views, domain) (selectedView, selectState, selectConfig) model =
         ]
         [ button
             [ style "background-color" "white"
-            , style "border" "none"
             , style "border" "1px solid rgba(204, 204, 204, .6)"
             , style "min-height" "24px"
             , style "min-width" "24px"
@@ -1037,8 +1036,9 @@ svgView (views, domain) (selectedView, selectState, selectConfig) model =
             ] [ text "+"]
         , button
             [ style "background-color" "white"
-            , style "border" "none"
-            , style "border" "1px solid rgba(204, 204, 204, .6)"
+            , style "border-width" "0 1px 1px 1px"
+            , style "border-style" "solid"
+            , style "border-color" "rgba(204, 204, 204, .6)"
             , style "min-height" "24px"
             , style "min-width" "24px"
             , Html.Events.onClick <| DoZoom Out
