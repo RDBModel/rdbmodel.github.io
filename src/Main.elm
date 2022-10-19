@@ -10,6 +10,7 @@ import Json.Decode as Decode
 import Yaml.Decode as D
 import Html exposing (Html, div, text, a)
 import Html.Attributes exposing (href, style)
+import Html.Events
 import TypedSvg exposing (svg, defs, g)
 import Html.Events.Extra.Mouse as Mouse exposing (Event)
 import Task
@@ -35,6 +36,7 @@ import UndoList exposing (UndoList)
 import Scale exposing (domain)
 import JsInterop exposing (validationErrors)
 import Select
+import Html exposing (button)
 
 initMonaco : Cmd Msg
 initMonaco = initMonacoResponse ()
@@ -113,7 +115,7 @@ type alias EditorsModel =
 type alias MonacoValue =
     { views : Dict String View
     , domain : Maybe Domain
-    , value: String
+    , value : String
     }
 
 type alias UndoRedoMonacoValue = UndoList MonacoValue
@@ -124,6 +126,8 @@ type Model
 
 type Msg
     = ZoomMsg OnZoom
+    | ZoomIn
+    | ZoomOut
     | Resize
     | ReceiveElementPosition (Result Dom.Error Dom.Element)
     | ReceiveMonacoElementPosition (Result Dom.Error Dom.Element)
@@ -538,6 +542,22 @@ update msg model =
                             ( { editorModel | pane = SplitPane.update paneMsg editorModel.pane } |> toEditor
                             , Cmd.none
                             )
+
+                        ZoomIn ->
+                            let
+                                current = Zoom.asRecord state.zoom
+                                newZoom =
+                                    Zoom.setTransform Zoom.instantly { scale = current.scale * 1.2, translate = current.translate } state.zoom
+                            in
+                            ( { editorModel | viewEditor = Ready { state | zoom = newZoom } } |> toEditor, Cmd.none )
+
+                        ZoomOut ->
+                            let
+                                current = Zoom.asRecord state.zoom
+                                newZoom =
+                                    Zoom.setTransform Zoom.instantly { scale = current.scale * 0.8, translate = current.translate } state.zoom
+                            in
+                            ( { editorModel | viewEditor = Ready { state | zoom = newZoom } } |> toEditor, Cmd.none )
 
                         _ -> ( model, Cmd.none )
 
@@ -997,6 +1017,33 @@ svgView (views, domain) (selectedView, selectState, selectConfig) model =
             selectState
             (Dict.keys views)
             [selectedView]
+        ]
+    , div
+        [ style "position" "absolute"
+        , style "bottom" "10px"
+        , style "right" "5px"
+        , style "font-size" "16px"
+        , style "user-select" "none"
+        , style "display" "flex"
+        , style "flex-direction" "column"
+        --, Mouse.onContextMenu (\_ -> NoOp)
+        ]
+        [ button
+            [ style "background-color" "white"
+            , style "border" "none"
+            , style "border" "1px solid rgba(204, 204, 204, .6)"
+            , style "min-height" "24px"
+            , style "min-width" "24px"
+            , Html.Events.onClick ZoomIn
+            ] [ text "+"]
+        , button
+            [ style "background-color" "white"
+            , style "border" "none"
+            , style "border" "1px solid rgba(204, 204, 204, .6)"
+            , style "min-height" "24px"
+            , style "min-width" "24px"
+            , Html.Events.onClick ZoomOut
+            ] [ text "-"]
         ]
     ]
 
