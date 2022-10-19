@@ -92,6 +92,7 @@ getEditorsModel selectedView =
         |> Select.withNotFound "No matches"
         |> Select.withClear False
         |> Select.withPrompt "Select a view")
+        False
         ""
 
 getUndoRedoMonacoValue : UndoRedoMonacoValue
@@ -105,6 +106,7 @@ type alias EditorsModel =
     , selectedView : String
     , selectState : Select.State
     , selectConfig : Select.Config Msg String
+    , toReload : Bool
     , errors : String
     }
 
@@ -170,8 +172,11 @@ update msg model =
         (ChangedUrl url, Home _ ) ->
             changeRouteTo (Route.fromUrl url) (getNavKey model)
 
-        (ChangedUrl url, Editor _ _) ->
-            changeRouteTo (Route.fromUrl url) (getNavKey model)
+        (ChangedUrl url, Editor navKey editorModel) ->
+            if editorModel.toReload then
+                changeRouteTo (Route.fromUrl url) (getNavKey model)
+            else
+                (Editor navKey { editorModel | toReload = True }, Cmd.none)
 
         (_, Home _) ->
             (model, Cmd.none)
@@ -270,7 +275,7 @@ update msg model =
                                     maybeView
                                         |> Maybe.withDefault editorModel.selectedView
                             in
-                            ( { editorModel | selectedView = selected } |> toEditor
+                            ( { editorModel | selectedView = selected, toReload = False } |> toEditor
                             , Nav.pushUrl (getNavKey model) ("/#/editor/" ++ selected)
                             )
                         SelectItemsStart xy ->
