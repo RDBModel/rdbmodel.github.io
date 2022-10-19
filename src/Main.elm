@@ -124,10 +124,13 @@ type Model
     = Home Nav.Key
     | Editor Nav.Key EditorsModel
 
+type ZoomDirection
+    = In
+    | Out
+
 type Msg
     = ZoomMsg OnZoom
-    | ZoomIn
-    | ZoomOut
+    | DoZoom ZoomDirection
     | Resize
     | ReceiveElementPosition (Result Dom.Error Dom.Element)
     | ReceiveMonacoElementPosition (Result Dom.Error Dom.Element)
@@ -543,19 +546,15 @@ update msg model =
                             , Cmd.none
                             )
 
-                        ZoomIn ->
+                        DoZoom direction ->
                             let
+                                scaleValue =
+                                    case direction of
+                                        In -> 1.2
+                                        Out -> 0.8
                                 current = Zoom.asRecord state.zoom
                                 newZoom =
-                                    Zoom.setTransform Zoom.instantly { scale = current.scale * 1.2, translate = current.translate } state.zoom
-                            in
-                            ( { editorModel | viewEditor = Ready { state | zoom = newZoom } } |> toEditor, Cmd.none )
-
-                        ZoomOut ->
-                            let
-                                current = Zoom.asRecord state.zoom
-                                newZoom =
-                                    Zoom.setTransform Zoom.instantly { scale = current.scale * 0.8, translate = current.translate } state.zoom
+                                    Zoom.setTransform Zoom.instantly { scale = current.scale * scaleValue, translate = current.translate } state.zoom
                             in
                             ( { editorModel | viewEditor = Ready { state | zoom = newZoom } } |> toEditor, Cmd.none )
 
@@ -1034,7 +1033,7 @@ svgView (views, domain) (selectedView, selectState, selectConfig) model =
             , style "border" "1px solid rgba(204, 204, 204, .6)"
             , style "min-height" "24px"
             , style "min-width" "24px"
-            , Html.Events.onClick ZoomIn
+            , Html.Events.onClick <| DoZoom In
             ] [ text "+"]
         , button
             [ style "background-color" "white"
@@ -1042,7 +1041,7 @@ svgView (views, domain) (selectedView, selectState, selectConfig) model =
             , style "border" "1px solid rgba(204, 204, 204, .6)"
             , style "min-height" "24px"
             , style "min-width" "24px"
-            , Html.Events.onClick ZoomOut
+            , Html.Events.onClick <| DoZoom Out
             ] [ text "-"]
         ]
     ]
