@@ -28,13 +28,13 @@ gridCellSize : Float
 gridCellSize = 10
 
 
-renderContainerSelected : Container -> Maybe (Attribute msg) -> Svg msg
+renderContainerSelected : Container -> List (Attribute msg) -> Svg msg
 renderContainerSelected = renderContainerInternal True
 
-renderContainer : Container -> Maybe (Attribute msg) -> Svg msg
+renderContainer : Container -> List (Attribute msg) -> Svg msg
 renderContainer = renderContainerInternal False
 
-renderContainerInternal : Bool -> Container -> Maybe (Attribute msg) -> Svg msg
+renderContainerInternal : Bool -> Container -> List (Attribute msg) -> Svg msg
 renderContainerInternal selected { key, name, description, xy } event =
     let
         (xCenter, yCenter) = xy
@@ -44,11 +44,6 @@ renderContainerInternal selected { key, name, description, xy } event =
                 String.slice 0 15 a
             else
                 a
-
-        eventToAdd = 
-            case event of
-                Just ev -> [ ev ]
-                Nothing -> []
 
         tooltip = key ++ "\n" ++ description
     in
@@ -62,7 +57,7 @@ renderContainerInternal selected { key, name, description, xy } event =
             , Attrs.fill <| Paint <| Color.white
             , Attrs.stroke <| Paint <| if selected then Color.blue else Color.black
             , Attrs.strokeWidth <| Px 1
-            ] ++ eventToAdd) [ title [] [text tooltip]]
+            ] ++ event) [ title [] [text tooltip]]
         , text_
             ([ x <| Px <| xCenter
             , y <| Px <| yCenter
@@ -71,12 +66,12 @@ renderContainerInternal selected { key, name, description, xy } event =
             , dominantBaseline DominantBaselineMiddle
             , textAnchor AnchorMiddle
             , cursor CursorDefault
-            ] ++ eventToAdd)
+            ] ++ event)
             [text <| updatedName name, title [] [text tooltip] ]
         ]
 
 -- renderSystem : Float -> Float -> Svg msg
--- renderSystem xValue yValue = 
+-- renderSystem xValue yValue =
 --     circle
 --         [ cx <| Px xValue
 --         , cy <| Px yValue
@@ -199,7 +194,7 @@ extendPoints (x1, y1) (x2, y2) =
     in
     ((ux1, uy1), (ux2, uy2))
 
-edgeBetweenContainers : Edge -> Maybe (Attribute msg) -> Maybe (Int -> Attribute msg) -> List Int -> Svg msg
+edgeBetweenContainers : Edge -> List (Attribute msg) -> (Int -> List (Attribute msg)) -> List Int -> Svg msg
 edgeBetweenContainers edge addPointEvent removeOrDragPointEvent selectedIndexes =
      let
         points = edge.points |> filterPointsUnderContainer edge.source.xy edge.target.xy
@@ -244,11 +239,6 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent selectedIndexes 
 
         strokeWidthValue = 1
 
-        addPointEventToAdd =
-            case addPointEvent of
-                Just ev -> [ ev ]
-                Nothing -> []
-
         tooltip = String.join " " ["'" ++ edge.source.name ++ "'", edge.description, "'" ++ edge.target.name ++ "'"]
     in
     g []
@@ -264,7 +254,7 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent selectedIndexes 
             , stroke <| Paint <| Color.black
             , strokeOpacity <| Opacity 0
             , fill <| PaintNone
-            ] ++ addPointEventToAdd) [ title [] [ text tooltip ]]
+            ] ++ addPointEvent) [ title [] [ text tooltip ]]
         , TypedSvg.text_ []
             [
                 TypedSvg.textPath
@@ -279,10 +269,7 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent selectedIndexes 
         , g [] <| List.indexedMap
             (\i (dx, dy) ->
                 let
-                    eventToAdd = 
-                        case removeOrDragPointEvent of
-                            Just ev -> [ ev i ]
-                            Nothing -> []
+                    eventToAdd = removeOrDragPointEvent i
                 in
                 TypedSvg.path
                     ([ d (circleDot |> Path.toString)

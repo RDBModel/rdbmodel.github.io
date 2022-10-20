@@ -8,11 +8,10 @@
 
 [ ] web3 storage
 
-[ ] add buttons for zoon in/out, move elements and move canvas
-
-[ ] add select box for select view
-
 ------
+[x] add select box for select view
+[x] add buttons for zoon in/out, move canvas
+
 [x] return errors to js
 [x] display errors (how?)
 [x] display validation errors

@@ -244,7 +244,7 @@ update msg model =
                                     { drag = Nothing
                                     , element = element
                                     , zoom = initZoom element
-                                    , panMode = False
+                                    , ctrlIsDown = False
                                     , brush = Nothing
                                     , selectedItems = []
                                     }
@@ -295,7 +295,7 @@ update msg model =
                             )
 
                         SetCtrlIsDown value ->
-                            ( { editorModel | viewEditor = Ready { state | panMode = value } } |> toEditor
+                            ( { editorModel | viewEditor = Ready { state | ctrlIsDown = value } } |> toEditor
                             , Cmd.none
                             )
 
@@ -303,7 +303,7 @@ update msg model =
                             let
                                 newModel =
                                     { editorModel
-                                    | monacoValue = if state.panMode then UndoList.undo editorModel.monacoValue else editorModel.monacoValue
+                                    | monacoValue = if state.ctrlIsDown then UndoList.undo editorModel.monacoValue else editorModel.monacoValue
                                     }
                             in
                             ( toEditor newModel
@@ -314,7 +314,7 @@ update msg model =
                             let
                                 newModel =
                                     { editorModel
-                                    | monacoValue = if state.panMode then UndoList.redo editorModel.monacoValue else editorModel.monacoValue
+                                    | monacoValue = if state.ctrlIsDown then UndoList.redo editorModel.monacoValue else editorModel.monacoValue
                                     }
                             in
                             ( toEditor newModel
@@ -731,7 +731,7 @@ type alias ViewEditorState =
     , zoom : Zoom
     -- The position and dimensions of the svg element.
     , element : Element
-    , panMode : Bool
+    , ctrlIsDown : Bool
     , brush : Maybe Brush
     , selectedItems : List SelectedItem
     }
@@ -949,9 +949,9 @@ svgView (views, domain) (selectedView, selectState, selectConfig) model =
                 Init ->
                     []
 
-                Ready { zoom, panMode } ->
+                Ready { zoom, ctrlIsDown } ->
                     [Zoom.onDoubleClick zoom ZoomMsg, Zoom.onWheel zoom ZoomMsg]
-                        ++ (if panMode then Zoom.onDrag zoom ZoomMsg else [selectItemsEvents])
+                        ++ (if ctrlIsDown then Zoom.onDrag zoom ZoomMsg else [selectItemsEvents])
 
         zoomTransformAttr : Attribute Msg
         zoomTransformAttr =
@@ -1043,6 +1043,24 @@ svgView (views, domain) (selectedView, selectState, selectConfig) model =
             , style "min-width" "24px"
             , Html.Events.onClick <| DoZoom Out
             ] [ text "-"]
+        , button
+            [ style "background-color" "white"
+            , style "border-width" "0 1px 1px 1px"
+            , style "border-style" "solid"
+            , style "border-color" "rgba(204, 204, 204, .6)"
+            , style "min-height" "24px"
+            , style "min-width" "24px"
+            , Html.Events.onClick <| SetCtrlIsDown False
+            ] [ text "->"]
+        , button
+            [ style "background-color" "white"
+            , style "border-width" "0 1px 1px 1px"
+            , style "border-style" "solid"
+            , style "border-color" "rgba(204, 204, 204, .6)"
+            , style "min-height" "24px"
+            , style "min-width" "24px"
+            , Html.Events.onClick <| SetCtrlIsDown True
+            ] [ text "%"]
         ]
     ]
 
@@ -1069,21 +1087,21 @@ renderCurrentView (views, domain, selectedView) model =
         Init ->
             text ""
 
-        Ready { panMode, selectedItems } ->
+        Ready { ctrlIsDown, selectedItems, zoom } ->
             case (getCurrentView selectedView views, domain) of
                 (Just v, Just d) ->
                     g []
                         [ getEdges (d, v)
-                            |> List.map (drawEdge panMode selectedItems)
+                            |> List.map (drawEdge zoom ctrlIsDown selectedItems)
                             |> g [ class [ "links" ] ]
                         , getContainers (d, v)
-                            |> List.map (drawContainer panMode selectedItems)
+                            |> List.map (drawContainer zoom ctrlIsDown selectedItems)
                             |> g [ class [ "nodes" ] ]
                         ]
                 _ -> text ""
 
-drawEdge : Bool -> List SelectedItem -> Edge -> Svg Msg
-drawEdge panMode selectedItems edge =
+drawEdge : Zoom -> Bool -> List SelectedItem -> Edge -> Svg Msg
+drawEdge zoom panMode selectedItems edge =
     let
         getSelectedPointIndex vpk =
             if getViewRelationKeyFromViewRelationPointKey vpk == getViewRelationKeyFromEdge edge then
@@ -1097,16 +1115,16 @@ drawEdge panMode selectedItems edge =
     getSelectedPointKeysAndDeltas selectedItems
         |> List.map Tuple.first
         |> List.filterMap getSelectedPointIndex
-        |> linkElement panMode edge
+        |> linkElement zoom panMode edge
 
-drawContainer : Bool -> List SelectedItem -> Container -> Svg Msg
-drawContainer panMode selectedItems container =
+drawContainer : Zoom -> Bool -> List SelectedItem -> Container -> Svg Msg
+drawContainer zoom panMode selectedItems container =
     let
         mouseDownAttr =
             if panMode then
-                Nothing
+                Zoom.onDrag zoom ZoomMsg
             else
-                Just <| mouseDownMain (DragViewElementStart container.key)
+                [ mouseDownMain (DragViewElementStart container.key) ]
         selectedElements = getSelectedElementKeysAndDeltas selectedItems
             |> List.map Tuple.first
     in
@@ -1136,23 +1154,23 @@ getSelectedPointKeysAndDeltas =
     in
     List.filterMap extractPointKeys
 
-linkElement : Bool -> Edge -> List Int -> Svg Msg
-linkElement panMode edge =
+linkElement : Zoom -> Bool -> Edge -> List Int -> Svg Msg
+linkElement zoom panMode edge =
     let
         viewRelationKey = getViewRelationKeyFromEdge edge
     in
     edgeBetweenContainers
         edge
-        (noOpIfPanMode panMode <| mouseDownMain (ClickEdgeStart viewRelationKey))
-        (if panMode then Nothing else Just (onMouseDownPoint viewRelationKey))
+        (noOpIfPanMode zoom panMode <| mouseDownMain (ClickEdgeStart viewRelationKey))
+        (if panMode then (\_ -> Zoom.onDrag zoom ZoomMsg) else onMouseDownPoint viewRelationKey)
 
 
-noOpIfPanMode : Bool -> Attribute Msg -> Maybe (Attribute Msg)
-noOpIfPanMode panMode ev =
+noOpIfPanMode : Zoom -> Bool -> Attribute Msg -> List (Attribute Msg)
+noOpIfPanMode zoom panMode ev =
     if panMode then
-        Nothing
+        Zoom.onDrag zoom ZoomMsg
     else
-        Just ev
+        [ev]
 
 onlyMainButton : Event -> Maybe (Float, Float)
 onlyMainButton e =
@@ -1167,7 +1185,7 @@ mouseDownMain msg =
         >> Maybe.map msg
         >> Maybe.withDefault NoOp
 
-onMouseDownPoint : ViewRelationKey -> Int -> Attribute Msg
+onMouseDownPoint : ViewRelationKey -> Int -> List (Attribute Msg)
 onMouseDownPoint (viewRelationElementKey, relation) index =
     let
         viewRelationPointKey = (viewRelationElementKey, relation, index)
@@ -1179,3 +1197,4 @@ onMouseDownPoint (viewRelationElementKey, relation) index =
                 Mouse.SecondButton -> RemovePoint viewRelationPointKey
                 _ -> NoOp
         )
+    |> List.singleton
