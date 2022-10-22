@@ -953,6 +953,16 @@ svgView (views, domain) (selectedView, selectState, selectConfig) model =
                     [Zoom.onDoubleClick zoom ZoomMsg, Zoom.onWheel zoom ZoomMsg]
                         ++ (if ctrlIsDown then Zoom.onDrag zoom ZoomMsg else [selectItemsEvents])
 
+        (backgroundColorForMoveButton, backgroundColorForDefaultButton) =
+            case model of
+                Ready { ctrlIsDown } ->
+                    if ctrlIsDown then
+                        ("#d3d3d3", "white")
+                    else
+                        ("white", "#d3d3d3")
+                Init ->
+                    ("white", "white")
+
         zoomTransformAttr : Attribute Msg
         zoomTransformAttr =
             case model of
@@ -1044,7 +1054,7 @@ svgView (views, domain) (selectedView, selectState, selectConfig) model =
             , Html.Events.onClick <| DoZoom Out
             ] [ text "-"]
         , button
-            [ style "background-color" "white"
+            [ style "background-color" backgroundColorForDefaultButton
             , style "border-width" "0 1px 1px 1px"
             , style "border-style" "solid"
             , style "border-color" "rgba(204, 204, 204, .6)"
@@ -1053,7 +1063,7 @@ svgView (views, domain) (selectedView, selectState, selectConfig) model =
             , Html.Events.onClick <| SetCtrlIsDown False
             ] [ text "->"]
         , button
-            [ style "background-color" "white"
+            [ style "background-color" backgroundColorForMoveButton
             , style "border-width" "0 1px 1px 1px"
             , style "border-style" "solid"
             , style "border-color" "rgba(204, 204, 204, .6)"
