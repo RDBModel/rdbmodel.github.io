@@ -15,6 +15,6 @@
     "vite-plugin-monaco-editor": "^1.1.0"
   },
   "dependencies": {
-    "yaml": "1.10.2"
+    "yaml": "^2.1.3"
   }
 }

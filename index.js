@@ -1,4 +1,4 @@
-import YAML, { YAMLMap, YAMLSeq } from 'yaml';
+import YAML, { YAMLMap, YAMLSeq, LineCounter } from 'yaml';
 import * as monaco from 'monaco-editor';
 import { Elm } from './src/Main.elm';
 
@@ -190,7 +190,7 @@ function showErrors(message, newDecorators) {
     }
   }
   const value = editor.getValue();
-  const lineCounter = new YAML.LineCounter();
+  const lineCounter = new LineCounter();
   const currentDocument = YAML.parseDocument(value, { lineCounter: lineCounter, keepSourceTokens: true });
   console.dir(allErrors, {depth: null})
   console.dir(currentDocument, {depth: null})
