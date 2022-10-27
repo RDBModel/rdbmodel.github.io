@@ -53,10 +53,10 @@ digramDescription : Element msg
 digramDescription =
   column [ defaultSpacing, defaultPadding, defaultFontSize ]
     [ yamlItem "View domain representation via view editor"
-    , yamlItem "☝ Rings are runnable applications, aka Software systems"
-    , yamlItem "☝ Deliveries are deployable units, aka Containers"
-    , yamlItem "☝ Blocks are buildable packages, aka Components"
-    , yamlItem "See 🔎 connections between actors, rings, deliveries, and blocks"
+    , yamlItem "☝ Systems are runnable applications, aka Software systems"
+    , yamlItem "☝ Containers are deployable units, aka Containers"
+    , yamlItem "☝ Components are buildable packages, aka Components"
+    , yamlItem "See 🔎 connections between actors, systems, containers, and components"
     -- , text "Save models in SVG format"
     , yamlItem "Layout selected view elements and edges manually"
     , yamlItem "Check elements and edges descriptions"
