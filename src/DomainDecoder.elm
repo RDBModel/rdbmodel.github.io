@@ -27,7 +27,7 @@ internalDomainDecoder =
     (field "name" string)
     (field "description" string)
     (field "actors" (dict actorDecoder))
-    (field "rings" (dict ringDecoder))
+    (field "systems" (dict ringDecoder))
 
 ringDecoder : Decoder Ring
 ringDecoder =
@@ -35,7 +35,7 @@ ringDecoder =
     (field "name" string)
     (field "description" string)
     (field "relations" (list relationDecoder))
-    (field "deliveries" (dict deliveryDecoder))
+    (field "containers" (dict deliveryDecoder))
 
 deliveryDecoder : Decoder Delivery
 deliveryDecoder =
@@ -43,7 +43,7 @@ deliveryDecoder =
     (field "name" string)
     (field "description" string)
     (field "relations" (list relationDecoder))
-    (field "blocks" (dict blockDecoder))
+    (field "components" (dict blockDecoder))
 
 blockDecoder : Decoder Block
 blockDecoder =
