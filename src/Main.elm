@@ -8,7 +8,7 @@ import Browser.Navigation as Nav
 import Browser.Events as Events
 import Json.Decode as Decode
 import Yaml.Decode as D
-import Html exposing (Html, div, text, a)
+import Html exposing (Html, div, text, a, button)
 import Html.Attributes exposing (href, style)
 import Html.Events
 import TypedSvg exposing (svg, defs, g)
@@ -35,8 +35,7 @@ import Index exposing (index)
 import UndoList exposing (UndoList)
 import Scale exposing (domain)
 import JsInterop exposing (validationErrors)
-import Select
-import Html exposing (button)
+import ViewControl
 
 initMonaco : Cmd Msg
 initMonaco = initMonacoResponse ()
@@ -55,7 +54,6 @@ main =
 init : () -> Url -> Nav.Key -> ( Model, Cmd Msg )
 init _ url navKey  =
     changeRouteTo (Route.fromUrl url) navKey
-
 
 getNavKey : Model -> Nav.Key
 getNavKey model =
@@ -81,20 +79,8 @@ getEditorsModel selectedView =
         (SplitPane.init Horizontal)
         Init
         getUndoRedoMonacoValue
-        selectedView
-        (Select.init "selectView")
-        (Select.newConfig
-            { onSelect = OnSelect
-            , toLabel = \v -> v
-            , filter = \_ items -> Just items
-            , toMsg = SelectMsg
-            }
-        |> Select.withCutoff 12
-        |> Select.withEmptySearch True
-        |> Select.withNotFound "No matches"
-        |> Select.withClear False
-        |> Select.withPrompt "Select a view")
-        False
+        (ViewControl.init selectedView)
+        True
         ""
 
 getUndoRedoMonacoValue : UndoRedoMonacoValue
@@ -105,9 +91,7 @@ type alias EditorsModel =
     { pane : SplitPane.State
     , viewEditor : ViewEditor
     , monacoValue : UndoRedoMonacoValue
-    , selectedView : String
-    , selectState : Select.State
-    , selectConfig : Select.Config Msg String
+    , viewControl : ViewControl.Model
     , toReload : Bool
     , errors : String
     }
@@ -150,8 +134,7 @@ type Msg
     | ChangedUrl Url
     | Undo
     | Redo
-    | SelectMsg (Select.Msg String)
-    | OnSelect (Maybe String)
+    | ViewControl ViewControl.Msg
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -265,26 +248,23 @@ update msg model =
                         _ ->  ( model, Cmd.none )
                 Ready state ->
                     case msg of
-                        SelectMsg subMsg ->
+                        ViewControl subMsg ->
                             let
-                                ( updated, cmd ) =
-                                    Select.update
-                                        editorModel.selectConfig
-                                        subMsg
-                                        editorModel.selectState
+                                ( updated, cmd ) = ViewControl.update subMsg editorModel.viewControl
+
+                                finalCmds =
+                                    if ViewControl.selectedViewChanged updated then
+                                        Cmd.batch
+                                            [ cmd |> Cmd.map ViewControl
+                                            , Nav.pushUrl (getNavKey model) ("/#/editor/" ++ ViewControl.getSelectedView editorModel.viewControl)
+                                            ]
+                                    else
+                                        cmd |> Cmd.map ViewControl
                             in
-                            ( { editorModel | selectState = updated } |> toEditor
-                            ,  cmd
+                            ( { editorModel | viewControl = updated, toReload = ViewControl.selectedViewChanged updated |> not } |> toEditor
+                            , finalCmds
                             )
-                        OnSelect maybeView ->
-                            let
-                                selected =
-                                    maybeView
-                                        |> Maybe.withDefault editorModel.selectedView
-                            in
-                            ( { editorModel | selectedView = selected, toReload = False } |> toEditor
-                            , Nav.pushUrl (getNavKey model) ("/#/editor/" ++ selected)
-                            )
+
                         SelectItemsStart xy ->
                             let
                                 shiftedXY = shiftPosition state.zoom (0, 0) xy
@@ -347,7 +327,9 @@ update msg model =
                                 isWithinAlreadySelected = selectedElementKeys
                                     |> List.member viewElementKey
 
-                                elementsOfCurrentView = getCurrentView currentModel.selectedView currentModel.monacoValue.present.views
+                                selectedView = ViewControl.getSelectedView currentModel.viewControl
+
+                                elementsOfCurrentView = getCurrentView selectedView currentModel.monacoValue.present.views
                                     |> getViewElementsOfCurrentView
 
                                 updatedSelectedItems =
@@ -384,7 +366,9 @@ update msg model =
                                 isWithinAlreadySelected = selectedPointKeys
                                     |> List.member viewRelationPointKey
 
-                                elementsOfCurrentView = getCurrentView currentModel.selectedView currentModel.monacoValue.present.views
+                                selectedView = ViewControl.getSelectedView currentModel.viewControl
+
+                                elementsOfCurrentView = getCurrentView selectedView currentModel.monacoValue.present.views
                                     |> getViewElementsOfCurrentView
 
                                 updatedSelectedItems =
@@ -414,13 +398,15 @@ update msg model =
                             let
                                 removePointAtIndex list = List.take pointIndex list ++ List.drop (pointIndex + 1) list
 
+                                selectedView = ViewControl.getSelectedView editorModel.viewControl
+
                                 updatedViews =
                                     updatePointsInRelations relation removePointAtIndex
                                     |> updateRelationsInElements viewElementKey
-                                    |> updateElementsInViews editorModel.selectedView editorModel.monacoValue.present.views
+                                    |> updateElementsInViews selectedView editorModel.monacoValue.present.views
 
                                 removePointMessage =
-                                    RemovePointMessage editorModel.selectedView viewElementKey relation pointIndex
+                                    RemovePointMessage selectedView viewElementKey relation pointIndex
                                         |> encodeRemovePoint |> removePoint
 
                                 currentMonacoValue = editorModel.monacoValue.present
@@ -437,7 +423,9 @@ update msg model =
                             let
                                 spxy = shiftPosition state.zoom (state.element.x, state.element.y) xy
 
-                                currentView = getCurrentView editorModel.selectedView editorModel.monacoValue.present.views
+                                selectedView = ViewControl.getSelectedView editorModel.viewControl
+
+                                currentView = getCurrentView selectedView editorModel.monacoValue.present.views
 
                                 sourceXY = currentView |> getViewElementsOfCurrentView
                                     |> getElement viewElementKey
@@ -486,10 +474,10 @@ update msg model =
                                             updatedPoints
                                             |> updatePointsInRelations relation
                                             |> updateRelationsInElements viewElementKey
-                                            |> updateElementsInViews editorModel.selectedView editorModel.monacoValue.present.views
+                                            |> updateElementsInViews selectedView editorModel.monacoValue.present.views
 
                                         addPointMessage =
-                                            PointMessage editorModel.selectedView viewElementKey relation (List.length updatedList - indexOfNewPoint) spxy
+                                            PointMessage selectedView viewElementKey relation (List.length updatedList - indexOfNewPoint) spxy
                                                 |> encodePointMessage |> addPoint
 
                                         currentMonacoValue = editorModel.monacoValue.present
@@ -505,14 +493,15 @@ update msg model =
 
                         MouseMove xy ->
                             let
-                                selectedView = getCurrentView editorModel.selectedView editorModel.monacoValue.present.views
+                                selectedViewKey = ViewControl.getSelectedView editorModel.viewControl
+                                selectedView = getCurrentView selectedViewKey editorModel.monacoValue.present.views
                                 updatedViewEditor = handleMouseMove xy state selectedView
 
                                 updatedViews =
                                     case (state.brush, state.drag) of
                                         (Nothing, Just _ ) ->
                                             updateElementAndPointPosition state.selectedItems xy state
-                                                |> updateElementsInViews editorModel.selectedView editorModel.monacoValue.present.views
+                                                |> updateElementsInViews selectedViewKey editorModel.monacoValue.present.views
                                         _ ->
                                             editorModel.monacoValue.present.views
 
@@ -536,7 +525,7 @@ update msg model =
                                         Just _ ->
                                             (   { editorModel | viewEditor = Ready { state | drag = Nothing, selectedItems = [] }
                                                 } |> toEditor
-                                            , updateMonacoValues editorModel.selectedView editorModel.monacoValue.present.views state.selectedItems
+                                            , updateMonacoValues (ViewControl.getSelectedView editorModel.viewControl) editorModel.monacoValue.present.views state.selectedItems
                                             )
                                         _ ->
                                             ( model, Cmd.none )
@@ -634,7 +623,7 @@ view model =
             }
         Editor _ editorModel ->
             let
-                { pane, viewEditor, monacoValue, selectedView, selectState, selectConfig } = editorModel
+                { pane, viewEditor, monacoValue, viewControl } = editorModel
                 { domain, views } = monacoValue.present
             in
             { title = "RDB Model Editor"
@@ -642,7 +631,7 @@ view model =
                 [ div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
                     [ SplitPane.view
                         viewConfig
-                        (svgView (views, domain) (selectedView, selectState, selectConfig) viewEditor)
+                        (svgView (views, domain) viewControl viewEditor)
                         (div [ id "monaco", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%"] [])
                         pane
                     , div [ style "position" "fixed", style "bottom" "0", style "left" "0", style "font-size" "9px" ] [ text "v0.0.1"]
@@ -936,12 +925,14 @@ viewConfig =
         , customSplitter = Nothing
         }
 
-svgView : (Dict String View, Maybe Domain) -> (String, Select.State, Select.Config Msg String) -> ViewEditor -> Html Msg
-svgView (views, domain) (selectedView, selectState, selectConfig) model =
+svgView : (Dict String View, Maybe Domain) -> ViewControl.Model -> ViewEditor -> Html Msg
+svgView (views, domain) viewControlModel model =
     let
         selectItemsEvents : Attribute Msg
         selectItemsEvents =
             mouseDownMain SelectItemsStart
+
+        selectedView = ViewControl.getSelectedView viewControlModel
 
         gridRectEvents : List (Attribute Msg)
         gridRectEvents =
@@ -1011,22 +1002,7 @@ svgView (views, domain) (selectedView, selectState, selectConfig) model =
             , renderSelectRect model
             ]
         ]
-    , div
-        [ style "position" "absolute"
-        , style "top" "5px"
-        , style "left" "50%"
-        , style "transform" "translateX(-50%)"
-        , style "font-size" "16px"
-        , style "user-select" "none"
-        , style "border" "1px solid rgba(204, 204, 204, .6)"
-        --, Mouse.onContextMenu (\_ -> NoOp)
-        ]
-        [ Select.view
-            selectConfig
-            selectState
-            (Dict.keys views)
-            [selectedView]
-        ]
+    , ViewControl.view views (getElementsToAdd domain) viewControlModel |> Html.map ViewControl
     , div
         [ style "position" "absolute"
         , style "bottom" "10px"

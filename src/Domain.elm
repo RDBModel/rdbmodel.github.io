@@ -256,3 +256,16 @@ extractKeyAndName =
 extractKeyAndNameAndDescription : Dict String { a | name: String, description : String } -> List (String, String, String)
 extractKeyAndNameAndDescription =
   Dict.map (\k v -> (k, v.name, v.description)) >> Dict.values
+
+
+getViewElements : Maybe View -> List String
+getViewElements view =
+  Maybe.map .elements view
+    |> Maybe.withDefault Dict.empty
+    |> Dict.keys
+
+
+getElementsToAdd : Maybe Domain -> List (String, String)
+getElementsToAdd domain =
+  Maybe.map getElementsKeysAndNames domain
+    |> Maybe.withDefault []
