@@ -36,6 +36,7 @@ import UndoList exposing (UndoList)
 import Scale exposing (domain)
 import JsInterop exposing (validationErrors)
 import ViewControl
+import Utils exposing (trimList)
 
 initMonaco : Cmd Msg
 initMonaco = initMonacoResponse ()
@@ -548,13 +549,6 @@ update msg model =
                             ( { editorModel | viewEditor = Ready { state | zoom = newZoom } } |> toEditor, Cmd.none )
 
                         _ -> ( model, Cmd.none )
-
-trimList : Int -> List a -> List a
-trimList count =
-     List.drop count
-        >> List.reverse
-        >> List.drop count
-        >> List.reverse
 
 updateSelectedItemsDeltas : Maybe (Dict ViewElementKey ViewElement) -> (Float, Float) -> List SelectedItem -> List SelectedItem
 updateSelectedItemsDeltas viewElementsOfCurrentView (shiftedStartX, shiftedStartY) selectedItems =

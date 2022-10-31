@@ -19,7 +19,6 @@ type alias Model =
     , elementToAdd : Maybe (String, String)
     }
 
-
 selectView : SelectModel String
 selectView =
     SelectModel
@@ -35,7 +34,6 @@ selectView =
         |> Select.withNotFound "No matches"
         |> Select.withClear False
         |> Select.withPrompt "Select a view")
-
 
 selectElement : SelectModel (String, String)
 selectElement =
@@ -90,7 +88,6 @@ view views elements model =
             ( elements |> List.filter (\(key, _) -> List.member key viewElements |> not) )
             []
         ]
-
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model  =
