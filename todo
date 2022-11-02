@@ -11,6 +11,8 @@
 [ ] add element via ui
 
 [ ] add relation via ui
+
+[ ] add buttons to undo/redo
 ------
 [x] add select box for select view
 [x] add buttons for zoon in/out, move canvas

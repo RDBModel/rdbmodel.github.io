@@ -11,11 +11,12 @@ import Yaml.Decode as D
 import Html exposing (Html, div, text, a, button)
 import Html.Attributes exposing (href, style)
 import Html.Events
-import TypedSvg exposing (svg, defs, g)
+import TypedSvg exposing (svg, defs, g, path, circle, line)
 import Html.Events.Extra.Mouse as Mouse exposing (Event)
 import Task
-import TypedSvg.Attributes as Attrs exposing ( class,  x, y, id)
-import TypedSvg.Types exposing ( Length(..))
+import TypedSvg.Attributes as Attrs exposing ( class, x, y, id, d, viewBox, strokeWidth, stroke, fill, strokeLinecap, strokeLinejoin,
+    cx, cy, r, x1, x2, y1, y2, width, height)
+import TypedSvg.Types exposing ( Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import TypedSvg.Core exposing (Svg, Attribute)
 import Zoom exposing (Zoom, OnZoom)
 import Elements exposing
@@ -1012,8 +1013,27 @@ svgView (views, domain) viewControlModel model =
             , style "border" "1px solid rgba(204, 204, 204, .6)"
             , style "min-height" "24px"
             , style "min-width" "24px"
+            , style "padding" "0"
             , Html.Events.onClick <| DoZoom In
-            ] [ text "+"]
+            ]
+            [ svg
+                [ style "vertical-align" "middle"
+                , width <| Px 24
+                , height <| Px 24
+                , viewBox 0 0 24 24
+                , strokeWidth <| Px 1
+                , stroke ContextFill
+                , fill PaintNone
+                , strokeLinecap StrokeLinecapRound
+                , strokeLinejoin StrokeLinejoinRound
+                ]
+                [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
+                , circle [ cx (Px 10), cy (Px 10), r (Px 7) ] []
+                , line [ x1 (Px 7), y1 (Px 10), x2 (Px 13), y2 (Px 10)] []
+                , line [ x1 (Px 10), y1 (Px 7), x2 (Px 10), y2 (Px 13)] []
+                , line [ x1 (Px 21), y1 (Px 21), x2 (Px 15), y2 (Px 15)] []
+                ]
+            ]
         , button
             [ style "background-color" "white"
             , style "border-width" "0 1px 1px 1px"
@@ -1021,8 +1041,26 @@ svgView (views, domain) viewControlModel model =
             , style "border-color" "rgba(204, 204, 204, .6)"
             , style "min-height" "24px"
             , style "min-width" "24px"
+            , style "padding" "0"
             , Html.Events.onClick <| DoZoom Out
-            ] [ text "-"]
+            ]
+            [ svg
+                [ style "vertical-align" "middle"
+                , width <| Px 24
+                , height <| Px 24
+                , viewBox 0 0 24 24
+                , strokeWidth <| Px 1
+                , stroke ContextFill
+                , fill PaintNone
+                , strokeLinecap StrokeLinecapRound
+                , strokeLinejoin StrokeLinejoinRound
+                ]
+                [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
+                , circle [ cx (Px 10), cy (Px 10), r (Px 7) ] []
+                , line [ x1 (Px 7), y1 (Px 10), x2 (Px 13), y2 (Px 10)] []
+                , line [ x1 (Px 21), y1 (Px 21), x2 (Px 15), y2 (Px 15)] []
+                ]
+            ]
         , button
             [ style "background-color" backgroundColorForDefaultButton
             , style "border-width" "0 1px 1px 1px"
@@ -1030,8 +1068,25 @@ svgView (views, domain) viewControlModel model =
             , style "border-color" "rgba(204, 204, 204, .6)"
             , style "min-height" "24px"
             , style "min-width" "24px"
+            , style "padding" "0"
             , Html.Events.onClick <| SetCtrlIsDown False
-            ] [ text "->"]
+            ]
+            [ svg
+                [ style "vertical-align" "middle"
+                , width <| Px 24
+                , height <| Px 24
+                , viewBox 0 0 24 24
+                , strokeWidth <| Px 1
+                , stroke ContextFill
+                , fill PaintNone
+                , strokeLinecap StrokeLinecapRound
+                , strokeLinejoin StrokeLinejoinRound
+                ]
+                [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
+                , path [ d "M6 6l4.153 11.793a0.365 .365 0 0 0 .331 .207a0.366 .366 0 0 0 .332 -.207l2.184 -4.793l4.787 -1.994a0.355 .355 0 0 0 .213 -.323a0.355 .355 0 0 0 -.213 -.323l-11.787 -4.36z" ] []
+                , path [ d "M13.5 13.5l4.5 4.5" ] []
+                ]
+            ]
         , button
             [ style "background-color" backgroundColorForMoveButton
             , style "border-width" "0 1px 1px 1px"
@@ -1039,8 +1094,31 @@ svgView (views, domain) viewControlModel model =
             , style "border-color" "rgba(204, 204, 204, .6)"
             , style "min-height" "24px"
             , style "min-width" "24px"
+            , style "padding" "0"
             , Html.Events.onClick <| SetCtrlIsDown True
-            ] [ text "%"]
+            ]
+            [ svg
+                [ style "vertical-align" "middle"
+                , width <| Px 24
+                , height <| Px 24
+                , viewBox 0 0 24 24
+                , strokeWidth <| Px 1
+                , stroke ContextFill
+                , fill PaintNone
+                , strokeLinecap StrokeLinecapRound
+                , strokeLinejoin StrokeLinejoinRound
+                ]
+                [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
+                , path [ d "M18 9l3 3l-3 3" ] []
+                , path [ d "M15 12h6" ] []
+                , path [ d "M6 9l-3 3l3 3" ] []
+                , path [ d "M3 12h6" ] []
+                , path [ d "M9 18l3 3l3 -3" ] []
+                , path [ d "M12 15v6" ] []
+                , path [ d "M15 6l-3 -3l-3 3" ] []
+                , path [ d "M12 3v6" ] []
+                ]
+            ]
         ]
     ]
 
