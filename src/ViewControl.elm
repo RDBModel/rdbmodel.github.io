@@ -90,7 +90,7 @@ view views elements model =
         ]
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model  =
+update msg model =
     case msg of
         SelectViewMsg subMsg ->
             let

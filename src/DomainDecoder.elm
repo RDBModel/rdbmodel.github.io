@@ -60,7 +60,6 @@ basicDecoder constructor =
     (field "description" string)
     (field "relations" (list relationDecoder))
 
-
 relationDecoder : Decoder Relation
 relationDecoder =
   string |> andThen (getRelationFromString >> fromResult)
@@ -82,10 +81,8 @@ viewElementDecoder =
     (maybe (field "relations" (dict (list viewRelationPointDecoder) |> mapViewRelationDecoder))
       |> map (Maybe.withDefault Dict.empty))
 
-
 mapViewRelationDecoder : Decoder (Dict String (List ViewRelationPoint)) -> Decoder (Dict Relation (List ViewRelationPoint))
 mapViewRelationDecoder = map convertDictKeys
-
 
 convertDictKeys : Dict String (List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint)
 convertDictKeys dict =
@@ -104,9 +101,6 @@ viewRelationPointDecoder =
     (field "x" float)
     (field "y" float)
 
-
-
-
 getRelationFromString : String -> Result String Relation
 getRelationFromString value =
   let
@@ -121,21 +115,3 @@ getRelationFromString value =
       Ok (t, d)
     _ ->
       Err "Relations should be formatted like 'purpose - target'"
-
-
-getNameByKey : Domain -> String -> Maybe String
-getNameByKey domain key =
-  Dict.get key domain.rings
-    |> Maybe.map (\i -> Just i.name)
-    |> Maybe.withDefault
-      ( Dict.values domain.rings
-        |> List.filterMap (\i -> Dict.get key i.delivery |> Maybe.map .name)
-        |> List.head
-        |> Maybe.map (\i -> Just i)
-        |> Maybe.withDefault
-          ( Dict.values domain.rings
-            |> List.concatMap (\i -> Dict.values i.delivery)
-            |> List.filterMap (\i -> Dict.get key i.blocks |> Maybe.map .name)
-            |> List.head
-          )
-      )

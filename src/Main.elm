@@ -38,6 +38,7 @@ import Scale exposing (domain)
 import JsInterop exposing (validationErrors)
 import ViewControl
 import Utils exposing (trimList)
+import ViewNavigation
 
 initMonaco : Cmd Msg
 initMonaco = initMonacoResponse ()
@@ -116,7 +117,7 @@ type ZoomDirection
 
 type Msg
     = ZoomMsg OnZoom
-    | DoZoom ZoomDirection
+    | ViewNavigation ViewNavigation.Msg
     | Resize
     | ReceiveElementPosition (Result Dom.Error Dom.Element)
     | ReceiveMonacoElementPosition (Result Dom.Error Dom.Element)
@@ -224,16 +225,20 @@ update msg model =
                 Init ->
                     case msg of
                         ReceiveElementPosition (Ok { element }) ->
-                            (   { editorModel
-                                | viewEditor = Ready
-                                    { drag = Nothing
-                                    , element = element
-                                    , zoom = initZoom element
-                                    , ctrlIsDown = False
-                                    , brush = Nothing
-                                    , selectedItems = []
-                                    }
-                                } |> toEditor
+                            let
+                                initialZoom = initZoom element
+                            in
+                            ( { editorModel
+                            | viewEditor = Ready
+                                { drag = Nothing
+                                , element = element
+                                , zoom = initialZoom
+                                , viewNavigation = ViewNavigation.init initialZoom
+                                , ctrlIsDown = False
+                                , brush = Nothing
+                                , selectedItems = []
+                                }
+                            } |> toEditor
                             , Cmd.none
                             )
 
@@ -537,17 +542,13 @@ update msg model =
                             , Cmd.none
                             )
 
-                        DoZoom direction ->
+                        ViewNavigation subMsg ->
                             let
-                                scaleValue =
-                                    case direction of
-                                        In -> 1.2
-                                        Out -> 0.8
-                                current = Zoom.asRecord state.zoom
-                                newZoom =
-                                    Zoom.setTransform Zoom.instantly { scale = current.scale * scaleValue, translate = current.translate } state.zoom
+                                ( updated, cmd ) = ViewNavigation.update state.zoom subMsg state.viewNavigation
                             in
-                            ( { editorModel | viewEditor = Ready { state | zoom = newZoom } } |> toEditor, Cmd.none )
+                            ( { editorModel
+                            | viewEditor = Ready { state | viewNavigation = updated, zoom = updated.newZoom, ctrlIsDown = updated.ctrlIsDown }
+                            } |> toEditor, cmd |> Cmd.map ViewNavigation )
 
                         _ -> ( model, Cmd.none )
 
@@ -620,13 +621,17 @@ view model =
             let
                 { pane, viewEditor, monacoValue, viewControl } = editorModel
                 { domain, views } = monacoValue.present
+                graphics =
+                    case viewEditor of
+                        Init -> [ text "" ]
+                        Ready state -> (svgView (views, domain) viewControl state)
             in
             { title = "RDB Model Editor"
             , body =
                 [ div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
                     [ SplitPane.view
                         viewConfig
-                        (svgView (views, domain) viewControl viewEditor)
+                        (div [ id elementId, Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%", Html.Attributes.style "position" "relative" ] graphics )
                         (div [ id "monaco", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%"] [])
                         pane
                     , div [ style "position" "fixed", style "bottom" "0", style "left" "0", style "font-size" "9px" ] [ text "v0.0.1"]
@@ -677,7 +682,6 @@ subscriptions model =
         , initMonacoRequest InitMonacoRequestReceived
         ]
 
-
 keyDecoder : Decode.Decoder String
 keyDecoder =
     Decode.field "key" Decode.string
@@ -713,6 +717,7 @@ type alias SubPathEdge =
 type alias ViewEditorState =
     { drag : Maybe Drag
     , zoom : Zoom
+    , viewNavigation : ViewNavigation.Model
     -- The position and dimensions of the svg element.
     , element : Element
     , ctrlIsDown : Bool
@@ -920,9 +925,10 @@ viewConfig =
         , customSplitter = Nothing
         }
 
-svgView : (Dict String View, Maybe Domain) -> ViewControl.Model -> ViewEditor -> Html Msg
-svgView (views, domain) viewControlModel model =
+svgView : (Dict String View, Maybe Domain) -> ViewControl.Model -> ViewEditorState -> List (Html Msg)
+svgView (views, domain) viewControlModel viewEditorState =
     let
+        { zoom, ctrlIsDown } = viewEditorState
         selectItemsEvents : Attribute Msg
         selectItemsEvents =
             mouseDownMain SelectItemsStart
@@ -931,53 +937,26 @@ svgView (views, domain) viewControlModel model =
 
         gridRectEvents : List (Attribute Msg)
         gridRectEvents =
-            case model of
-                Init ->
-                    []
-
-                Ready { zoom, ctrlIsDown } ->
-                    [Zoom.onDoubleClick zoom ZoomMsg, Zoom.onWheel zoom ZoomMsg]
-                        ++ (if ctrlIsDown then Zoom.onDrag zoom ZoomMsg else [selectItemsEvents])
-
-        (backgroundColorForMoveButton, backgroundColorForDefaultButton) =
-            case model of
-                Ready { ctrlIsDown } ->
-                    if ctrlIsDown then
-                        ("#d3d3d3", "white")
-                    else
-                        ("white", "#d3d3d3")
-                Init ->
-                    ("white", "white")
+            [Zoom.onDoubleClick zoom ZoomMsg, Zoom.onWheel zoom ZoomMsg]
+                ++ (if ctrlIsDown then Zoom.onDrag zoom ZoomMsg else [selectItemsEvents])
 
         zoomTransformAttr : Attribute Msg
         zoomTransformAttr =
-            case model of
-                Init ->
-                    class []
-
-                Ready { zoom } ->
-                    Zoom.transform zoom
+            Zoom.transform zoom
 
         transform10 =
-            case model of
-                Init -> gridCellSize
-                Ready { zoom } ->
-                    zoom |> Zoom.asRecord |> .scale |> (*) 10
+            zoom |> Zoom.asRecord |> .scale |> (*) 10
 
         transform100 = transform10 * 10
 
         getXY =
-            case model of
-                Init -> ( 0, 0 )
-                Ready { zoom } ->
-                    zoom
-                        |> Zoom.asRecord
-                        |> .translate
-                        |> (\t -> (floatRemainderBy transform100 t.x, floatRemainderBy transform100 t.y))
+            zoom
+            |> Zoom.asRecord
+            |> .translate
+            |> (\t -> (floatRemainderBy transform100 t.x, floatRemainderBy transform100 t.y))
 
         ( x, y ) = getXY
     in
-    div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%", Html.Attributes.style "position" "relative" ]
     [ svg
         [ id elementId
         , Attrs.width <| Percent 100
@@ -993,170 +972,42 @@ svgView (views, domain) viewControlModel model =
         , gridRect gridRectEvents
         , g
             [ zoomTransformAttr ]
-            [ renderCurrentView (views, domain, selectedView) model
-            , renderSelectRect model
+            [ renderCurrentView (views, domain, selectedView) viewEditorState
+            , renderSelectRect viewEditorState
             ]
         ]
     , ViewControl.view views (getElementsToAdd domain) viewControlModel |> Html.map ViewControl
-    , div
-        [ style "position" "absolute"
-        , style "bottom" "10px"
-        , style "right" "5px"
-        , style "font-size" "16px"
-        , style "user-select" "none"
-        , style "display" "flex"
-        , style "flex-direction" "column"
-        --, Mouse.onContextMenu (\_ -> NoOp)
-        ]
-        [ button
-            [ style "background-color" "white"
-            , style "border" "1px solid rgba(204, 204, 204, .6)"
-            , style "min-height" "24px"
-            , style "min-width" "24px"
-            , style "padding" "0"
-            , Html.Events.onClick <| DoZoom In
-            ]
-            [ svg
-                [ style "vertical-align" "middle"
-                , width <| Px 24
-                , height <| Px 24
-                , viewBox 0 0 24 24
-                , strokeWidth <| Px 1
-                , stroke ContextFill
-                , fill PaintNone
-                , strokeLinecap StrokeLinecapRound
-                , strokeLinejoin StrokeLinejoinRound
-                ]
-                [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
-                , circle [ cx (Px 10), cy (Px 10), r (Px 7) ] []
-                , line [ x1 (Px 7), y1 (Px 10), x2 (Px 13), y2 (Px 10)] []
-                , line [ x1 (Px 10), y1 (Px 7), x2 (Px 10), y2 (Px 13)] []
-                , line [ x1 (Px 21), y1 (Px 21), x2 (Px 15), y2 (Px 15)] []
-                ]
-            ]
-        , button
-            [ style "background-color" "white"
-            , style "border-width" "0 1px 1px 1px"
-            , style "border-style" "solid"
-            , style "border-color" "rgba(204, 204, 204, .6)"
-            , style "min-height" "24px"
-            , style "min-width" "24px"
-            , style "padding" "0"
-            , Html.Events.onClick <| DoZoom Out
-            ]
-            [ svg
-                [ style "vertical-align" "middle"
-                , width <| Px 24
-                , height <| Px 24
-                , viewBox 0 0 24 24
-                , strokeWidth <| Px 1
-                , stroke ContextFill
-                , fill PaintNone
-                , strokeLinecap StrokeLinecapRound
-                , strokeLinejoin StrokeLinejoinRound
-                ]
-                [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
-                , circle [ cx (Px 10), cy (Px 10), r (Px 7) ] []
-                , line [ x1 (Px 7), y1 (Px 10), x2 (Px 13), y2 (Px 10)] []
-                , line [ x1 (Px 21), y1 (Px 21), x2 (Px 15), y2 (Px 15)] []
-                ]
-            ]
-        , button
-            [ style "background-color" backgroundColorForDefaultButton
-            , style "border-width" "0 1px 1px 1px"
-            , style "border-style" "solid"
-            , style "border-color" "rgba(204, 204, 204, .6)"
-            , style "min-height" "24px"
-            , style "min-width" "24px"
-            , style "padding" "0"
-            , Html.Events.onClick <| SetCtrlIsDown False
-            ]
-            [ svg
-                [ style "vertical-align" "middle"
-                , width <| Px 24
-                , height <| Px 24
-                , viewBox 0 0 24 24
-                , strokeWidth <| Px 1
-                , stroke ContextFill
-                , fill PaintNone
-                , strokeLinecap StrokeLinecapRound
-                , strokeLinejoin StrokeLinejoinRound
-                ]
-                [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
-                , path [ d "M6 6l4.153 11.793a0.365 .365 0 0 0 .331 .207a0.366 .366 0 0 0 .332 -.207l2.184 -4.793l4.787 -1.994a0.355 .355 0 0 0 .213 -.323a0.355 .355 0 0 0 -.213 -.323l-11.787 -4.36z" ] []
-                , path [ d "M13.5 13.5l4.5 4.5" ] []
-                ]
-            ]
-        , button
-            [ style "background-color" backgroundColorForMoveButton
-            , style "border-width" "0 1px 1px 1px"
-            , style "border-style" "solid"
-            , style "border-color" "rgba(204, 204, 204, .6)"
-            , style "min-height" "24px"
-            , style "min-width" "24px"
-            , style "padding" "0"
-            , Html.Events.onClick <| SetCtrlIsDown True
-            ]
-            [ svg
-                [ style "vertical-align" "middle"
-                , width <| Px 24
-                , height <| Px 24
-                , viewBox 0 0 24 24
-                , strokeWidth <| Px 1
-                , stroke ContextFill
-                , fill PaintNone
-                , strokeLinecap StrokeLinecapRound
-                , strokeLinejoin StrokeLinejoinRound
-                ]
-                [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
-                , path [ d "M18 9l3 3l-3 3" ] []
-                , path [ d "M15 12h6" ] []
-                , path [ d "M6 9l-3 3l3 3" ] []
-                , path [ d "M3 12h6" ] []
-                , path [ d "M9 18l3 3l3 -3" ] []
-                , path [ d "M12 15v6" ] []
-                , path [ d "M15 6l-3 -3l-3 3" ] []
-                , path [ d "M12 3v6" ] []
-                ]
-            ]
-        ]
+    , ViewNavigation.view viewEditorState.viewNavigation |> Html.map ViewNavigation
     ]
 
 
 -- Grid comes from https://gist.github.com/leonardfischer/fc4d1086c64b2c1324c93dcd0beed004
 
-renderSelectRect : ViewEditor -> Svg Msg
+renderSelectRect : ViewEditorState -> Svg Msg
 renderSelectRect model =
-    case model of
-        Init ->
+    case model.brush of
+        Just { start, end } ->
+            selectItemsRect start end
+        Nothing ->
             text ""
 
-        Ready { brush } ->
-            case brush of
-                Just { start, end } ->
-                    selectItemsRect start end
-                Nothing ->
-                    text ""
 
-
-renderCurrentView : (Dict String View, Maybe Domain, String) -> ViewEditor -> Svg Msg
+renderCurrentView : (Dict String View, Maybe Domain, String) -> ViewEditorState -> Svg Msg
 renderCurrentView (views, domain, selectedView) model =
-    case model of
-        Init ->
-            text ""
-
-        Ready { ctrlIsDown, selectedItems, zoom } ->
-            case (getCurrentView selectedView views, domain) of
-                (Just v, Just d) ->
-                    g []
-                        [ getEdges (d, v)
-                            |> List.map (drawEdge zoom ctrlIsDown selectedItems)
-                            |> g [ class [ "links" ] ]
-                        , getContainers (d, v)
-                            |> List.map (drawContainer zoom ctrlIsDown selectedItems)
-                            |> g [ class [ "nodes" ] ]
-                        ]
-                _ -> text ""
+    let
+        { ctrlIsDown, selectedItems, zoom } = model
+    in
+    case (getCurrentView selectedView views, domain) of
+        (Just v, Just d) ->
+            g []
+                [ getEdges (d, v)
+                    |> List.map (drawEdge zoom ctrlIsDown selectedItems)
+                    |> g [ class [ "links" ] ]
+                , getContainers (d, v)
+                    |> List.map (drawContainer zoom ctrlIsDown selectedItems)
+                    |> g [ class [ "nodes" ] ]
+                ]
+        _ -> text ""
 
 drawEdge : Zoom -> Bool -> List SelectedItem -> Edge -> Svg Msg
 drawEdge zoom panMode selectedItems edge =
