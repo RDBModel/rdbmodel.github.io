@@ -1,11 +1,11 @@
-port module JsInterop exposing (monacoEditorValue, initMonacoResponse, initMonacoRequest, RemovePointMessage
+port module JsInterop exposing (monacoEditorInitialValue, initMonacoResponse, initMonacoRequest, RemovePointMessage
   , removePoint, encodeRemovePoint, PointMessage, encodePointMessage, addPoint, encodeUpdateElementPosition
   , UpdateElementPositionMessage, updateElementPosition, updatePointPosition, updateMonacoValue, monacoEditorSavedValue, validationErrors)
 import Json.Encode as E
 import Domain exposing (Relation)
 import Domain exposing (getStringFromRelation)
 
-port monacoEditorValue : (String -> msg) -> Sub msg
+port monacoEditorInitialValue : (String -> msg) -> Sub msg
 port monacoEditorSavedValue : (String -> msg) -> Sub msg
 port initMonacoRequest : (() -> msg) -> Sub msg
 
@@ -15,9 +15,7 @@ port initMonacoResponse : () -> Cmd msg
 port removePoint : E.Value -> Cmd msg
 port addPoint : E.Value -> Cmd msg
 port updateMonacoValue : String -> Cmd msg
-
 port validationErrors : String -> Cmd msg
-
 
 type alias RemovePointMessage =
   { selectedView : String
@@ -39,7 +37,6 @@ type alias UpdateElementPositionMessage =
   , viewElementKey : String
   , coords : (Float, Float)
   }
-
 
 encodeRemovePoint : RemovePointMessage -> E.Value
 encodeRemovePoint removePointValue =

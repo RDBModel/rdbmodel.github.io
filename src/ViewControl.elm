@@ -16,7 +16,6 @@ type alias Model =
     , selectedView : String
     , selectElement : SelectModel (String, String)
     , viewChanged : Bool
-    , elementToAdd : Maybe (String, String)
     }
 
 selectView : SelectModel String
@@ -52,7 +51,7 @@ selectElement =
         |> Select.withPrompt "An element to add")
 
 init : String -> Model
-init selectedView = Model selectView selectedView selectElement False Nothing
+init selectedView = Model selectView selectedView selectElement False
 
 type Msg
     = SelectViewMsg (Select.Msg String)
@@ -89,7 +88,7 @@ view views elements model =
             []
         ]
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( Model, Cmd Msg, Maybe (String, String) )
 update msg model =
     case msg of
         SelectViewMsg subMsg ->
@@ -103,7 +102,8 @@ update msg model =
                 updatedSelectModel m = { m | state = updated }
             in
             ( { model | selectView = updatedSelectModel model.selectView }
-            ,  cmd
+            , cmd
+            , Nothing
             )
         SelectElementMsg subMsg ->
             let
@@ -116,7 +116,8 @@ update msg model =
                 updatedSelectModel m = { m | state = updated }
             in
             ( { model | selectElement = updatedSelectModel model.selectElement }
-            ,  cmd
+            , cmd
+            , Nothing
             )
         OnViewSelect maybeView ->
             let
@@ -126,10 +127,12 @@ update msg model =
             in
             ( { model | selectedView = selected, viewChanged = selected /= model.selectedView }
             , Cmd.none
+            , Nothing
             )
         OnElementSelect maybeElement ->
-            ( { model | elementToAdd = maybeElement }
+            ( model
             , Cmd.none
+            , maybeElement
             )
 
 selectedViewChanged : Model -> Bool

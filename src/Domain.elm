@@ -264,7 +264,6 @@ getViewElements view =
     |> Maybe.withDefault Dict.empty
     |> Dict.keys
 
-
 getElementsToAdd : Maybe Domain -> List (String, String)
 getElementsToAdd domain =
   Maybe.map getElementsKeysAndNames domain

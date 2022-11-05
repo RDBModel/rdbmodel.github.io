@@ -8,20 +8,17 @@ import Browser.Navigation as Nav
 import Browser.Events as Events
 import Json.Decode as Decode
 import Yaml.Decode as D
-import Html exposing (Html, div, text, a, button)
+import Html exposing (Html, div, text, a)
 import Html.Attributes exposing (href, style)
-import Html.Events
-import TypedSvg exposing (svg, defs, g, path, circle, line)
+import TypedSvg exposing (svg, defs, g)
 import Html.Events.Extra.Mouse as Mouse exposing (Event)
 import Task
-import TypedSvg.Attributes as Attrs exposing ( class, x, y, id, d, viewBox, strokeWidth, stroke, fill, strokeLinecap, strokeLinejoin,
-    cx, cy, r, x1, x2, y1, y2, width, height)
+import TypedSvg.Attributes as Attrs exposing ( class, x, y, id, d, r, x1, x2, y1, y2)
 import TypedSvg.Types exposing ( Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import TypedSvg.Core exposing (Svg, Attribute)
 import Zoom exposing (Zoom, OnZoom)
 import Elements exposing
-    ( renderContainer, renderContainerSelected
-    , markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, gridCellSize
+    ( renderContainer, renderContainerSelected, markerDot, innerGrid, grid, gridRect, edgeBetweenContainers
     , selectItemsRect, extendPoints
     )
 import DomainDecoder exposing (..)
@@ -29,7 +26,7 @@ import Dict exposing (Dict)
 import Domain exposing (..)
 import Url exposing (Url)
 import Route exposing (Route)
-import JsInterop exposing (initMonacoResponse, removePoint, encodeRemovePoint, monacoEditorValue, initMonacoRequest
+import JsInterop exposing (initMonacoResponse, removePoint, encodeRemovePoint, monacoEditorInitialValue, initMonacoRequest
     , RemovePointMessage, PointMessage, encodePointMessage, addPoint, UpdateElementPositionMessage, updateElementPosition
     , encodeUpdateElementPosition, updatePointPosition, updateMonacoValue, monacoEditorSavedValue)
 import Index exposing (index)
@@ -99,6 +96,44 @@ type alias EditorsModel =
     , errors : String
     }
 
+type ViewEditor
+    = Init
+    | Ready ViewEditorState
+
+type alias ViewEditorState =
+    { drag : Maybe Drag
+    , zoom : Zoom
+    , viewNavigation : ViewNavigation.Model
+    , svgElementPosition : Element
+    , ctrlIsDown : Bool
+    , brush : Maybe Brush
+    , selectedItems : List SelectedItem
+    }
+
+type alias Brush =
+    { end : ( Float, Float ) -- current mouse position
+    , start : ( Float, Float ) -- start mouse position
+    }
+
+-- Select information
+type alias Drag =
+    { current : ( Float, Float ) -- current mouse position
+    , start : ( Float, Float ) -- start mouse position
+    }
+
+type alias SelectedItem =
+    { key : ViewItemKey -- selected node id or point index
+    , delta : Maybe (Float, Float) -- delta between start and node center to do ajustment during movement
+    }
+
+-- SVG element position and size in DOM
+type alias Element =
+    { height : Float
+    , width : Float
+    , x : Float
+    , y : Float
+    }
+
 type alias MonacoValue =
     { views : Dict String View
     , domain : Maybe Domain
@@ -128,7 +163,8 @@ type Msg
     | MouseMove ( Float, Float )
     | MouseMoveEnd
     | PaneMsg SplitPane.Msg
-    | MonacoEditorValueReceived Bool String
+    | MonacoEditorInitialValueReceived String
+    | MonacoEditorValueReceived String
     | InitMonacoRequestReceived ()
     | SetCtrlIsDown Bool
     | SelectItemsStart (Float, Float)
@@ -174,7 +210,7 @@ update msg model =
         (_, Home _) ->
             (model, Cmd.none)
 
-        (MonacoEditorValueReceived isNewState val, Editor navKey editorsModel) ->
+        (MonacoEditorValueReceived val, Editor navKey editorsModel) ->
             case D.fromString rdbDecoder val of
                 Ok (domain, views) ->
                     let
@@ -188,19 +224,43 @@ update msg model =
                             { editorsModel
                             | errors = ""
                             , monacoValue =
-                                if isNewState then
-                                    let
-                                        currentMonacoValue = editorsModel.monacoValue.present
-                                        updatedMonacoValue =
-                                            { currentMonacoValue
-                                            |  domain = Just domain
-                                            , views = views
-                                            , value = val
-                                            }
-                                    in
-                                    UndoList.new updatedMonacoValue editorsModel.monacoValue
-                                else
-                                    UndoList.mapPresent newMonacoValue editorsModel.monacoValue
+                                let
+                                    currentMonacoValue = editorsModel.monacoValue.present
+                                    updatedMonacoValue =
+                                        { currentMonacoValue
+                                        | domain = Just domain
+                                        , views = views
+                                        , value = val
+                                        }
+                                in
+                                UndoList.new updatedMonacoValue editorsModel.monacoValue
+                            }
+                    in
+                    ( Editor navKey newModel
+                    , Cmd.batch [getElementPosition, validationErrors ""]
+                    )
+
+                Err err ->
+                    case err of
+                        D.Parsing errMsg ->
+                            ( model, validationErrors errMsg )
+                        D.Decoding errMsg ->
+                            ( model, validationErrors errMsg )
+
+        (MonacoEditorInitialValueReceived val, Editor navKey editorsModel) ->
+            case D.fromString rdbDecoder val of
+                Ok (domain, views) ->
+                    let
+                        newMonacoValue a =
+                            { a
+                            | domain = Just domain
+                            , views = views
+                            , value = val
+                            }
+                        newModel =
+                            { editorsModel
+                            | errors = ""
+                            , monacoValue = UndoList.mapPresent newMonacoValue editorsModel.monacoValue
                             }
                     in
                     ( Editor navKey newModel
@@ -231,7 +291,7 @@ update msg model =
                             ( { editorModel
                             | viewEditor = Ready
                                 { drag = Nothing
-                                , element = element
+                                , svgElementPosition = element
                                 , zoom = initialZoom
                                 , viewNavigation = ViewNavigation.init initialZoom
                                 , ctrlIsDown = False
@@ -257,7 +317,7 @@ update msg model =
                     case msg of
                         ViewControl subMsg ->
                             let
-                                ( updated, cmd ) = ViewControl.update subMsg editorModel.viewControl
+                                ( updated, cmd, elementToAdd ) = ViewControl.update subMsg editorModel.viewControl
 
                                 finalCmds =
                                     if ViewControl.selectedViewChanged updated then
@@ -309,7 +369,7 @@ update msg model =
                             )
 
                         ReceiveElementPosition (Ok { element }) ->
-                            ({ editorModel | viewEditor = Ready { state | element = element } } |> toEditor
+                            ({ editorModel | viewEditor = Ready { state | svgElementPosition = element } } |> toEditor
                             , Cmd.none
                             )
 
@@ -326,7 +386,7 @@ update msg model =
                             let
                                 currentModel = editorModel
 
-                                (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
+                                (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.svgElementPosition.x, state.svgElementPosition.y) xy
 
                                 selectedElementKeys = getSelectedElementKeysAndDeltas state.selectedItems
                                     |> List.map Tuple.first
@@ -365,7 +425,7 @@ update msg model =
                                 currentModel = editorModel
 
                                 (viewElementKey, relation, pointIndex) = viewRelationPointKey
-                                (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
+                                (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.svgElementPosition.x, state.svgElementPosition.y) xy
 
                                 selectedPointKeys = getSelectedPointKeysAndDeltas state.selectedItems
                                     |> List.map Tuple.first
@@ -407,16 +467,17 @@ update msg model =
 
                                 selectedView = ViewControl.getSelectedView editorModel.viewControl
 
+                                currentMonacoValue = editorModel.monacoValue.present
+
                                 updatedViews =
                                     updatePointsInRelations relation removePointAtIndex
                                     |> updateRelationsInElements viewElementKey
-                                    |> updateElementsInViews selectedView editorModel.monacoValue.present.views
+                                    |> updateElementsInViews selectedView currentMonacoValue.views
 
                                 removePointMessage =
                                     RemovePointMessage selectedView viewElementKey relation pointIndex
                                         |> encodeRemovePoint |> removePoint
 
-                                currentMonacoValue = editorModel.monacoValue.present
                                 updatedPresentMonacoValue =
                                     { currentMonacoValue | views = updatedViews }
                             in
@@ -428,7 +489,7 @@ update msg model =
 
                         ClickEdgeStart (viewElementKey, relation) xy ->
                             let
-                                spxy = shiftPosition state.zoom (state.element.x, state.element.y) xy
+                                spxy = shiftPosition state.zoom (state.svgElementPosition.x, state.svgElementPosition.y) xy
 
                                 selectedView = ViewControl.getSelectedView editorModel.viewControl
 
@@ -677,8 +738,8 @@ subscriptions model =
             Home _ -> Sub.none
             Editor _ { pane } ->
                 Sub.map PaneMsg <| SplitPane.subscriptions pane
-        , monacoEditorValue <| MonacoEditorValueReceived False
-        , monacoEditorSavedValue <| MonacoEditorValueReceived True
+        , monacoEditorInitialValue <| MonacoEditorInitialValueReceived
+        , monacoEditorSavedValue <| MonacoEditorValueReceived
         , initMonacoRequest InitMonacoRequestReceived
         ]
 
@@ -705,49 +766,6 @@ setCtrlState value =
             SetCtrlIsDown value
         else
             NoOp)
-
-type ViewEditor
-    = Init
-    | Ready ViewEditorState
-
-type alias SubPathEdge =
-    { points : List (Float, Float)
-    }
-
-type alias ViewEditorState =
-    { drag : Maybe Drag
-    , zoom : Zoom
-    , viewNavigation : ViewNavigation.Model
-    -- The position and dimensions of the svg element.
-    , element : Element
-    , ctrlIsDown : Bool
-    , brush : Maybe Brush
-    , selectedItems : List SelectedItem
-    }
-
-type alias Brush =
-    { end : ( Float, Float ) -- current mouse position
-    , start : ( Float, Float ) -- start mouse position
-    }
-
--- Select information
-type alias Drag =
-    { current : ( Float, Float ) -- current mouse position
-    , start : ( Float, Float ) -- start mouse position
-    }
-
-type alias SelectedItem =
-    { key : ViewItemKey -- selected node id or point index
-    , delta : Maybe (Float, Float) -- delta between start and node center to do ajustment during movement
-    }
-
--- SVG element position and size in DOM
-type alias Element =
-    { height : Float
-    , width : Float
-    , x : Float
-    , y : Float
-    }
 
 elementId : String
 elementId =
@@ -853,7 +871,7 @@ updateElementAndPointPosition selectedItems xy state =
         selectedPointsDeltas = getSelectedPointKeysAndDeltas selectedItems
             |> List.filterMap (\(k, d) -> d |> Maybe.map (Tuple.pair k))
 
-        (shiftedX, shiftedY) = shiftPosition state.zoom (state.element.x, state.element.y) xy
+        (shiftedX, shiftedY) = shiftPosition state.zoom (state.svgElementPosition.x, state.svgElementPosition.y) xy
         updateElementXY : ViewElementKey -> ViewElement -> ViewElement
         updateElementXY viewElementKey viewElement =
             let

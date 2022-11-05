@@ -3,7 +3,7 @@ import * as monaco from 'monaco-editor';
 import { Elm } from './src/Main.elm';
 
 window.MonacoEnvironment = {
-	getWorkerUrl: function (_moduleId, label) {
+  getWorkerUrl: function (_moduleId, label) {
     return EditorWorker;
   },
 };
@@ -134,7 +134,7 @@ function initMonaco() {
     }
   })
 
-  app.ports.monacoEditorValue.send(editor.getValue());
+  app.ports.monacoEditorInitialValue.send(editor.getValue());
 }
 
 app.ports.removePoint.subscribe((message) => unityOfWork(removePoint, message));
@@ -292,9 +292,10 @@ function updateCoords(item, x, y) {
 }
 
 function unityOfWork(func, message) {
+  // TODO: Elm should send editor value
   const currentModel = YAML.parse(editor.getValue());
   func(currentModel, message);
   const newModel = YAML.stringify(currentModel)
   editor.setValue(newModel);
-  app.ports.monacoEditorValue.send(newModel);
+  app.ports.monacoEditorSavedValue.send(newModel);
 }
