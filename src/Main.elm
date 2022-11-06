@@ -26,9 +26,8 @@ import Dict exposing (Dict)
 import Domain exposing (..)
 import Url exposing (Url)
 import Route exposing (Route)
-import JsInterop exposing (initMonacoResponse, removePoint, encodeRemovePoint, monacoEditorInitialValue, initMonacoRequest
-    , RemovePointMessage, PointMessage, encodePointMessage, addPoint, UpdateElementPositionMessage, updateElementPosition
-    , encodeUpdateElementPosition, updatePointPosition, updateMonacoValue, monacoEditorSavedValue)
+import JsInterop exposing (initMonacoResponse, monacoEditorInitialValue, initMonacoRequest
+    , updateMonacoValue, monacoEditorSavedValue)
 import Index exposing (index)
 import UndoList exposing (UndoList)
 import Scale exposing (domain)
@@ -36,6 +35,7 @@ import JsInterop exposing (validationErrors)
 import ViewControl
 import Utils exposing (trimList)
 import ViewNavigation
+import DomainEncoder exposing (rdbEncode)
 
 initMonaco : Cmd Msg
 initMonaco = initMonacoResponse ()
@@ -85,7 +85,7 @@ getEditorsModel selectedView =
 
 getUndoRedoMonacoValue : UndoRedoMonacoValue
 getUndoRedoMonacoValue =
-    MonacoValue Dict.empty Nothing "" |> UndoList.fresh
+    MonacoValue Dict.empty Nothing |> UndoList.fresh
 
 type alias EditorsModel =
     { pane : SplitPane.State
@@ -137,7 +137,7 @@ type alias Element =
 type alias MonacoValue =
     { views : Dict String View
     , domain : Maybe Domain
-    , value : String
+    --, value : String
     }
 
 type alias UndoRedoMonacoValue = UndoList MonacoValue
@@ -214,12 +214,6 @@ update msg model =
             case D.fromString rdbDecoder val of
                 Ok (domain, views) ->
                     let
-                        newMonacoValue a =
-                            { a
-                            | domain = Just domain
-                            , views = views
-                            , value = val
-                            }
                         newModel =
                             { editorsModel
                             | errors = ""
@@ -230,7 +224,6 @@ update msg model =
                                         { currentMonacoValue
                                         | domain = Just domain
                                         , views = views
-                                        , value = val
                                         }
                                 in
                                 UndoList.new updatedMonacoValue editorsModel.monacoValue
@@ -255,7 +248,6 @@ update msg model =
                             { a
                             | domain = Just domain
                             , views = views
-                            , value = val
                             }
                         newModel =
                             { editorsModel
@@ -354,7 +346,7 @@ update msg model =
                                     }
                             in
                             ( toEditor newModel
-                            , updateMonacoValue newModel.monacoValue.present.value
+                            , updateMonacoValue (rdbEncode newModel.monacoValue.present)
                             )
 
                         Redo->
@@ -365,7 +357,7 @@ update msg model =
                                     }
                             in
                             ( toEditor newModel
-                            , updateMonacoValue newModel.monacoValue.present.value
+                            , updateMonacoValue (rdbEncode newModel.monacoValue.present)
                             )
 
                         ReceiveElementPosition (Ok { element }) ->
@@ -474,17 +466,13 @@ update msg model =
                                     |> updateRelationsInElements viewElementKey
                                     |> updateElementsInViews selectedView currentMonacoValue.views
 
-                                removePointMessage =
-                                    RemovePointMessage selectedView viewElementKey relation pointIndex
-                                        |> encodeRemovePoint |> removePoint
-
                                 updatedPresentMonacoValue =
                                     { currentMonacoValue | views = updatedViews }
                             in
                             (   { editorModel
                                 | monacoValue = UndoList.new updatedPresentMonacoValue editorModel.monacoValue
                                 } |> toEditor
-                            , removePointMessage
+                            , updateMonacoValue (rdbEncode updatedPresentMonacoValue)
                             )
 
                         ClickEdgeStart (viewElementKey, relation) xy ->
@@ -544,18 +532,15 @@ update msg model =
                                             |> updateRelationsInElements viewElementKey
                                             |> updateElementsInViews selectedView editorModel.monacoValue.present.views
 
-                                        addPointMessage =
-                                            PointMessage selectedView viewElementKey relation (List.length updatedList - indexOfNewPoint) spxy
-                                                |> encodePointMessage |> addPoint
-
                                         currentMonacoValue = editorModel.monacoValue.present
+
                                         updatedPresentMonacoValue =
                                             { currentMonacoValue | views = updatedViewsValue }
                                     in
                                     (   { editorModel
                                         | monacoValue = UndoList.new updatedPresentMonacoValue editorModel.monacoValue
                                         } |> toEditor
-                                    , addPointMessage
+                                    , updateMonacoValue (rdbEncode updatedPresentMonacoValue)
                                     )
                                 _ -> ( model, Cmd.none )
 
@@ -593,7 +578,7 @@ update msg model =
                                         Just _ ->
                                             (   { editorModel | viewEditor = Ready { state | drag = Nothing, selectedItems = [] }
                                                 } |> toEditor
-                                            , updateMonacoValues (ViewControl.getSelectedView editorModel.viewControl) editorModel.monacoValue.present.views state.selectedItems
+                                            , updateMonacoValue (rdbEncode editorModel.monacoValue.present)
                                             )
                                         _ ->
                                             ( model, Cmd.none )
@@ -641,35 +626,6 @@ updateSelectedItemsDeltas viewElementsOfCurrentView (shiftedStartX, shiftedStart
             |> List.map (\(vpk, point) -> SelectedItem (PointKey vpk) (Just ( shiftedStartX - point.x, shiftedStartY - point.y )))
     in
         selectedElementsWithDeltas ++ selectedPointsWithDeltas
-
-updateMonacoValues : String -> Dict String View -> List SelectedItem -> Cmd msg
-updateMonacoValues selectedView views selectedItems =
-    let
-        createMessage (elementKey, element) =
-            UpdateElementPositionMessage selectedView elementKey (element.x, element.y)
-
-        createPointMessage (viewRelationPointKey, viewRelationPoint) =
-            let
-                (viewElementKey, relation, viewRelationPointIndex) = viewRelationPointKey
-            in
-            PointMessage selectedView viewElementKey relation viewRelationPointIndex (viewRelationPoint.x, viewRelationPoint.y)
-        viewElements =
-            getCurrentView selectedView views
-            |> getViewElementsOfCurrentView
-
-        currentViewElementsXY = viewElements
-            |> getElements (getSelectedElementKeysAndDeltas selectedItems |> List.map Tuple.first)
-
-        currentRelationPointXY = viewElements
-            |> getPoints (getSelectedPointKeysAndDeltas selectedItems |> List.map Tuple.first)
-        updateElementPositionMessages = currentViewElementsXY
-            |> List.map (createMessage >> encodeUpdateElementPosition >> updateElementPosition)
-
-        updateElementPointsPositionMessages = currentRelationPointXY
-            |> List.map (createPointMessage >> encodePointMessage >> updatePointPosition)
-    in
-    (updateElementPositionMessages ++ updateElementPointsPositionMessages)
-        |> Cmd.batch
 
 view : Model -> Document Msg
 view model =
