@@ -8,11 +8,11 @@
 
 [ ] file system storage (https://github.com/SteveSandersonMS/AudioBrowser/blob/main/MediaFilesAPI/wwwroot/mediaFiles.js)
 
-[ ] newly added element to the center
 [ ] add relation via ui
 
 [ ] add buttons to undo/redo
 ------
+[x] newly added element to the center
 [x] add element via ui
 [x] add select box for select view
 [x] add buttons for zoon in/out, move canvas

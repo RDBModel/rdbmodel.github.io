@@ -317,7 +317,7 @@ update msg model =
                                         Just v ->
                                             let
                                                 updatedViews = getCurrentView selectedView editorModel.monacoValue.present.views
-                                                    |> addElementToView (Tuple.first v)
+                                                    |> addElementToView (Tuple.first v) (getPositionForNewElement state.svgElementPosition state.zoom)
                                                     |> updateViewByKey selectedView editorModel.monacoValue.present.views
 
                                                 updatedMonacoValue = { currentMonacoValue | views = updatedViews }
@@ -1099,3 +1099,13 @@ onMouseDownPoint (viewRelationElementKey, relation) index =
                 _ -> NoOp
         )
     |> List.singleton
+
+
+getPositionForNewElement : Element -> Zoom -> (Float, Float)
+getPositionForNewElement svgElement zoom =
+    let
+        record = Zoom.asRecord zoom
+
+        (initY, initX) = ((svgElement.height - svgElement.y)/2, (svgElement.width - svgElement.x)/2)
+    in
+    ( initX - record.scale * record.translate.x, initY - record.scale * record.translate.y)
