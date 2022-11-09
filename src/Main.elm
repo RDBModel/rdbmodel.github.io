@@ -137,7 +137,6 @@ type alias Element =
 type alias MonacoValue =
     { views : Dict String View
     , domain : Maybe Domain
-    --, value : String
     }
 
 type alias UndoRedoMonacoValue = UndoList MonacoValue
@@ -210,23 +209,23 @@ update msg model =
         (_, Home _) ->
             (model, Cmd.none)
 
-        (MonacoEditorValueReceived val, Editor navKey editorsModel) ->
+        (MonacoEditorValueReceived val, Editor navKey editorModel) ->
             case D.fromString rdbDecoder val of
                 Ok (domain, views) ->
                     let
                         newModel =
-                            { editorsModel
+                            { editorModel
                             | errors = ""
                             , monacoValue =
                                 let
-                                    currentMonacoValue = editorsModel.monacoValue.present
+                                    currentMonacoValue = editorModel.monacoValue.present
                                     updatedMonacoValue =
                                         { currentMonacoValue
                                         | domain = Just domain
                                         , views = views
                                         }
                                 in
-                                UndoList.new updatedMonacoValue editorsModel.monacoValue
+                                UndoList.new updatedMonacoValue editorModel.monacoValue
                             }
                     in
                     ( Editor navKey newModel
@@ -240,7 +239,7 @@ update msg model =
                         D.Decoding errMsg ->
                             ( model, validationErrors errMsg )
 
-        (MonacoEditorInitialValueReceived val, Editor navKey editorsModel) ->
+        (MonacoEditorInitialValueReceived val, Editor navKey editorModel) ->
             case D.fromString rdbDecoder val of
                 Ok (domain, views) ->
                     let
@@ -250,9 +249,9 @@ update msg model =
                             , views = views
                             }
                         newModel =
-                            { editorsModel
+                            { editorModel
                             | errors = ""
-                            , monacoValue = UndoList.mapPresent newMonacoValue editorsModel.monacoValue
+                            , monacoValue = UndoList.mapPresent newMonacoValue editorModel.monacoValue
                             }
                     in
                     ( Editor navKey newModel
@@ -311,6 +310,21 @@ update msg model =
                             let
                                 ( updated, cmd, elementToAdd ) = ViewControl.update subMsg editorModel.viewControl
 
+                                selectedView = ViewControl.getSelectedView editorModel.viewControl
+                                currentMonacoValue = editorModel.monacoValue.present
+                                newMonacoValue =
+                                    case elementToAdd of
+                                        Just v ->
+                                            let
+                                                updatedViews = getCurrentView selectedView editorModel.monacoValue.present.views
+                                                    |> addElementToView (Tuple.first v)
+                                                    |> updateViewByKey selectedView editorModel.monacoValue.present.views
+
+                                                updatedMonacoValue = { currentMonacoValue | views = updatedViews }
+                                            in
+                                            UndoList.new updatedMonacoValue editorModel.monacoValue
+                                        Nothing -> editorModel.monacoValue
+
                                 finalCmds =
                                     if ViewControl.selectedViewChanged updated then
                                         Cmd.batch
@@ -320,7 +334,11 @@ update msg model =
                                     else
                                         cmd |> Cmd.map ViewControl
                             in
-                            ( { editorModel | viewControl = updated, toReload = ViewControl.selectedViewChanged updated |> not } |> toEditor
+                            ( { editorModel
+                            | viewControl = updated
+                            , toReload = ViewControl.selectedViewChanged updated |> not
+                            , monacoValue = newMonacoValue
+                            } |> toEditor
                             , finalCmds
                             )
 

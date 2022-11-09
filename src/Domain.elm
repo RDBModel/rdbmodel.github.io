@@ -252,7 +252,6 @@ extractKeyAndName : Dict String { a | name: String } -> List (String, String)
 extractKeyAndName =
   Dict.map (\k v -> (k, v.name)) >> Dict.values
 
-
 extractKeyAndNameAndDescription : Dict String { a | name: String, description : String } -> List (String, String, String)
 extractKeyAndNameAndDescription =
   Dict.map (\k v -> (k, v.name, v.description)) >> Dict.values
@@ -268,3 +267,12 @@ getElementsToAdd : Maybe Domain -> List (String, String)
 getElementsToAdd domain =
   Maybe.map getElementsKeysAndNames domain
     |> Maybe.withDefault []
+
+addElementToView : String -> Maybe View -> Maybe View
+addElementToView key =
+  Maybe.map (\v ->  { v | elements = Dict.insert key (ViewElement 0 0 Dict.empty) v.elements } )
+
+
+updateViewByKey : String -> Dict String View -> Maybe View -> Dict String View
+updateViewByKey key views maybeView =
+  Dict.update key (\_ -> maybeView) views

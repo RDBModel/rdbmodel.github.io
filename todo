@@ -6,14 +6,14 @@
 
 [ ] add loading icon for editor
 
-[ ] web3 storage
+[ ] file system storage (https://github.com/SteveSandersonMS/AudioBrowser/blob/main/MediaFilesAPI/wwwroot/mediaFiles.js)
 
-[ ] add element via ui
-
+[ ] newly added element to the center
 [ ] add relation via ui
 
 [ ] add buttons to undo/redo
 ------
+[x] add element via ui
 [x] add select box for select view
 [x] add buttons for zoon in/out, move canvas
 

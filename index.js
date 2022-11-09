@@ -1,12 +1,12 @@
-import YAML, { YAMLMap, YAMLSeq, LineCounter } from 'yaml';
-import * as monaco from 'monaco-editor';
-import { Elm } from './src/Main.elm';
+import YAML, { YAMLMap, YAMLSeq, LineCounter } from 'yaml'
+import * as monaco from 'monaco-editor'
+import { Elm } from './src/Main.elm'
 
 window.MonacoEnvironment = {
   getWorkerUrl: function (_moduleId, label) {
-    return EditorWorker;
+    return EditorWorker
   },
-};
+}
 
 const initialValue =
 `domain:
@@ -91,14 +91,14 @@ views:
           'uses - container-1': []
       container-1:
         x: 200
-        y: 200`;
+        y: 200`
 
 const app = Elm.Main.init({
   node: document.getElementById("root")
-});
+})
 
-let editor;
-let decorations = [];
+let editor
+let decorations = []
 
 function initMonaco() {
   if (editor != null) {
@@ -118,37 +118,40 @@ function initMonaco() {
     scrollbar: {
       vertical: 'auto'
     }
-  });
+  })
 
   editor.addCommand(
     monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
     function () {
-      app.ports.monacoEditorSavedValue.send(editor.getValue());
+      app.ports.monacoEditorSavedValue.send(editor.getValue())
     }
-  );
+  )
 
   // remove editor focus if we clicked outside of it
   document.getElementById("main-graph").addEventListener('click', (ev) => {
     if (editor.hasWidgetFocus()) {
-      document.activeElement.blur();
+      document.activeElement.blur()
+    }
+    if (ev.explicitOriginalTarget.className !== 'elm-select-input') {
+      document.querySelectorAll('.elm-select-input').forEach(el => el.blur())
     }
   })
 
-  app.ports.monacoEditorInitialValue.send(editor.getValue());
+  app.ports.monacoEditorInitialValue.send(editor.getValue())
 }
 
-app.ports.initMonacoResponse.subscribe(() => initMonaco());
-app.ports.updateMonacoValue.subscribe((message) => updateMonacoValue(message));
+app.ports.initMonacoResponse.subscribe(() => initMonaco())
+app.ports.updateMonacoValue.subscribe((message) => updateMonacoValue(message))
 app.ports.validationErrors.subscribe((message) => {
   const newDecorators = []
-  if (message !== '') showErrors(message, newDecorators);
+  if (message !== '') showErrors(message, newDecorators)
   decorations = editor.deltaDecorations(
     decorations,
     newDecorators
-  );
-});
+  )
+})
 // delay monaco initialization (via Elm) test
-app.ports.initMonacoRequest.send(null);
+app.ports.initMonacoRequest.send(null)
 
 // TODO: import from ELM
 const domainErrorKeys = ['Elements with empty name', 'Not existing target', 'Duplicated element key']
@@ -185,9 +188,9 @@ function showErrors(message, newDecorators) {
       }
     }
   }
-  const value = editor.getValue();
-  const lineCounter = new LineCounter();
-  const currentDocument = YAML.parseDocument(value, { lineCounter: lineCounter, keepSourceTokens: true });
+  const value = editor.getValue()
+  const lineCounter = new LineCounter()
+  const currentDocument = YAML.parseDocument(value, { lineCounter: lineCounter, keepSourceTokens: true })
   console.dir(allErrors, {depth: null})
   console.dir(currentDocument, {depth: null})
 
@@ -215,7 +218,7 @@ function showErrors(message, newDecorators) {
                   inlineClassName: 'error',
                   hoverMessage: { value: name }
                 }
-              });
+              })
             }
           }
         }
@@ -232,7 +235,7 @@ function showErrors(message, newDecorators) {
                   inlineClassName: 'error',
                   hoverMessage: { value: name }
                 }
-              });
+              })
             }
           }
         } else if (subValue.value instanceof YAMLMap || subValue.value instanceof YAMLSeq) {
@@ -250,5 +253,5 @@ function updateMonacoValue(message) {
     .replace(/containers:\n\s+\n/g, "containers: {}\n")
     .replace(/:\n\s+\n/g, ": []\n")
     .replace(/-\n\s+x:/g, "- x:")
-  editor.setValue(updatedMessage);
+  editor.setValue(updatedMessage)
 }
