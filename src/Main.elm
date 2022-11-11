@@ -8,7 +8,7 @@ import Browser.Navigation as Nav
 import Browser.Events as Events
 import Json.Decode as Decode
 import Yaml.Decode as D
-import Html exposing (Html, div, text, a, button)
+import Html exposing (Html, div, text, a)
 import Html.Attributes exposing (href, style)
 import TypedSvg exposing (svg, defs, g)
 import Html.Events.Extra.Mouse as Mouse exposing (Event)
@@ -27,11 +27,10 @@ import Domain exposing (..)
 import Url exposing (Url)
 import Route exposing (Route)
 import JsInterop exposing (initMonacoResponse, monacoEditorInitialValue, initMonacoRequest
-    , updateMonacoValue, monacoEditorSavedValue)
+    , updateMonacoValue, monacoEditorSavedValue, validationErrors, requestValueToSave, saveValueToFile)
 import Index exposing (index)
 import UndoList exposing (UndoList)
 import Scale exposing (domain)
-import JsInterop exposing (validationErrors)
 import ViewControl
 import Utils exposing (trimList)
 import ViewNavigation
@@ -177,6 +176,7 @@ type Msg
     | Redo
     | ViewControl ViewControl.Msg
     | FilePicker FilePicker.Msg
+    | RequestValueToSave ()
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -311,6 +311,9 @@ update msg model =
                         _ ->  ( model, Cmd.none )
                 Ready state ->
                     case msg of
+                        RequestValueToSave _ ->
+                            ( model, saveValueToFile (rdbEncode editorModel.monacoValue.present))
+
                         FilePicker subMsg ->
                             let
                                 cmd = FilePicker.update subMsg
@@ -734,6 +737,7 @@ subscriptions model =
         , monacoEditorInitialValue <| MonacoEditorInitialValueReceived
         , monacoEditorSavedValue <| MonacoEditorValueReceived
         , initMonacoRequest InitMonacoRequestReceived
+        , requestValueToSave RequestValueToSave
         ]
 
 keyDecoder : Decode.Decoder String

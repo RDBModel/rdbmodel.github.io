@@ -5,15 +5,15 @@
 [ ] help
 
 [ ] add loading icon for editor
-
-[ ] file system storage (https://github.com/SteveSandersonMS/AudioBrowser/blob/main/MediaFilesAPI/wwwroot/mediaFiles.js)
+[ ] notify about unsaved text in editor before saving
 
 [ ] add relation via ui
 
 [ ] add buttons to undo/redo
 
-[ ] add icon to open file (https://tabler-icons.io/)
 ------
+[x] file system storage (https://github.com/SteveSandersonMS/AudioBrowser/blob/main/MediaFilesAPI/wwwroot/mediaFiles.js)
+[x] add icon to open file (https://tabler-icons.io/)
 [x] newly added element to the center
 [x] add element via ui
 [x] add select box for select view

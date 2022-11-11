@@ -142,6 +142,8 @@ function initMonaco() {
 }
 
 app.ports.openFileOpenDialog.subscribe(async () => await showFilePicker())
+app.ports.openSaveFileDialog.subscribe(() => app.ports.requestValueToSave.send(null))
+app.ports.saveValueToFile.subscribe(async (value) => await showFileSaveDialog(value))
 
 app.ports.initMonacoResponse.subscribe(() => initMonaco())
 app.ports.updateMonacoValue.subscribe((message) => updateMonacoValue(message))
@@ -250,13 +252,7 @@ function showErrors(message, newDecorators) {
 }
 
 function updateMonacoValue(message) {
-  // temp fix - https://github.com/MaybeJustJames/yaml/issues/28
-  const updatedMessage = message
-    .replace(/relations:\n\s+\n/g, "relations: []\n")
-    .replace(/containers:\n\s+\n/g, "containers: {}\n")
-    .replace(/:\n\s+\n/g, ": []\n")
-    .replace(/-\n\s+x:/g, "- x:")
-  editor.setValue(updatedMessage)
+  editor.setValue(modifyYamlValue(message))
 }
 
 async function showFilePicker() {
@@ -291,4 +287,28 @@ function readFileAsync(file) {
     reader.onerror = reject;
     reader.readAsText(file);
   })
+}
+
+function modifyYamlValue(value) {
+  // temp fix - https://github.com/MaybeJustJames/yaml/issues/28
+  return value.replace(/relations:\n\s+\n/g, "relations: []\n")
+  .replace(/containers:\n\s+\n/g, "containers: {}\n")
+  .replace(/:\n\s+\n/g, ": []\n")
+  .replace(/-\n\s+x:/g, "- x:")
+}
+
+async function showFileSaveDialog(value) {
+  const newHandle = await window.showSaveFilePicker();
+
+  const writableStream = await newHandle.createWritable({types: [{
+    description: 'Taml',
+    accept: {'text/plain': ['.yaml']},
+  }]});
+
+  const blob = new Blob([modifyYamlValue(value)], {
+    type: "text/plain",
+  });
+
+  await writableStream.write(blob);
+  await writableStream.close();
 }
