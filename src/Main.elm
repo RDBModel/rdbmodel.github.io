@@ -8,7 +8,7 @@ import Browser.Navigation as Nav
 import Browser.Events as Events
 import Json.Decode as Decode
 import Yaml.Decode as D
-import Html exposing (Html, div, text, a)
+import Html exposing (Html, div, text, a, button)
 import Html.Attributes exposing (href, style)
 import TypedSvg exposing (svg, defs, g)
 import Html.Events.Extra.Mouse as Mouse exposing (Event)
@@ -36,11 +36,12 @@ import ViewControl
 import Utils exposing (trimList)
 import ViewNavigation
 import DomainEncoder exposing (rdbEncode)
+import FilePicker
 
 initMonaco : Cmd Msg
 initMonaco = initMonacoResponse ()
 
-main : Program () Model Msg
+main : Program Bool Model Msg
 main =
   Browser.application
     { init = init
@@ -51,27 +52,27 @@ main =
     , onUrlChange = ChangedUrl
     }
 
-init : () -> Url -> Nav.Key -> ( Model, Cmd Msg )
-init _ url navKey  =
-    changeRouteTo (Route.fromUrl url) navKey
+init : Bool -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init isFileSystemSupported url navKey  =
+    changeRouteTo (Route.fromUrl url) isFileSystemSupported navKey
 
 getNavKey : Model -> Nav.Key
 getNavKey model =
     case model of
-        Home key -> key
-        Editor key _ -> key
+        Home _ key -> key
+        Editor _ key _ -> key
 
-changeRouteTo : Maybe Route -> Nav.Key -> ( Model, Cmd Msg )
-changeRouteTo maybeRoute key =
+changeRouteTo : Maybe Route -> Bool -> Nav.Key -> ( Model, Cmd Msg )
+changeRouteTo maybeRoute isFileSystemSupported key =
     case maybeRoute of
         Nothing ->
-            ( Home key, Cmd.none )
+            ( Home isFileSystemSupported key, Cmd.none )
 
         Just Route.Home ->
-            ( Home key, Cmd.none )
+            ( Home isFileSystemSupported key, Cmd.none )
 
         Just (Route.Editor selectedView) ->
-            ( Editor key (getEditorsModel selectedView), getMonacoElementPosition )
+            ( Editor isFileSystemSupported key (getEditorsModel selectedView), getMonacoElementPosition )
 
 getEditorsModel : String -> EditorsModel
 getEditorsModel selectedView =
@@ -80,6 +81,7 @@ getEditorsModel selectedView =
         Init
         getUndoRedoMonacoValue
         (ViewControl.init selectedView)
+        False
         True
         ""
 
@@ -92,6 +94,7 @@ type alias EditorsModel =
     , viewEditor : ViewEditor
     , monacoValue : UndoRedoMonacoValue
     , viewControl : ViewControl.Model
+    , showOpenFileButton : Bool
     , toReload : Bool
     , errors : String
     }
@@ -142,8 +145,8 @@ type alias MonacoValue =
 type alias UndoRedoMonacoValue = UndoList MonacoValue
 
 type Model
-    = Home Nav.Key
-    | Editor Nav.Key EditorsModel
+    = Home Bool Nav.Key
+    | Editor Bool Nav.Key EditorsModel
 
 type ZoomDirection
     = In
@@ -173,6 +176,7 @@ type Msg
     | Undo
     | Redo
     | ViewControl ViewControl.Msg
+    | FilePicker FilePicker.Msg
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -197,19 +201,19 @@ update msg model =
                     , Nav.load href
                     )
 
-        (ChangedUrl url, Home _ ) ->
-            changeRouteTo (Route.fromUrl url) (getNavKey model)
+        (ChangedUrl url, Home isFileSystemSupported _ ) ->
+            changeRouteTo (Route.fromUrl url) isFileSystemSupported (getNavKey model)
 
-        (ChangedUrl url, Editor navKey editorModel) ->
+        (ChangedUrl url, Editor isFileSystemSupported navKey editorModel) ->
             if editorModel.toReload then
-                changeRouteTo (Route.fromUrl url) (getNavKey model)
+                changeRouteTo (Route.fromUrl url) isFileSystemSupported (getNavKey model)
             else
-                (Editor navKey { editorModel | toReload = True }, Cmd.none)
+                (Editor isFileSystemSupported navKey { editorModel | toReload = True }, Cmd.none)
 
-        (_, Home _) ->
+        (_, Home _ _) ->
             (model, Cmd.none)
 
-        (MonacoEditorValueReceived val, Editor navKey editorModel) ->
+        (MonacoEditorValueReceived val, Editor isFileSystemSupported navKey editorModel) ->
             case D.fromString rdbDecoder val of
                 Ok (domain, views) ->
                     let
@@ -228,7 +232,7 @@ update msg model =
                                 UndoList.new updatedMonacoValue editorModel.monacoValue
                             }
                     in
-                    ( Editor navKey newModel
+                    ( Editor isFileSystemSupported navKey newModel
                     , Cmd.batch [getElementPosition, validationErrors ""]
                     )
 
@@ -239,7 +243,7 @@ update msg model =
                         D.Decoding errMsg ->
                             ( model, validationErrors errMsg )
 
-        (MonacoEditorInitialValueReceived val, Editor navKey editorModel) ->
+        (MonacoEditorInitialValueReceived val, Editor isFileSystemSupported navKey editorModel) ->
             case D.fromString rdbDecoder val of
                 Ok (domain, views) ->
                     let
@@ -251,10 +255,11 @@ update msg model =
                         newModel =
                             { editorModel
                             | errors = ""
+                            , showOpenFileButton = True
                             , monacoValue = UndoList.mapPresent newMonacoValue editorModel.monacoValue
                             }
                     in
-                    ( Editor navKey newModel
+                    ( Editor isFileSystemSupported navKey newModel
                     , Cmd.batch [getElementPosition, validationErrors ""]
                     )
 
@@ -268,9 +273,9 @@ update msg model =
         (ReceiveElementPosition (Err _), _ ) ->
             ( model, Cmd.none )
 
-        (_, Editor navKey editorModel ) ->
+        (_, Editor isFileSystemSupported navKey editorModel ) ->
             let
-                toEditor = Editor navKey
+                toEditor = Editor isFileSystemSupported navKey
             in
             case editorModel.viewEditor of
                 Init ->
@@ -306,6 +311,12 @@ update msg model =
                         _ ->  ( model, Cmd.none )
                 Ready state ->
                     case msg of
+                        FilePicker subMsg ->
+                            let
+                                cmd = FilePicker.update subMsg
+                            in
+                            (model, cmd |> Cmd.map FilePicker)
+
                         ViewControl subMsg ->
                             let
                                 ( updated, cmd, elementToAdd ) = ViewControl.update subMsg editorModel.viewControl
@@ -648,11 +659,11 @@ updateSelectedItemsDeltas viewElementsOfCurrentView (shiftedStartX, shiftedStart
 view : Model -> Document Msg
 view model =
     case model of
-        Home _ ->
+        Home _ _ ->
             { title = "RDB Model"
             , body = [ index ]
             }
-        Editor _ editorModel ->
+        Editor isFileSystemSupported _ editorModel ->
             let
                 { pane, viewEditor, monacoValue, viewControl } = editorModel
                 { domain, views } = monacoValue.present
@@ -667,12 +678,20 @@ view model =
                     [ SplitPane.view
                         viewConfig
                         (div [ id elementId, Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%", Html.Attributes.style "position" "relative" ] graphics )
-                        (div [ id "monaco", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%"] [])
+                        (monacoViewPart (editorModel.showOpenFileButton && isFileSystemSupported))
                         pane
                     , div [ style "position" "fixed", style "bottom" "0", style "left" "0", style "font-size" "9px" ] [ text "v0.0.1"]
                     ]
                 ]
             }
+
+monacoViewPart : Bool -> Html Msg
+monacoViewPart showButton =
+    div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
+    [ div [ id "monaco", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ] []
+    , if showButton then FilePicker.view |> Html.map FilePicker else text ""
+    ]
+
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -697,8 +716,8 @@ subscriptions model =
     in
     Sub.batch
         [ case model of
-            Home _ -> Sub.none
-            Editor _ { viewEditor } ->
+            Home _ _ -> Sub.none
+            Editor _ _ { viewEditor } ->
                 case viewEditor of
                     Init ->
                         Sub.none
@@ -709,8 +728,8 @@ subscriptions model =
         , Events.onKeyDown (keyDecoder |> setCtrlAndOtherState True)
         , Events.onKeyUp (keyDecoder |> setCtrlState False)
         , case model of
-            Home _ -> Sub.none
-            Editor _ { pane } ->
+            Home _ _ -> Sub.none
+            Editor _ _ { pane } ->
                 Sub.map PaneMsg <| SplitPane.subscriptions pane
         , monacoEditorInitialValue <| MonacoEditorInitialValueReceived
         , monacoEditorSavedValue <| MonacoEditorValueReceived

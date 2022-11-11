@@ -94,7 +94,8 @@ views:
         y: 200`
 
 const app = Elm.Main.init({
-  node: document.getElementById("root")
+  node: document.getElementById("root"),
+  flags: window.showOpenFilePicker !== undefined
 })
 
 let editor
@@ -139,6 +140,8 @@ function initMonaco() {
 
   app.ports.monacoEditorInitialValue.send(editor.getValue())
 }
+
+app.ports.openFileOpenDialog.subscribe(async () => await showFilePicker())
 
 app.ports.initMonacoResponse.subscribe(() => initMonaco())
 app.ports.updateMonacoValue.subscribe((message) => updateMonacoValue(message))
@@ -254,4 +257,38 @@ function updateMonacoValue(message) {
     .replace(/:\n\s+\n/g, ": []\n")
     .replace(/-\n\s+x:/g, "- x:")
   editor.setValue(updatedMessage)
+}
+
+async function showFilePicker() {
+  const file = await window.showOpenFilePicker({
+    types: [
+      {
+        description: 'Yaml',
+        accept: {
+          'yaml/*': ['.yaml', '.yml']
+        }
+      },
+    ],
+    excludeAcceptAllOption: true,
+    multiple: false
+  })
+
+  // Track the dir in history.state
+  const state = history.state || {}
+  state.currentFile = file[0]
+  history.replaceState(state, '')
+  const content = (await readFileAsync(await state.currentFile.getFile())).replace(/\r/g, '')
+  editor.setValue(content)
+  app.ports.monacoEditorSavedValue.send(content)
+}
+
+function readFileAsync(file) {
+  return new Promise((resolve, reject) => {
+    let reader = new FileReader();
+    reader.onload = () => {
+      resolve(reader.result);
+    };
+    reader.onerror = reject;
+    reader.readAsText(file);
+  })
 }

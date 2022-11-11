@@ -8,6 +8,7 @@ import TypedSvg.Attributes exposing ( d, viewBox, strokeWidth, stroke, fill, str
 import TypedSvg.Types exposing ( Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import TypedSvg exposing (svg, path, circle, line)
 import Zoom exposing (Zoom)
+import Color
 
 type alias Model =
     { ctrlIsDown : Bool
@@ -78,7 +79,7 @@ view model =
                 , height <| Px 24
                 , viewBox 0 0 24 24
                 , strokeWidth <| Px 1
-                , stroke ContextFill
+                , stroke (Paint Color.black)
                 , fill PaintNone
                 , strokeLinecap StrokeLinecapRound
                 , strokeLinejoin StrokeLinejoinRound
@@ -106,7 +107,7 @@ view model =
                 , height <| Px 24
                 , viewBox 0 0 24 24
                 , strokeWidth <| Px 1
-                , stroke ContextFill
+                , stroke (Paint Color.black)
                 , fill PaintNone
                 , strokeLinecap StrokeLinecapRound
                 , strokeLinejoin StrokeLinejoinRound
@@ -133,7 +134,7 @@ view model =
                 , height <| Px 24
                 , viewBox 0 0 24 24
                 , strokeWidth <| Px 1
-                , stroke ContextFill
+                , stroke (Paint Color.black)
                 , fill PaintNone
                 , strokeLinecap StrokeLinecapRound
                 , strokeLinejoin StrokeLinejoinRound
@@ -159,7 +160,7 @@ view model =
                 , height <| Px 24
                 , viewBox 0 0 24 24
                 , strokeWidth <| Px 1
-                , stroke ContextFill
+                , stroke (Paint Color.black)
                 , fill PaintNone
                 , strokeLinecap StrokeLinecapRound
                 , strokeLinejoin StrokeLinejoinRound
