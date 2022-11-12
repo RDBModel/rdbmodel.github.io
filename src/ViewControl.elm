@@ -66,7 +66,7 @@ view views elements model =
     in
     div
         [ style "position" "absolute"
-        , style "width" "310px"
+        , style "width" "300px"
         , style "display" "flex"
         , style "justify-content" "space-between"
         , style "top" "5px"

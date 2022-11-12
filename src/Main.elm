@@ -29,17 +29,16 @@ import Route exposing (Route)
 import JsInterop exposing (initMonacoResponse, monacoEditorInitialValue, initMonacoRequest
     , updateMonacoValue, monacoEditorSavedValue, validationErrors, requestValueToSave, saveValueToFile)
 import Index exposing (index)
-import UndoList exposing (UndoList)
 import Scale exposing (domain)
 import ViewControl
 import Utils exposing (trimList)
 import ViewNavigation
 import DomainEncoder exposing (rdbEncode)
 import FilePicker
+import ViewUndoRedo exposing (UndoRedoMonacoValue, getUndoRedoMonacoValue, newRecord, mapPresent)
 
 initMonaco : Cmd Msg
 initMonaco = initMonacoResponse ()
-
 main : Program Bool Model Msg
 main =
   Browser.application
@@ -78,20 +77,20 @@ getEditorsModel selectedView =
     EditorsModel
         (SplitPane.init Horizontal)
         Init
-        getUndoRedoMonacoValue
+        (getUndoRedoMonacoValue getMonacoValue)
         (ViewControl.init selectedView)
         False
         True
         ""
 
-getUndoRedoMonacoValue : UndoRedoMonacoValue
-getUndoRedoMonacoValue =
-    MonacoValue Dict.empty Nothing |> UndoList.fresh
+getMonacoValue : MonacoValue
+getMonacoValue =
+    MonacoValue Dict.empty Nothing
 
 type alias EditorsModel =
     { pane : SplitPane.State
     , viewEditor : ViewEditor
-    , monacoValue : UndoRedoMonacoValue
+    , monacoValue : UndoRedoMonacoValue MonacoValue
     , viewControl : ViewControl.Model
     , showOpenFileButton : Bool
     , toReload : Bool
@@ -106,6 +105,7 @@ type alias ViewEditorState =
     { drag : Maybe Drag
     , zoom : Zoom
     , viewNavigation : ViewNavigation.Model
+    , viewUndoRedo : ViewUndoRedo.Model
     , svgElementPosition : Element
     , ctrlIsDown : Bool
     , brush : Maybe Brush
@@ -141,8 +141,6 @@ type alias MonacoValue =
     , domain : Maybe Domain
     }
 
-type alias UndoRedoMonacoValue = UndoList MonacoValue
-
 type Model
     = Home Bool Nav.Key
     | Editor Bool Nav.Key EditorsModel
@@ -172,11 +170,10 @@ type Msg
     | NoOp
     | ClickedLink Browser.UrlRequest
     | ChangedUrl Url
-    | Undo
-    | Redo
     | ViewControl ViewControl.Msg
     | FilePicker FilePicker.Msg
     | RequestValueToSave ()
+    | ViewUndoRedo ViewUndoRedo.Msg
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -229,7 +226,7 @@ update msg model =
                                         , views = views
                                         }
                                 in
-                                UndoList.new updatedMonacoValue editorModel.monacoValue
+                                newRecord updatedMonacoValue editorModel.monacoValue
                             }
                     in
                     ( Editor isFileSystemSupported navKey newModel
@@ -256,7 +253,7 @@ update msg model =
                             { editorModel
                             | errors = ""
                             , showOpenFileButton = True
-                            , monacoValue = UndoList.mapPresent newMonacoValue editorModel.monacoValue
+                            , monacoValue = mapPresent newMonacoValue editorModel.monacoValue
                             }
                     in
                     ( Editor isFileSystemSupported navKey newModel
@@ -290,6 +287,7 @@ update msg model =
                                 , svgElementPosition = element
                                 , zoom = initialZoom
                                 , viewNavigation = ViewNavigation.init initialZoom
+                                , viewUndoRedo = ViewUndoRedo.init
                                 , ctrlIsDown = False
                                 , brush = Nothing
                                 , selectedItems = []
@@ -336,7 +334,7 @@ update msg model =
 
                                                 updatedMonacoValue = { currentMonacoValue | views = updatedViews }
                                             in
-                                            UndoList.new updatedMonacoValue editorModel.monacoValue
+                                            newRecord updatedMonacoValue editorModel.monacoValue
                                         Nothing -> editorModel.monacoValue
 
                                 finalCmds =
@@ -370,26 +368,14 @@ update msg model =
                             , Cmd.none
                             )
 
-                        Undo->
+                        ViewUndoRedo subMsg ->
                             let
-                                newModel =
-                                    { editorModel
-                                    | monacoValue = if state.ctrlIsDown then UndoList.undo editorModel.monacoValue else editorModel.monacoValue
-                                    }
+                                (subModel, updatedMonacoValue) = ViewUndoRedo.update editorModel.monacoValue subMsg state.viewUndoRedo
                             in
-                            ( toEditor newModel
-                            , updateMonacoValue (rdbEncode newModel.monacoValue.present)
-                            )
-
-                        Redo->
-                            let
-                                newModel =
-                                    { editorModel
-                                    | monacoValue = if state.ctrlIsDown then UndoList.redo editorModel.monacoValue else editorModel.monacoValue
-                                    }
-                            in
-                            ( toEditor newModel
-                            , updateMonacoValue (rdbEncode newModel.monacoValue.present)
+                            ( { editorModel
+                            | viewEditor = Ready { state | viewUndoRedo = subModel }
+                            , monacoValue = updatedMonacoValue } |> toEditor
+                            , updateMonacoValue (rdbEncode updatedMonacoValue.present)
                             )
 
                         ReceiveElementPosition (Ok { element }) ->
@@ -439,7 +425,7 @@ update msg model =
                                     | drag = Just { start = xy, current = xy }
                                     , selectedItems = updatedSelectedItems
                                     }
-                                , monacoValue = UndoList.new editorModel.monacoValue.present editorModel.monacoValue
+                                , monacoValue = newRecord editorModel.monacoValue.present editorModel.monacoValue
                                 } |> toEditor
                             , Cmd.none
                             )
@@ -480,7 +466,7 @@ update msg model =
                                     | drag = Just { start = xy, current = xy }
                                     , selectedItems = updatedSelectedItems
                                     }
-                                , monacoValue = UndoList.new editorModel.monacoValue.present editorModel.monacoValue
+                                , monacoValue = newRecord editorModel.monacoValue.present editorModel.monacoValue
                                 } |> toEditor
                             , Cmd.none
                             )
@@ -502,7 +488,7 @@ update msg model =
                                     { currentMonacoValue | views = updatedViews }
                             in
                             (   { editorModel
-                                | monacoValue = UndoList.new updatedPresentMonacoValue editorModel.monacoValue
+                                | monacoValue = newRecord updatedPresentMonacoValue editorModel.monacoValue
                                 } |> toEditor
                             , updateMonacoValue (rdbEncode updatedPresentMonacoValue)
                             )
@@ -570,7 +556,7 @@ update msg model =
                                             { currentMonacoValue | views = updatedViewsValue }
                                     in
                                     (   { editorModel
-                                        | monacoValue = UndoList.new updatedPresentMonacoValue editorModel.monacoValue
+                                        | monacoValue = newRecord updatedPresentMonacoValue editorModel.monacoValue
                                         } |> toEditor
                                     , updateMonacoValue (rdbEncode updatedPresentMonacoValue)
                                     )
@@ -595,7 +581,7 @@ update msg model =
                             in
                             (   { editorModel
                                 | viewEditor = updatedViewEditor
-                                , monacoValue = UndoList.mapPresent updatedPresentMonacoValue editorModel.monacoValue
+                                , monacoValue = mapPresent updatedPresentMonacoValue editorModel.monacoValue
                                 } |> toEditor
                             , Cmd.none)
 
@@ -726,9 +712,12 @@ subscriptions model =
                         Sub.none
 
                     Ready state ->
-                        readySubscriptions state
+                        Sub.batch
+                            [ readySubscriptions state
+                            , (ViewUndoRedo.subscriptions state.viewUndoRedo) |> Sub.map ViewUndoRedo
+                            ]
         , Events.onResize (\_ -> \_ -> Resize)
-        , Events.onKeyDown (keyDecoder |> setCtrlAndOtherState True)
+        , Events.onKeyDown (keyDecoder |> setCtrlState True)
         , Events.onKeyUp (keyDecoder |> setCtrlState False)
         , case model of
             Home _ _ -> Sub.none
@@ -743,18 +732,6 @@ subscriptions model =
 keyDecoder : Decode.Decoder String
 keyDecoder =
     Decode.field "key" Decode.string
-
-setCtrlAndOtherState : Bool -> Decode.Decoder String -> Decode.Decoder Msg
-setCtrlAndOtherState value =
-    Decode.map (\key ->
-        if key == "Control" then
-            SetCtrlIsDown value
-        else if key == "z" then
-            Undo
-        else if key == "y" then
-            Redo
-        else
-            NoOp)
 
 setCtrlState : Bool -> Decode.Decoder String -> Decode.Decoder Msg
 setCtrlState value =
@@ -839,7 +816,6 @@ handleMouseMove xy ({ drag, brush } as state) currentView =
 
                 _ ->
                     Ready state
-
 
 elementWithinBrush : Brush -> ViewElementKey -> ViewElement -> Bool
 elementWithinBrush { start, end } _ {x , y} =
@@ -993,6 +969,7 @@ svgView (views, domain) viewControlModel viewEditorState =
         ]
     , ViewControl.view views (getElementsToAdd domain) viewControlModel |> Html.map ViewControl
     , ViewNavigation.view viewEditorState.viewNavigation |> Html.map ViewNavigation
+    , ViewUndoRedo.view |> Html.map ViewUndoRedo
     ]
 
 
