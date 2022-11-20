@@ -272,6 +272,16 @@ addElementToView : String -> (Float, Float) -> Maybe View -> Maybe View
 addElementToView key (x, y)=
     Maybe.map (\v ->  { v | elements = Dict.insert key (ViewElement x y Dict.empty) v.elements } )
 
+addRelationToView : String -> Relation -> Maybe View -> Maybe View
+addRelationToView containerId relation =
+    let
+        newElements : View -> Dict ViewElementKey ViewElement
+        newElements v =
+            Dict.update containerId
+                ( Maybe.map (\el -> { el | relations = Dict.insert relation [] el.relations }) )
+                v.elements
+    in
+    Maybe.map (\v ->  { v | elements = newElements v } )
 
 updateViewByKey : String -> Dict String View -> Maybe View -> Dict String View
 updateViewByKey key views maybeView =

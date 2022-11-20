@@ -295,10 +295,36 @@ update msg model =
                     case msg of
                         ContainerContextMenu subMsg ->
                             let
-                                (updatedModel, cmd) = ContextMenu.update subMsg state.containerMenu
+                                (updatedModel, cmd, selectResult) = ContextMenu.update subMsg state.containerMenu
+
+                                selectedView = ViewControl.getSelectedView editorModel.viewControl
+                                currentMonacoValue = editorModel.monacoValue.present
+                                newViews =
+                                    case selectResult of
+                                        Just (containerId, relation) ->
+                                            getCurrentView selectedView editorModel.monacoValue.present.views
+                                                    |> addRelationToView containerId relation
+                                                    |> updateViewByKey selectedView editorModel.monacoValue.present.views
+                                        Nothing -> editorModel.monacoValue.present.views
+
+                                updatedMonacoValue = { currentMonacoValue | views = newViews }
+
+                                newMonacoValue =
+                                    case selectResult of
+                                        Just _ ->
+                                            newRecord updatedMonacoValue editorModel.monacoValue
+                                        Nothing -> editorModel.monacoValue
                             in
-                            ( { editorModel | viewEditor = Ready { state | containerMenu = updatedModel } } |> toEditor
-                            , cmd |> Cmd.map ContainerContextMenu
+                            ( { editorModel
+                            | viewEditor = Ready { state
+                                | containerMenu = updatedModel
+                                }
+                            , monacoValue = newMonacoValue
+                            } |> toEditor
+                            , Cmd.batch
+                                [ cmd |> Cmd.map ContainerContextMenu
+                                , updateMonacoValue (rdbEncode updatedMonacoValue)
+                                ]
                             )
 
                         RequestValueToSave _ ->
@@ -320,10 +346,10 @@ update msg model =
                                 newViews =
                                     case elementToAdd of
                                         Just v ->
-                                            getCurrentView selectedView editorModel.monacoValue.present.views
+                                            getCurrentView selectedView currentMonacoValue.views
                                                     |> addElementToView (Tuple.first v) (getPositionForNewElement state.svgElementPosition state.zoom)
-                                                    |> updateViewByKey selectedView editorModel.monacoValue.present.views
-                                        Nothing -> editorModel.monacoValue.present.views
+                                                    |> updateViewByKey selectedView currentMonacoValue.views
+                                        Nothing -> currentMonacoValue.views
 
                                 newMonacoValue =
                                     case elementToAdd of
@@ -722,14 +748,6 @@ monacoViewPart showButton =
     [ div [ id "monaco", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ] []
     , if showButton then FilePicker.view |> Html.map FilePicker else text ""
     ]
-
-setCtrlState : Bool -> Decode.Decoder String -> Decode.Decoder Msg
-setCtrlState value =
-    Decode.map (\key ->
-        if key == "Control" then
-            SetCtrlIsDown value
-        else
-            NoOp)
 
 elementId : String
 elementId =
@@ -1159,6 +1177,14 @@ subscriptions model =
     , initMonacoRequest InitMonacoRequestReceived
     , requestValueToSave RequestValueToSave
     ]
+
+setCtrlState : Bool -> Decode.Decoder String -> Decode.Decoder Msg
+setCtrlState value =
+    Decode.map (\key ->
+        if key == "Control" then
+            SetCtrlIsDown value
+        else
+            NoOp)
 
 keyDecoder : Decode.Decoder String
 keyDecoder =

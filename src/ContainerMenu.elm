@@ -4,24 +4,25 @@ import Domain exposing (Relation)
 import Html exposing (Html)
 import DomainEncoder exposing (relationToString)
 import Select
+import Domain exposing (ViewRelationKey)
 
 type alias SelectModel a =
     { state : Select.State
     , config : Select.Config Msg a
     }
 
-initSelect : SelectModel Relation
+initSelect : SelectModel ViewRelationKey
 initSelect =
     SelectModel
         (Select.init "selectRelation")
         (Select.newConfig
             { onSelect = OnRelationSelect
-            , toLabel = relationToString
+            , toLabel = Tuple.second >> relationToString
             , filter = \v items -> items
-                |> List.filter (\i -> i
-                    |> relationToString
-                    |> String.toLower
-                    |> String.contains ( v |> String.toLower))
+                |> List.filter (Tuple.second
+                    >> relationToString
+                    >> String.toLower
+                    >> String.contains (String.toLower v))
                 |> Just
             , toMsg = SelectRelationMsg
             }
@@ -33,7 +34,7 @@ initSelect =
 
 type alias Model =
     { containerId : String
-    , selectRelation : SelectModel Relation
+    , selectRelation : SelectModel ViewRelationKey
     , possibleRelations : Dict String (List Relation)
     }
 
@@ -48,14 +49,23 @@ type MenuContext
     = Container (Dict String (List Relation))
 
 type Msg
-    = OnRelationSelect (Maybe Relation)
-    | SelectRelationMsg (Select.Msg Relation)
+    = OnRelationSelect (Maybe ViewRelationKey)
+    | SelectRelationMsg (Select.Msg ViewRelationKey)
 
-update : Msg -> Model -> (Model, Cmd Msg, Maybe Relation)
+update : Msg -> Model -> (Model, Cmd Msg, Maybe ViewRelationKey)
 update msg model =
     case msg of
         OnRelationSelect maybeRelation ->
-            ( model
+            let
+                updatedRelations =
+                    case maybeRelation of
+                        Just (containerId, relation) ->
+                            Dict.update containerId
+                                (Maybe.map (List.filter (\i -> i /= relation)))
+                                model.possibleRelations
+                        Nothing -> model.possibleRelations
+            in
+            ( { model | possibleRelations = updatedRelations }
             , Cmd.none
             , maybeRelation
             )
@@ -79,5 +89,7 @@ view model =
     Select.view
         model.selectRelation.config
         model.selectRelation.state
-        (Dict.get model.containerId model.possibleRelations |> Maybe.withDefault [])
+        (Dict.get model.containerId model.possibleRelations
+            |> Maybe.withDefault []
+            |> List.map (\x -> (model.containerId, x)))
         []

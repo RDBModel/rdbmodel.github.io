@@ -7,6 +7,7 @@ import Browser.Events as Events
 import Json.Decode as Decode
 import ContainerMenu
 import JsInterop exposing (onWheel)
+import Domain exposing (ViewRelationKey)
 
 type alias Model =
     { menuState : Maybe { position : (Float, Float), hover : Bool }
@@ -24,41 +25,47 @@ type Msg
     | HideMenu
     | ContainerMenuMsg ContainerMenu.Msg
 
-update : Msg -> Model -> (Model, Cmd Msg)
+update : Msg -> Model -> (Model, Cmd Msg, Maybe ViewRelationKey)
 update msg model =
     case msg of
         ShowMenu containerId pos ->
             ( { model
             | menuState = Just { position = pos, hover = True }
             , context = ContainerMenu.updateContainerId containerId model.context
-            }, Cmd.none )
+            }
+            , Cmd.none
+            , Nothing )
         HideMenu ->
             case model.menuState of
                 Just m ->
                     if m.hover then
-                        ( model, Cmd.none)
+                        ( model, Cmd.none, Nothing )
                     else
-                        ( { model | menuState = Nothing }, Cmd.none )
+                        ( { model | menuState = Nothing }, Cmd.none, Nothing )
                 Nothing ->
-                    ( model, Cmd.none)
+                    ( model, Cmd.none, Nothing)
         EnterMenu ->
             case model.menuState of
                 Just m ->
-                    ( { model | menuState = Just { position = m.position, hover = True } }, Cmd.none )
+                    ( { model | menuState = Just { position = m.position, hover = True } }, Cmd.none, Nothing )
                 Nothing ->
-                    ( model, Cmd.none)
+                    ( model, Cmd.none, Nothing )
         LeaveMenu ->
             case model.menuState of
                 Just m ->
-                    ( { model | menuState = Just { position = m.position, hover = False } }, Cmd.none )
+                    ( { model | menuState = Just { position = m.position, hover = False } }, Cmd.none, Nothing )
                 Nothing ->
-                    ( model, Cmd.none)
+                    ( model, Cmd.none, Nothing )
         ContainerMenuMsg subMsg ->
             let
                 (updatedModel, cmd, maybeRelation) = ContainerMenu.update subMsg model.context
             in
-            ( { model | context = updatedModel }
+            ( { model | context = updatedModel, menuState = case maybeRelation of
+                Just _ -> Nothing
+                Nothing -> model.menuState
+            }
             , cmd |> Cmd.map ContainerMenuMsg
+            , maybeRelation
             )
 
 view : Model -> Html Msg
