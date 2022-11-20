@@ -129,6 +129,7 @@ type Msg
     | ReceiveMonacoElementPosition (Result Dom.Error Dom.Element)
     | DragViewElementStart ViewElementKey ( Float, Float )
     | ClickEdgeStart ViewRelationKey ( Float, Float )
+    | RemoveEdge ViewRelationKey
     | DragPointStart ViewRelationPointKey ( Float, Float )
     | RemovePoint ViewRelationPointKey
     | MouseMove ( Float, Float )
@@ -525,6 +526,34 @@ update msg model =
                             , updateMonacoValue (rdbEncode updatedPresentMonacoValue)
                             )
 
+                        RemoveEdge viewRelationKey ->
+                            let
+                                selectedView = ViewControl.getSelectedView editorModel.viewControl
+
+                                currentView = getCurrentView selectedView editorModel.monacoValue.present.views
+                                currentMonacoValue = editorModel.monacoValue.present
+
+                                updatedViews = currentView
+                                    |> Maybe.map (removedEdge viewRelationKey)
+                                    |> updateViewByKey selectedView currentMonacoValue.views
+
+                                updatedPresentMonacoValue =
+                                    { currentMonacoValue | views = updatedViews }
+
+                                getPossibleRelations =
+                                    getCurrentView selectedView updatedViews
+                                        |> Maybe.map2 (\d v -> possibleRelationsToAdd (d, v)) editorModel.monacoValue.present.domain
+                                        |> Maybe.withDefault Dict.empty
+
+                                updatedViewEditor =
+                                    Ready { state | containerMenu = ContainerMenu.init getPossibleRelations |> ContextMenu.init }
+                            in
+                            (   { editorModel
+                                | monacoValue = newRecord updatedPresentMonacoValue editorModel.monacoValue
+                                , viewEditor = updatedViewEditor
+                                } |> toEditor
+                            , updateMonacoValue (rdbEncode updatedPresentMonacoValue)
+                            )
                         ClickEdgeStart (viewElementKey, relation) xy ->
                             let
                                 spxy = shiftPosition state.zoom (state.svgElementPosition.x, state.svgElementPosition.y) xy
@@ -677,6 +706,10 @@ getEditorsModel selectedView =
         True
         ""
 
+getMonacoElementPosition : Cmd Msg
+getMonacoElementPosition =
+    Task.attempt ReceiveMonacoElementPosition (Dom.getElement "monaco")
+
 getMonacoValue : MonacoValue
 getMonacoValue =
     MonacoValue Dict.empty Nothing
@@ -742,6 +775,13 @@ view model =
                 ]
             }
 
+viewConfig : ViewConfig Msg
+viewConfig =
+    createViewConfig
+        { toMsg = PaneMsg
+        , customSplitter = Nothing
+        }
+
 monacoViewPart : Bool -> Html Msg
 monacoViewPart showButton =
     div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
@@ -756,12 +796,6 @@ elementId =
 getElementPosition : Cmd Msg
 getElementPosition =
     Task.attempt ReceiveElementPosition (Dom.getElement elementId)
-
-
-getMonacoElementPosition : Cmd Msg
-getMonacoElementPosition =
-    Task.attempt ReceiveMonacoElementPosition (Dom.getElement "monaco")
-
 
 {-| is it enough to put the point ?
 -}
@@ -917,17 +951,12 @@ shiftPosition zoom (elementX, elementY) ( clientX, clientY ) =
     , (clientY - zoomRecord.translate.y - elementY) / zoomRecord.scale
     )
 
-viewConfig : ViewConfig Msg
-viewConfig =
-    createViewConfig
-        { toMsg = PaneMsg
-        , customSplitter = Nothing
-        }
 
 svgView : (Dict String View, Maybe Domain) -> ViewControl.Model -> ViewEditorState -> List (Html Msg)
 svgView (views, domain) viewControlModel viewEditorState =
     let
         { zoom, ctrlIsDown } = viewEditorState
+
         selectItemsEvents : Attribute Msg
         selectItemsEvents =
             mouseDownMain SelectItemsStart
@@ -1053,6 +1082,13 @@ drawContainer zoom panMode selectedItems container =
     in
     renderContainerFunc container (mouseDownAttr ++ contextMenuAttr)
 
+mouseDownMain : ((Float, Float) -> Msg) -> Attribute Msg
+mouseDownMain msg =
+    Mouse.onDown <|
+        onlyMainButton
+        >> Maybe.map msg
+        >> Maybe.withDefault NoOp
+
 getSelectedElementKeysAndDeltas : List SelectedItem -> List (ViewElementKey, Maybe (Float, Float))
 getSelectedElementKeysAndDeltas =
     let
@@ -1080,7 +1116,7 @@ linkElement zoom panMode edge =
     in
     edgeBetweenContainers
         edge
-        (noOpIfPanMode zoom panMode <| mouseDownMain (ClickEdgeStart viewRelationKey))
+        (noOpIfPanMode zoom panMode <| onMouseDownEdge viewRelationKey)
         (if panMode then (\_ -> Zoom.onDrag zoom ZoomMsg) else onMouseDownPoint viewRelationKey)
 
 
@@ -1097,12 +1133,15 @@ onlyMainButton e =
         Mouse.MainButton -> Just e.clientPos
         _ -> Nothing
 
-mouseDownMain : ((Float, Float) -> Msg) -> Attribute Msg
-mouseDownMain msg =
-    Mouse.onDown <|
-        onlyMainButton
-        >> Maybe.map msg
-        >> Maybe.withDefault NoOp
+onMouseDownEdge : ViewRelationKey -> Attribute Msg
+onMouseDownEdge viewRelationKey =
+    Mouse.onDown
+        (\e ->
+            case e.button of
+                Mouse.MainButton -> ClickEdgeStart viewRelationKey e.clientPos
+                Mouse.SecondButton -> RemoveEdge viewRelationKey
+                _ -> NoOp
+        )
 
 onMouseDownPoint : ViewRelationKey -> Int -> List (Attribute Msg)
 onMouseDownPoint (viewRelationElementKey, relation) index =

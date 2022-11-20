@@ -330,3 +330,13 @@ possibleRelationsToAdd (domain, view) =
             )
         )
         |> Dict.filter (\_ v -> List.isEmpty v |> not)
+
+removedEdge : ViewRelationKey -> View -> View
+removedEdge (viewElementKey, relation) view =
+    let
+        updatedElements =
+            view.elements
+            |> Dict.update viewElementKey
+                ( Maybe.map ( \el -> { el | relations = Dict.remove relation el.relations } ) )
+    in
+    { view | elements = updatedElements }
