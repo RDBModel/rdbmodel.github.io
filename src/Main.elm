@@ -27,7 +27,8 @@ import Domain exposing (..)
 import Url exposing (Url)
 import Route exposing (Route)
 import JsInterop exposing (initMonacoResponse, monacoEditorInitialValue, initMonacoRequest
-    , updateMonacoValue, monacoEditorSavedValue, validationErrors, requestValueToSave, saveValueToFile)
+    , updateMonacoValue, monacoEditorSavedValue, validationErrors, requestValueToSave, saveValueToFile
+    , zoomMsgReceived)
 import Index exposing (index)
 import Scale exposing (domain)
 import ViewControl
@@ -36,9 +37,12 @@ import ViewNavigation
 import DomainEncoder exposing (rdbEncode)
 import FilePicker
 import ViewUndoRedo exposing (UndoRedoMonacoValue, getUndoRedoMonacoValue, newRecord, mapPresent)
+import ContextMenu
+import DomainEncoder exposing (relationToString)
+import ContainerMenu
 
-initMonaco : Cmd Msg
-initMonaco = initMonacoResponse ()
+-- MAIN
+
 main : Program Bool Model Msg
 main =
   Browser.application
@@ -54,38 +58,11 @@ init : Bool -> Url -> Nav.Key -> ( Model, Cmd Msg )
 init isFileSystemSupported url navKey  =
     changeRouteTo (Route.fromUrl url) isFileSystemSupported navKey
 
-getNavKey : Model -> Nav.Key
-getNavKey model =
-    case model of
-        Home _ key -> key
-        Editor _ key _ -> key
+-- MODEL
 
-changeRouteTo : Maybe Route -> Bool -> Nav.Key -> ( Model, Cmd Msg )
-changeRouteTo maybeRoute isFileSystemSupported key =
-    case maybeRoute of
-        Nothing ->
-            ( Home isFileSystemSupported key, Cmd.none )
-
-        Just Route.Home ->
-            ( Home isFileSystemSupported key, Cmd.none )
-
-        Just (Route.Editor selectedView) ->
-            ( Editor isFileSystemSupported key (getEditorsModel selectedView), getMonacoElementPosition )
-
-getEditorsModel : String -> EditorsModel
-getEditorsModel selectedView =
-    EditorsModel
-        (SplitPane.init Horizontal)
-        Init
-        (getUndoRedoMonacoValue getMonacoValue)
-        (ViewControl.init selectedView)
-        False
-        True
-        ""
-
-getMonacoValue : MonacoValue
-getMonacoValue =
-    MonacoValue Dict.empty Nothing
+type Model
+    = Home Bool Nav.Key
+    | Editor Bool Nav.Key EditorsModel
 
 type alias EditorsModel =
     { pane : SplitPane.State
@@ -101,6 +78,11 @@ type ViewEditor
     = Init
     | Ready ViewEditorState
 
+type alias MonacoValue =
+    { views : Dict String View
+    , domain : Maybe Domain
+    }
+
 type alias ViewEditorState =
     { drag : Maybe Drag
     , zoom : Zoom
@@ -110,6 +92,7 @@ type alias ViewEditorState =
     , ctrlIsDown : Bool
     , brush : Maybe Brush
     , selectedItems : List SelectedItem
+    , containerMenu : ContextMenu.Model
     }
 
 type alias Brush =
@@ -136,18 +119,7 @@ type alias Element =
     , y : Float
     }
 
-type alias MonacoValue =
-    { views : Dict String View
-    , domain : Maybe Domain
-    }
-
-type Model
-    = Home Bool Nav.Key
-    | Editor Bool Nav.Key EditorsModel
-
-type ZoomDirection
-    = In
-    | Out
+-- UPDATE
 
 type Msg
     = ZoomMsg OnZoom
@@ -174,6 +146,7 @@ type Msg
     | FilePicker FilePicker.Msg
     | RequestValueToSave ()
     | ViewUndoRedo ViewUndoRedo.Msg
+    | ContainerContextMenu ContextMenu.Msg
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -249,6 +222,7 @@ update msg model =
                             | domain = Just domain
                             , views = views
                             }
+
                         newModel =
                             { editorModel
                             | errors = ""
@@ -280,6 +254,15 @@ update msg model =
                         ReceiveElementPosition (Ok { element }) ->
                             let
                                 initialZoom = initZoom element
+
+                                views = editorModel.monacoValue.present.views
+
+                                selectedView = ViewControl.getSelectedView editorModel.viewControl
+
+                                getPossibleRelations =
+                                    getCurrentView selectedView views
+                                        |> Maybe.map2 (\d v -> possibleRelationsToAdd (d, v)) editorModel.monacoValue.present.domain
+                                        |> Maybe.withDefault Dict.empty
                             in
                             ( { editorModel
                             | viewEditor = Ready
@@ -291,6 +274,7 @@ update msg model =
                                 , ctrlIsDown = False
                                 , brush = Nothing
                                 , selectedItems = []
+                                , containerMenu = ContainerMenu.init getPossibleRelations |> ContextMenu.init
                                 }
                             } |> toEditor
                             , Cmd.none
@@ -309,6 +293,14 @@ update msg model =
                         _ ->  ( model, Cmd.none )
                 Ready state ->
                     case msg of
+                        ContainerContextMenu subMsg ->
+                            let
+                                (updatedModel, cmd) = ContextMenu.update subMsg state.containerMenu
+                            in
+                            ( { editorModel | viewEditor = Ready { state | containerMenu = updatedModel } } |> toEditor
+                            , cmd |> Cmd.map ContainerContextMenu
+                            )
+
                         RequestValueToSave _ ->
                             ( model, saveValueToFile (rdbEncode editorModel.monacoValue.present))
 
@@ -324,15 +316,20 @@ update msg model =
 
                                 selectedView = ViewControl.getSelectedView editorModel.viewControl
                                 currentMonacoValue = editorModel.monacoValue.present
-                                newMonacoValue =
+
+                                newViews =
                                     case elementToAdd of
                                         Just v ->
-                                            let
-                                                updatedViews = getCurrentView selectedView editorModel.monacoValue.present.views
+                                            getCurrentView selectedView editorModel.monacoValue.present.views
                                                     |> addElementToView (Tuple.first v) (getPositionForNewElement state.svgElementPosition state.zoom)
                                                     |> updateViewByKey selectedView editorModel.monacoValue.present.views
+                                        Nothing -> editorModel.monacoValue.present.views
 
-                                                updatedMonacoValue = { currentMonacoValue | views = updatedViews }
+                                newMonacoValue =
+                                    case elementToAdd of
+                                        Just _ ->
+                                            let
+                                                updatedMonacoValue = { currentMonacoValue | views = newViews }
                                             in
                                             newRecord updatedMonacoValue editorModel.monacoValue
                                         Nothing -> editorModel.monacoValue
@@ -345,11 +342,20 @@ update msg model =
                                             ]
                                     else
                                         cmd |> Cmd.map ViewControl
+
+                                getPossibleRelations =
+                                    getCurrentView selectedView newViews
+                                        |> Maybe.map2 (\d v -> possibleRelationsToAdd (d, v)) editorModel.monacoValue.present.domain
+                                        |> Maybe.withDefault Dict.empty
+
+                                updatedViewEditor =
+                                    Ready { state | containerMenu = ContainerMenu.init getPossibleRelations |> ContextMenu.init }
                             in
                             ( { editorModel
                             | viewControl = updated
                             , toReload = ViewControl.selectedViewChanged updated |> not
                             , monacoValue = newMonacoValue
+                            , viewEditor = updatedViewEditor
                             } |> toEditor
                             , finalCmds
                             )
@@ -389,7 +395,7 @@ update msg model =
                         ZoomMsg zoomMsg ->
                             (   { editorModel | viewEditor = Ready { state | zoom = Zoom.update zoomMsg state.zoom }
                                 } |> toEditor
-                            , Cmd.none
+                            , zoomMsgReceived ()
                             )
 
                         DragViewElementStart viewElementKey xy ->
@@ -616,6 +622,42 @@ update msg model =
 
                         _ -> ( model, Cmd.none )
 
+getNavKey : Model -> Nav.Key
+getNavKey model =
+    case model of
+        Home _ key -> key
+        Editor _ key _ -> key
+
+changeRouteTo : Maybe Route -> Bool -> Nav.Key -> ( Model, Cmd Msg )
+changeRouteTo maybeRoute isFileSystemSupported key =
+    case maybeRoute of
+        Nothing ->
+            ( Home isFileSystemSupported key, Cmd.none )
+
+        Just Route.Home ->
+            ( Home isFileSystemSupported key, Cmd.none )
+
+        Just (Route.Editor selectedView) ->
+            ( Editor isFileSystemSupported key (getEditorsModel selectedView), getMonacoElementPosition )
+
+getEditorsModel : String -> EditorsModel
+getEditorsModel selectedView =
+    EditorsModel
+        (SplitPane.init Horizontal)
+        Init
+        (getUndoRedoMonacoValue getMonacoValue)
+        (ViewControl.init selectedView)
+        False
+        True
+        ""
+
+getMonacoValue : MonacoValue
+getMonacoValue =
+    MonacoValue Dict.empty Nothing
+
+initMonaco : Cmd Msg
+initMonaco = initMonacoResponse ()
+
 updateSelectedItemsDeltas : Maybe (Dict ViewElementKey ViewElement) -> (Float, Float) -> List SelectedItem -> List SelectedItem
 updateSelectedItemsDeltas viewElementsOfCurrentView (shiftedStartX, shiftedStartY) selectedItems =
     let
@@ -680,58 +722,6 @@ monacoViewPart showButton =
     [ div [ id "monaco", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ] []
     , if showButton then FilePicker.view |> Html.map FilePicker else text ""
     ]
-
-
-subscriptions : Model -> Sub Msg
-subscriptions model =
-    let
-        dragSubscriptions : Sub Msg
-        dragSubscriptions =
-            Sub.batch
-                [ Events.onMouseMove
-                    (Decode.map (.clientPos >> MouseMove) Mouse.eventDecoder)
-                , Events.onMouseUp
-                    (Decode.map (\_ -> MouseMoveEnd) Mouse.eventDecoder)
-                ]
-
-        readySubscriptions : ViewEditorState -> Sub Msg
-        readySubscriptions { zoom, brush, drag } =
-            Sub.batch
-                [ Zoom.subscriptions zoom ZoomMsg
-                , case (brush, drag) of
-                    (Nothing, Nothing) -> Sub.none
-                    _ -> dragSubscriptions
-                ]
-    in
-    Sub.batch
-        [ case model of
-            Home _ _ -> Sub.none
-            Editor _ _ { viewEditor } ->
-                case viewEditor of
-                    Init ->
-                        Sub.none
-
-                    Ready state ->
-                        Sub.batch
-                            [ readySubscriptions state
-                            , (ViewUndoRedo.subscriptions state.viewUndoRedo) |> Sub.map ViewUndoRedo
-                            ]
-        , Events.onResize (\_ -> \_ -> Resize)
-        , Events.onKeyDown (keyDecoder |> setCtrlState True)
-        , Events.onKeyUp (keyDecoder |> setCtrlState False)
-        , case model of
-            Home _ _ -> Sub.none
-            Editor _ _ { pane } ->
-                Sub.map PaneMsg <| SplitPane.subscriptions pane
-        , monacoEditorInitialValue <| MonacoEditorInitialValueReceived
-        , monacoEditorSavedValue <| MonacoEditorValueReceived
-        , initMonacoRequest InitMonacoRequestReceived
-        , requestValueToSave RequestValueToSave
-        ]
-
-keyDecoder : Decode.Decoder String
-keyDecoder =
-    Decode.field "key" Decode.string
 
 setCtrlState : Bool -> Decode.Decoder String -> Decode.Decoder Msg
 setCtrlState value =
@@ -970,7 +960,9 @@ svgView (views, domain) viewControlModel viewEditorState =
     , ViewControl.view views (getElementsToAdd domain) viewControlModel |> Html.map ViewControl
     , ViewNavigation.view viewEditorState.viewNavigation |> Html.map ViewNavigation
     , ViewUndoRedo.view |> Html.map ViewUndoRedo
+    , ContextMenu.view viewEditorState.containerMenu |> Html.map ContainerContextMenu
     ]
+
 
 
 -- Grid comes from https://gist.github.com/leonardfischer/fc4d1086c64b2c1324c93dcd0beed004
@@ -1026,14 +1018,22 @@ drawContainer zoom panMode selectedItems container =
                 Zoom.onDrag zoom ZoomMsg
             else
                 [ mouseDownMain (DragViewElementStart container.key) ]
+
         selectedElements = getSelectedElementKeysAndDeltas selectedItems
             |> List.map Tuple.first
-    in
-    if List.member container.key selectedElements then
-        renderContainerSelected container mouseDownAttr
-    else
-        renderContainer container mouseDownAttr
 
+        renderContainerFunc =
+            if List.member container.key selectedElements then
+                renderContainerSelected
+            else
+                renderContainer
+
+        contextMenuAttr = container.key
+            |> ContextMenu.attach
+            |> Html.Attributes.map ContainerContextMenu
+            |> List.singleton
+    in
+    renderContainerFunc container (mouseDownAttr ++ contextMenuAttr)
 
 getSelectedElementKeysAndDeltas : List SelectedItem -> List (ViewElementKey, Maybe (Float, Float))
 getSelectedElementKeysAndDeltas =
@@ -1103,9 +1103,63 @@ onMouseDownPoint (viewRelationElementKey, relation) index =
 
 getPositionForNewElement : Element -> Zoom -> (Float, Float)
 getPositionForNewElement svgElement zoom =
-    let
-        record = Zoom.asRecord zoom
+  let
+    record = Zoom.asRecord zoom
 
-        (initY, initX) = ((svgElement.height - svgElement.y)/2, (svgElement.width - svgElement.x)/2)
-    in
-    ( initX - record.scale * record.translate.x, initY - record.scale * record.translate.y)
+    (initY, initX) = ((svgElement.height - svgElement.y)/2, (svgElement.width - svgElement.x)/2)
+  in
+  ( initX - record.scale * record.translate.x, initY - record.scale * record.translate.y)
+
+-- SUBSCRIPTIONS
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+  let
+    dragSubscriptions : Sub Msg
+    dragSubscriptions =
+      Sub.batch
+        [ Events.onMouseMove
+          (Decode.map (.clientPos >> MouseMove) Mouse.eventDecoder)
+        , Events.onMouseUp
+          (Decode.map (\_ -> MouseMoveEnd) Mouse.eventDecoder)
+        ]
+
+    readySubscriptions : ViewEditorState -> Sub Msg
+    readySubscriptions { zoom, brush, drag } =
+      Sub.batch
+        [ Zoom.subscriptions zoom ZoomMsg
+        , case (brush, drag) of
+          (Nothing, Nothing) -> Sub.none
+          _ -> dragSubscriptions
+        ]
+  in
+  Sub.batch
+    [ case model of
+      Home _ _ -> Sub.none
+      Editor _ _ { viewEditor } ->
+        case viewEditor of
+          Init ->
+            Sub.none
+
+          Ready state ->
+            Sub.batch
+              [ readySubscriptions state
+              , (ViewUndoRedo.subscriptions state.viewUndoRedo) |> Sub.map ViewUndoRedo
+              , ContextMenu.subscriptions |> Sub.map ContainerContextMenu
+              ]
+    , Events.onResize (\_ -> \_ -> Resize)
+    , Events.onKeyDown (keyDecoder |> setCtrlState True)
+    , Events.onKeyUp (keyDecoder |> setCtrlState False)
+    , case model of
+      Home _ _ -> Sub.none
+      Editor _ _ { pane } ->
+        Sub.map PaneMsg <| SplitPane.subscriptions pane
+    , monacoEditorInitialValue <| MonacoEditorInitialValueReceived
+    , monacoEditorSavedValue <| MonacoEditorValueReceived
+    , initMonacoRequest InitMonacoRequestReceived
+    , requestValueToSave RequestValueToSave
+    ]
+
+keyDecoder : Decode.Decoder String
+keyDecoder =
+    Decode.field "key" Decode.string

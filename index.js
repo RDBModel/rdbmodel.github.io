@@ -78,7 +78,6 @@ views:
           'calls - container-2':
             - x: 300
               y: 150
-          'uses - system-1': []
       container-2:
         x: 300
         y: 300
@@ -133,13 +132,17 @@ function initMonaco() {
     if (editor.hasWidgetFocus()) {
       document.activeElement.blur()
     }
-    if (ev.explicitOriginalTarget.className !== 'elm-select-input') {
+    if (ev.target.className !== 'elm-select-input') {
       document.querySelectorAll('.elm-select-input').forEach(el => el.blur())
     }
   })
 
   app.ports.monacoEditorInitialValue.send(editor.getValue())
 }
+
+app.ports.zoomMsgReceived.subscribe(() => {
+  app.ports.onWheel.send(null)
+})
 
 app.ports.openFileOpenDialog.subscribe(async () => await showFilePicker())
 app.ports.openSaveFileDialog.subscribe(() => app.ports.requestValueToSave.send(null))
@@ -156,7 +159,8 @@ app.ports.validationErrors.subscribe((message) => {
   )
 })
 // delay monaco initialization (via Elm) test
-app.ports.initMonacoRequest.send(null)
+// TODO: remove?
+// app.ports.initMonacoRequest.send(null)
 
 // TODO: import from ELM
 const domainErrorKeys = ['Elements with empty name', 'Not existing target', 'Duplicated element key']
@@ -280,12 +284,12 @@ async function showFilePicker() {
 
 function readFileAsync(file) {
   return new Promise((resolve, reject) => {
-    let reader = new FileReader();
+    let reader = new FileReader()
     reader.onload = () => {
-      resolve(reader.result);
+      resolve(reader.result)
     };
-    reader.onerror = reject;
-    reader.readAsText(file);
+    reader.onerror = reject
+    reader.readAsText(file)
   })
 }
 
@@ -298,7 +302,7 @@ function modifyYamlValue(value) {
 }
 
 async function showFileSaveDialog(value) {
-  const newHandle = await window.showSaveFilePicker();
+  const newHandle = await window.showSaveFilePicker()
 
   const writableStream = await newHandle.createWritable({types: [{
     description: 'Taml',
@@ -309,6 +313,6 @@ async function showFileSaveDialog(value) {
     type: "text/plain",
   });
 
-  await writableStream.write(blob);
-  await writableStream.close();
+  await writableStream.write(blob)
+  await writableStream.close()
 }

@@ -13,8 +13,7 @@ import Color
 import Path exposing (Path)
 import Shape exposing (linearCurve)
 import SubPath exposing (arcLengthParameterized, arcLength)
-import Domain exposing (Container)
-import Domain exposing (Edge)
+import Domain exposing (Container, Edge)
 
 containerWidth : Float
 containerWidth = 100
@@ -35,7 +34,7 @@ renderContainer : Container -> List (Attribute msg) -> Svg msg
 renderContainer = renderContainerInternal False
 
 renderContainerInternal : Bool -> Container -> List (Attribute msg) -> Svg msg
-renderContainerInternal selected { key, name, description, xy } event =
+renderContainerInternal selected { key, name, description, xy } events =
     let
         (xCenter, yCenter) = xy
 
@@ -47,7 +46,7 @@ renderContainerInternal selected { key, name, description, xy } event =
 
         tooltip = key ++ "\n" ++ description
     in
-    g []
+    g events
         [ rect
             ([ x <| Px <| xCenter - containerWidth / 2
             , y <| Px <| yCenter - containerHeight / 2
@@ -57,7 +56,7 @@ renderContainerInternal selected { key, name, description, xy } event =
             , Attrs.fill <| Paint <| Color.white
             , Attrs.stroke <| Paint <| if selected then Color.blue else Color.black
             , Attrs.strokeWidth <| Px 1
-            ] ++ event) [ title [] [text tooltip]]
+            ]) [ title [] [text tooltip]]
         , text_
             ([ x <| Px <| xCenter
             , y <| Px <| yCenter
@@ -66,7 +65,7 @@ renderContainerInternal selected { key, name, description, xy } event =
             , dominantBaseline DominantBaselineMiddle
             , textAnchor AnchorMiddle
             , cursor CursorDefault
-            ] ++ event)
+            ])
             [text <| updatedName name, title [] [text tooltip] ]
         ]
 

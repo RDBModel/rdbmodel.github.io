@@ -9,9 +9,8 @@
 
 [ ] add relation via ui
 
-[ ] add buttons to undo/redo
-
 ------
+[x] add buttons to undo/redo
 [x] file system storage (https://github.com/SteveSandersonMS/AudioBrowser/blob/main/MediaFilesAPI/wwwroot/mediaFiles.js)
 [x] add icon to open file (https://tabler-icons.io/)
 [x] newly added element to the center
