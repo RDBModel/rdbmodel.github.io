@@ -157,9 +157,6 @@ update msg model =
             , initMonaco
             )
 
-        (ReceiveMonacoElementPosition (Err _), _) ->
-            ( model, Cmd.none )
-
         (ClickedLink urlRequest, _ ) ->
             case urlRequest of
                 Browser.Internal url ->
@@ -693,7 +690,9 @@ changeRouteTo maybeRoute isFileSystemSupported key =
             ( Home isFileSystemSupported key, Cmd.none )
 
         Just (Route.Editor selectedView) ->
-            ( Editor isFileSystemSupported key (getEditorsModel selectedView), getMonacoElementPosition )
+            ( Editor isFileSystemSupported key (getEditorsModel selectedView)
+            , Task.attempt ReceiveMonacoElementPosition (Dom.getElement "monaco")
+            )
 
 getEditorsModel : String -> EditorsModel
 getEditorsModel selectedView =
@@ -705,10 +704,6 @@ getEditorsModel selectedView =
         False
         True
         ""
-
-getMonacoElementPosition : Cmd Msg
-getMonacoElementPosition =
-    Task.attempt ReceiveMonacoElementPosition (Dom.getElement "monaco")
 
 getMonacoValue : MonacoValue
 getMonacoValue =
