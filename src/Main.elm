@@ -293,25 +293,35 @@ update msg model =
                     case msg of
                         ContainerContextMenu subMsg ->
                             let
-                                (updatedModel, cmd, selectResult) = ContextMenu.update subMsg state.containerMenu
+                                (updatedModel, cmd, (selectResult, containerIdToDelete)) = ContextMenu.update subMsg state.containerMenu
 
                                 selectedView = ViewControl.getSelectedView editorModel.viewControl
                                 currentMonacoValue = editorModel.monacoValue.present
-                                newViews =
+                                newViewsWithRelation =
                                     case selectResult of
                                         Just (containerId, relation) ->
-                                            getCurrentView selectedView editorModel.monacoValue.present.views
+                                            getCurrentView selectedView currentMonacoValue.views
                                                     |> addRelationToView containerId relation
-                                                    |> updateViewByKey selectedView editorModel.monacoValue.present.views
-                                        Nothing -> editorModel.monacoValue.present.views
+                                                    |> updateViewByKey selectedView currentMonacoValue.views
+                                        Nothing -> currentMonacoValue.views
 
-                                updatedMonacoValue = { currentMonacoValue | views = newViews }
+                                newViewsWithRemovedContainer =
+                                    case containerIdToDelete of
+                                        Just containerId ->
+                                            getCurrentView selectedView newViewsWithRelation
+                                                    |> deleteContainer containerId
+                                                    |> updateViewByKey selectedView newViewsWithRelation
+                                        Nothing -> newViewsWithRelation
+
+                                updatedMonacoValue = { currentMonacoValue | views = newViewsWithRemovedContainer }
 
                                 newMonacoValue =
-                                    case selectResult of
-                                        Just _ ->
+                                    case (selectResult, containerIdToDelete) of
+                                        (Just _, Nothing) ->
                                             newRecord updatedMonacoValue editorModel.monacoValue
-                                        Nothing -> editorModel.monacoValue
+                                        (Nothing, Just _) ->
+                                            newRecord updatedMonacoValue editorModel.monacoValue
+                                        _ -> editorModel.monacoValue
                             in
                             ( { editorModel
                             | viewEditor = Ready { state

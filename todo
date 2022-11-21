@@ -7,10 +7,10 @@
 [ ] add loading icon for editor
 [ ] notify about unsaved text in editor before saving
 
-[ ] delete element via ui
 [ ] new view via ui
 
 ------
+[x] delete element via ui
 [x] delete relation via ui
 [x] add relation via ui
 [x] add buttons to undo/redo

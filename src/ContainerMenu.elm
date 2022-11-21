@@ -1,10 +1,12 @@
 module ContainerMenu exposing (..)
 import Dict exposing (Dict)
 import Domain exposing (Relation)
-import Html exposing (Html)
+import Html exposing (Html, div, button, text)
+import Html.Attributes exposing (style)
 import DomainEncoder exposing (relationToString)
 import Select
 import Domain exposing (ViewRelationKey)
+import Html.Events exposing (onClick)
 
 type alias SelectModel a =
     { state : Select.State
@@ -51,8 +53,9 @@ type MenuContext
 type Msg
     = OnRelationSelect (Maybe ViewRelationKey)
     | SelectRelationMsg (Select.Msg ViewRelationKey)
+    | DeleteAnElement
 
-update : Msg -> Model -> (Model, Cmd Msg, Maybe ViewRelationKey)
+update : Msg -> Model -> (Model, Cmd Msg, (Maybe ViewRelationKey, Maybe String))
 update msg model =
     case msg of
         OnRelationSelect maybeRelation ->
@@ -67,7 +70,7 @@ update msg model =
             in
             ( { model | possibleRelations = updatedRelations }
             , Cmd.none
-            , maybeRelation
+            , Tuple.pair maybeRelation Nothing
             )
         SelectRelationMsg subMsg ->
             let
@@ -81,15 +84,33 @@ update msg model =
             in
             ( { model | selectRelation = updatedSelectModel model.selectRelation }
             , cmd
-            , Nothing
+            , Tuple.pair Nothing Nothing
+            )
+        DeleteAnElement ->
+             ( model
+            , Cmd.none
+            , Tuple.pair Nothing (Just model.containerId)
             )
 
 view : Model -> Html Msg
 view model =
-    Select.view
-        model.selectRelation.config
-        model.selectRelation.state
-        (Dict.get model.containerId model.possibleRelations
-            |> Maybe.withDefault []
-            |> List.map (\x -> (model.containerId, x)))
-        []
+    div []
+        [ button
+            [ style "background-color" "white"
+            , style "border-width" "1px 1px 0 1px"
+            , style "border-style" "solid"
+            , style "border-color" "rgba(204, 204, 204, .6)"
+            , style "width" "100%"
+            , style "min-height" "24px"
+            , style "padding" "0"
+            , onClick DeleteAnElement
+            ]
+            [ text "Delete an element" ]
+        , Select.view
+            model.selectRelation.config
+            model.selectRelation.state
+            (Dict.get model.containerId model.possibleRelations
+                |> Maybe.withDefault []
+                |> List.map (\x -> (model.containerId, x)))
+            []
+        ]

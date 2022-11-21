@@ -283,6 +283,18 @@ addRelationToView containerId relation =
     in
     Maybe.map (\v ->  { v | elements = newElements v } )
 
+deleteContainer : String -> Maybe View -> Maybe View
+deleteContainer containerId =
+    let
+        withoutContainer : View -> Dict ViewElementKey ViewElement
+        withoutContainer v =
+            Dict.remove containerId v.elements
+
+        cleanUpRelations =
+            Dict.map (\_ el -> { el | relations = Dict.filter (\r _ -> (Tuple.first r |> Debug.log "ttt") /= containerId) el.relations })
+    in
+    Maybe.map (\v ->  { v | elements = v |> withoutContainer |> cleanUpRelations } )
+
 updateViewByKey : String -> Dict String View -> Maybe View -> Dict String View
 updateViewByKey key views maybeView =
     Dict.update key (\_ -> maybeView) views

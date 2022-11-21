@@ -25,7 +25,7 @@ type Msg
     | HideMenu
     | ContainerMenuMsg ContainerMenu.Msg
 
-update : Msg -> Model -> (Model, Cmd Msg, Maybe ViewRelationKey)
+update : Msg -> Model -> (Model, Cmd Msg, (Maybe ViewRelationKey, Maybe String))
 update msg model =
     case msg of
         ShowMenu containerId pos ->
@@ -34,38 +34,41 @@ update msg model =
             , context = ContainerMenu.updateContainerId containerId model.context
             }
             , Cmd.none
-            , Nothing )
+            , Tuple.pair Nothing Nothing )
         HideMenu ->
             case model.menuState of
                 Just m ->
                     if m.hover then
-                        ( model, Cmd.none, Nothing )
+                        ( model, Cmd.none, Tuple.pair Nothing Nothing )
                     else
-                        ( { model | menuState = Nothing }, Cmd.none, Nothing )
+                        ( { model | menuState = Nothing }, Cmd.none, Tuple.pair Nothing Nothing )
                 Nothing ->
-                    ( model, Cmd.none, Nothing)
+                    ( model, Cmd.none, Tuple.pair Nothing Nothing)
         EnterMenu ->
             case model.menuState of
                 Just m ->
-                    ( { model | menuState = Just { position = m.position, hover = True } }, Cmd.none, Nothing )
+                    ( { model | menuState = Just { position = m.position, hover = True } }, Cmd.none, Tuple.pair Nothing Nothing )
                 Nothing ->
-                    ( model, Cmd.none, Nothing )
+                    ( model, Cmd.none, Tuple.pair Nothing Nothing )
         LeaveMenu ->
             case model.menuState of
                 Just m ->
-                    ( { model | menuState = Just { position = m.position, hover = False } }, Cmd.none, Nothing )
+                    ( { model | menuState = Just { position = m.position, hover = False } }, Cmd.none, Tuple.pair Nothing Nothing )
                 Nothing ->
-                    ( model, Cmd.none, Nothing )
+                    ( model, Cmd.none, Tuple.pair Nothing Nothing )
         ContainerMenuMsg subMsg ->
             let
-                (updatedModel, cmd, maybeRelation) = ContainerMenu.update subMsg model.context
+                (updatedModel, cmd, (maybeRelation, maybeContainerIdToDelete)) =
+                    ContainerMenu.update subMsg model.context
+
+                updatedMenuState = case (maybeRelation, maybeContainerIdToDelete) of
+                    (Just _, Nothing) -> Nothing
+                    (Nothing, Just _) -> Nothing
+                    _ -> model.menuState
             in
-            ( { model | context = updatedModel, menuState = case maybeRelation of
-                Just _ -> Nothing
-                Nothing -> model.menuState
-            }
+            ( { model | context = updatedModel, menuState = updatedMenuState }
             , cmd |> Cmd.map ContainerMenuMsg
-            , maybeRelation
+            , (maybeRelation, maybeContainerIdToDelete)
             )
 
 view : Model -> Html Msg
