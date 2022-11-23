@@ -410,12 +410,15 @@ update msg model =
 
                         ViewUndoRedo subMsg ->
                             let
-                                (subModel, updatedMonacoValue) = ViewUndoRedo.update editorModel.monacoValue subMsg state.viewUndoRedo
+                                ( subModel, updatedMonacoValue, renew ) = ViewUndoRedo.update editorModel.monacoValue subMsg state.viewUndoRedo
                             in
                             ( { editorModel
                             | viewEditor = Ready { state | viewUndoRedo = subModel }
                             , monacoValue = updatedMonacoValue } |> toEditor
-                            , updateMonacoValue (rdbEncode updatedMonacoValue.present)
+                            , if renew then
+                                updateMonacoValue (rdbEncode updatedMonacoValue.present)
+                            else
+                                Cmd.none
                             )
 
                         ReceiveElementPosition (Ok { element }) ->
@@ -1206,16 +1209,16 @@ subscriptions model =
           Ready state ->
             Sub.batch
               [ readySubscriptions state
-              , (ViewUndoRedo.subscriptions state.viewUndoRedo) |> Sub.map ViewUndoRedo
-              , ContextMenu.subscriptions |> Sub.map ContainerContextMenu
+              , ViewUndoRedo.subscriptions state.viewUndoRedo |> Sub.map ViewUndoRedo
+              , ContextMenu.subscriptions state.containerMenu |> Sub.map ContainerContextMenu
               ]
-    , Events.onResize (\_ -> \_ -> Resize)
+    , Events.onResize (\_ _ -> Resize)
     , Events.onKeyDown (keyDecoder |> setCtrlState True)
     , Events.onKeyUp (keyDecoder |> setCtrlState False)
     , case model of
-      Home _ _ -> Sub.none
-      Editor _ _ { pane } ->
-        Sub.map PaneMsg <| SplitPane.subscriptions pane
+        Home _ _ -> Sub.none
+        Editor _ _ { pane } ->
+            Sub.map PaneMsg <| SplitPane.subscriptions pane
     , monacoEditorInitialValue <| MonacoEditorInitialValueReceived
     , monacoEditorSavedValue <| MonacoEditorValueReceived
     , initMonacoRequest InitMonacoRequestReceived

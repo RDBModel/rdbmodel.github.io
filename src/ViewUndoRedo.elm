@@ -37,14 +37,13 @@ type Msg
     | NoOp
     | SetCtrlIsDown Bool
 
-update : UndoRedoMonacoValue a -> Msg -> Model -> (Model, UndoRedoMonacoValue a)
+update : UndoRedoMonacoValue a -> Msg -> Model -> (Model, UndoRedoMonacoValue a, Bool)
 update targetValue msg model =
     case msg of
-        Undo -> (model , UndoList.undo targetValue)
-        Redo -> (model , UndoList.redo targetValue)
-        SetCtrlIsDown value ->
-            ( { model | ctrlIsDown = value }, targetValue)
-        NoOp -> (model, targetValue)
+        Undo -> ( model , UndoList.undo targetValue, True )
+        Redo -> ( model , UndoList.redo targetValue, True)
+        SetCtrlIsDown value -> ( { model | ctrlIsDown = value }, targetValue, False )
+        NoOp -> ( model, targetValue, False )
 
 view : Html Msg
 view =

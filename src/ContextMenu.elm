@@ -42,8 +42,7 @@ update msg model =
                         ( model, Cmd.none, Tuple.pair Nothing Nothing )
                     else
                         ( { model | menuState = Nothing }, Cmd.none, Tuple.pair Nothing Nothing )
-                Nothing ->
-                    ( model, Cmd.none, Tuple.pair Nothing Nothing)
+                Nothing -> ( model, Cmd.none, Tuple.pair Nothing Nothing )
         EnterMenu ->
             case model.menuState of
                 Just m ->
@@ -90,9 +89,12 @@ attach : String -> Attribute Msg
 attach containerId =
     Mouse.onContextMenu (\event -> ShowMenu containerId event.clientPos)
 
-subscriptions : Sub Msg
-subscriptions =
-    Sub.batch
-        [ Events.onMouseDown (Decode.succeed HideMenu)
-        , onWheel (\_ -> HideMenu)
-        ]
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    case model.menuState of
+        Just _ ->
+            Sub.batch
+                [ Events.onMouseDown (Decode.succeed HideMenu)
+                , onWheel (\_ -> HideMenu)
+                ]
+        Nothing -> Sub.none
