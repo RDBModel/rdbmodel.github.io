@@ -1,16 +1,18 @@
-module ViewControl exposing (Model, view, update, getSelectedView, init, selectedViewChanged, Msg)
+module EditView.ViewControl exposing (Model, Msg, Action(..), view, update, getSelectedView, init, selectedViewChanged)
 
 import Html.Attributes exposing (style)
 import Html exposing (Html, div, button, input, text)
 import Select
 import Domain exposing (View, getViewElements)
 import Dict exposing (Dict)
-import TypedSvg exposing (svg, path, circle, line)
+import TypedSvg exposing (svg, path, line)
 import TypedSvg.Attributes exposing ( d, viewBox, strokeWidth, stroke, fill, strokeLinecap, strokeLinejoin,
     cx, cy, r, x1, x2, y1, y2, width, height)
 import TypedSvg.Types exposing ( Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import Color
 import Html.Events exposing (onClick)
+import Html.Attributes exposing (class)
+import Html.Events exposing (onInput)
 
 type alias SelectModel a =
     { state : Select.State
@@ -23,6 +25,7 @@ type alias Model =
     , selectElement : SelectModel (String, String)
     , viewChanged : Bool
     , addNewViewBoxVisible : Bool
+    , newViewIdTemp : String
     }
 
 selectView : SelectModel String
@@ -58,7 +61,11 @@ selectElement =
         |> Select.withPrompt "An element to add")
 
 init : String -> Model
-init selectedView = Model selectView selectedView selectElement False False
+init selectedView = Model selectView selectedView selectElement False False ""
+
+type Action
+    = NewView String
+    | AddElementToView (String, String)
 
 type Msg
     = SelectViewMsg (Select.Msg String)
@@ -66,8 +73,9 @@ type Msg
     | OnViewSelect (Maybe String)
     | OnElementSelect (Maybe (String, String))
     | AddView
+    | NewViewId String
 
-update : Msg -> Model -> ( Model, Cmd Msg, Maybe (String, String) )
+update : Msg -> Model -> ( Model, Cmd Msg, List Action )
 update msg model =
     case msg of
         SelectViewMsg subMsg ->
@@ -82,7 +90,7 @@ update msg model =
             in
             ( { model | selectView = updatedSelectModel model.selectView }
             , cmd
-            , Nothing
+            , []
             )
         SelectElementMsg subMsg ->
             let
@@ -96,7 +104,7 @@ update msg model =
             in
             ( { model | selectElement = updatedSelectModel model.selectElement }
             , cmd
-            , Nothing
+            , []
             )
         OnViewSelect maybeView ->
             let
@@ -106,15 +114,17 @@ update msg model =
             in
             ( { model | selectedView = selected, viewChanged = selected /= model.selectedView }
             , Cmd.none
-            , Nothing
+            , []
             )
         OnElementSelect maybeElement ->
             ( model
             , Cmd.none
-            , maybeElement
+            , maybeElement |> Maybe.map AddElementToView |> Maybe.map List.singleton |> Maybe.withDefault []
             )
         AddView ->
-            ( { model | addNewViewBoxVisible = model.addNewViewBoxVisible |> not }, Cmd.none, Nothing )
+            ( { model | addNewViewBoxVisible = model.addNewViewBoxVisible |> not }, Cmd.none, [] )
+        NewViewId value ->
+            ( { model | newViewIdTemp = value }, Cmd.none, [] )
 
 view : Dict String View -> List (String, String) -> Model -> Html Msg
 view views elements model =
@@ -163,10 +173,12 @@ view views elements model =
             input
                     [ style "background-color" "white"
                     , style "border" "1px solid rgba(204, 204, 204, .6)"
+                    , class "elm-select-input"
                     , style "margin-top" "2px"
                     , style "min-height" "20px"
                     , style "grid-column" "1/3"
                     , style "grid-row" "2"
+                    , onInput NewViewId
                     ] []
             else
                 text ""

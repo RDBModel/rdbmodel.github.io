@@ -31,7 +31,7 @@ import JsInterop exposing (initMonacoResponse, monacoEditorInitialValue, initMon
     , zoomMsgReceived)
 import Index exposing (index)
 import Scale exposing (domain)
-import ViewControl
+import EditView.ViewControl as ViewControl
 import Utils exposing (trimList)
 import ViewNavigation
 import DomainEncoder exposing (rdbEncode)
@@ -40,6 +40,7 @@ import ViewUndoRedo exposing (UndoRedoMonacoValue, getUndoRedoMonacoValue, newRe
 import ContextMenu
 import DomainEncoder exposing (relationToString)
 import ContainerMenu
+import EditView.ModifyView exposing (updateViews)
 
 -- MAIN
 
@@ -346,27 +347,22 @@ update msg model =
 
                         ViewControl subMsg ->
                             let
-                                ( updated, cmd, elementToAdd ) = ViewControl.update subMsg editorModel.viewControl
+                                ( updated, cmd, actions ) = ViewControl.update subMsg editorModel.viewControl
 
                                 selectedView = ViewControl.getSelectedView editorModel.viewControl
                                 currentMonacoValue = editorModel.monacoValue.present
 
-                                newViews =
-                                    case elementToAdd of
-                                        Just v ->
-                                            getCurrentView selectedView currentMonacoValue.views
-                                                    |> addElementToView (Tuple.first v) (getPositionForNewElement state.svgElementPosition state.zoom)
-                                                    |> updateViewByKey selectedView currentMonacoValue.views
-                                        Nothing -> currentMonacoValue.views
+                                elementPosition = getPositionForNewElement state.svgElementPosition state.zoom
+                                newViews = updateViews elementPosition selectedView currentMonacoValue.views actions
 
                                 newMonacoValue =
-                                    case elementToAdd of
-                                        Just _ ->
-                                            let
-                                                updatedMonacoValue = { currentMonacoValue | views = newViews }
-                                            in
-                                            newRecord updatedMonacoValue editorModel.monacoValue
-                                        Nothing -> editorModel.monacoValue
+                                    if List.isEmpty actions then
+                                        editorModel.monacoValue
+                                    else
+                                        let
+                                            updatedMonacoValue = { currentMonacoValue | views = newViews }
+                                        in
+                                        newRecord updatedMonacoValue editorModel.monacoValue
 
                                 finalCmds =
                                     if ViewControl.selectedViewChanged updated then

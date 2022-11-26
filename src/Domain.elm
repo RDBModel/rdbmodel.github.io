@@ -268,9 +268,9 @@ getElementsToAdd domain =
     Maybe.map getElementsKeysAndNames domain
         |> Maybe.withDefault []
 
-addElementToView : String -> (Float, Float) -> Maybe View -> Maybe View
-addElementToView key (x, y)=
-    Maybe.map (\v ->  { v | elements = Dict.insert key (ViewElement x y Dict.empty) v.elements } )
+addElementToView : String -> (Float, Float) -> View -> View
+addElementToView key (x, y) v =
+    { v | elements = Dict.insert key (ViewElement x y Dict.empty) v.elements }
 
 addRelationToView : String -> Relation -> Maybe View -> Maybe View
 addRelationToView containerId relation =
