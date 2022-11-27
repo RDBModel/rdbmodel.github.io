@@ -153,7 +153,7 @@ view views elements model =
         [ style "position" "absolute"
         , style "display" "grid" -- grid-template-columns: repeat(3, 1fr);
         , style "grid-auto-flow" "row"
-        , style "grid-template-columns" "repeat(3, 1fr)"
+        , style "grid-template-columns" "24px auto auto"
         , style "top" "5px"
         , style "left" "50%"
         , style "transform" "translateX(-50%)"
@@ -166,6 +166,7 @@ view views elements model =
             , style "border" "1px solid rgba(204, 204, 204, .6)"
             , style "min-height" "24px"
             , style "min-width" "24px"
+            , style "max-width" "24px"
             , style "padding" "0"
             , style "grid-column" "1"
             , style "grid-row" "1"

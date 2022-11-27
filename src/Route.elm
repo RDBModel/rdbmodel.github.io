@@ -1,12 +1,11 @@
 module Route exposing (Route(..), fromUrl, editorRoute)
+
 import Url.Parser as Parser exposing ((</>), (<?>), Parser, oneOf, s, string)
 import Url exposing (Url)
 
 type Route
     = Home
     | Editor String
-
-
 
 parser : Parser (Route -> a) a
 parser =
@@ -16,7 +15,6 @@ parser =
         ]
 
 -- PUBLIC HELPERS
-
 
 fromUrl : Url -> Maybe Route
 fromUrl url =
