@@ -1,18 +1,19 @@
-module EditView.ViewControl exposing (Model, Msg, Action(..), view, update, getSelectedView, init, selectedViewChanged)
+module EditView.ViewControl exposing (Model, Msg, Action(..), view, update, getSelectedView, init
+    , selectedViewChanged, subscriptions)
 
-import Html.Attributes exposing (style)
+import Html.Attributes exposing (style, class, value)
+import Html.Events exposing (onClick, onInput, onFocus, onBlur)
 import Html exposing (Html, div, button, input, text)
 import Select
 import Domain exposing (View, getViewElements)
 import Dict exposing (Dict)
 import TypedSvg exposing (svg, path, line)
 import TypedSvg.Attributes exposing ( d, viewBox, strokeWidth, stroke, fill, strokeLinecap, strokeLinejoin,
-    cx, cy, r, x1, x2, y1, y2, width, height)
+    x1, x2, y1, y2, width, height)
 import TypedSvg.Types exposing ( Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import Color
-import Html.Events exposing (onClick)
-import Html.Attributes exposing (class)
-import Html.Events exposing (onInput)
+import Browser.Events as Events
+import Json.Decode as Decode
 
 type alias SelectModel a =
     { state : Select.State
@@ -26,6 +27,7 @@ type alias Model =
     , viewChanged : Bool
     , addNewViewBoxVisible : Bool
     , newViewIdTemp : String
+    , newViewInputIsInFocus : Bool
     }
 
 selectView : SelectModel String
@@ -61,7 +63,7 @@ selectElement =
         |> Select.withPrompt "An element to add")
 
 init : String -> Model
-init selectedView = Model selectView selectedView selectElement False False ""
+init selectedView = Model selectView selectedView selectElement False False "" False
 
 type Action
     = NewView String
@@ -74,6 +76,10 @@ type Msg
     | OnElementSelect (Maybe (String, String))
     | AddView
     | NewViewId String
+    | EnterIsClicked
+    | InputFocused
+    | InputBlur
+    | NoOp
 
 update : Msg -> Model -> ( Model, Cmd Msg, List Action )
 update msg model =
@@ -125,6 +131,18 @@ update msg model =
             ( { model | addNewViewBoxVisible = model.addNewViewBoxVisible |> not }, Cmd.none, [] )
         NewViewId value ->
             ( { model | newViewIdTemp = value }, Cmd.none, [] )
+        EnterIsClicked ->
+            ( { model | newViewIdTemp = "", addNewViewBoxVisible = False }, Cmd.none
+            , if model.newViewInputIsInFocus then
+                [NewView model.newViewIdTemp]
+            else
+                []
+            )
+        InputFocused ->
+            ( { model | newViewInputIsInFocus = True }, Cmd.none, [] )
+        InputBlur ->
+            ( { model | newViewInputIsInFocus = False }, Cmd.none, [] )
+        NoOp -> ( model, Cmd.none, [] )
 
 view : Dict String View -> List (String, String) -> Model -> Html Msg
 view views elements model =
@@ -179,6 +197,9 @@ view views elements model =
                     , style "grid-column" "1/3"
                     , style "grid-row" "2"
                     , onInput NewViewId
+                    , onFocus InputFocused
+                    , onBlur InputBlur
+                    , value model.newViewIdTemp
                     ] []
             else
                 text ""
@@ -199,3 +220,19 @@ selectedViewChanged model = model.viewChanged
 
 getSelectedView : Model -> String
 getSelectedView model = model.selectedView
+
+subscriptions : Sub Msg
+subscriptions =
+    Events.onKeyDown (keyDecoder |> enterButton)
+
+enterButton : Decode.Decoder String -> Decode.Decoder Msg
+enterButton =
+    Decode.map (\key ->
+        if key == "Enter" then
+            EnterIsClicked
+        else
+            NoOp)
+
+keyDecoder : Decode.Decoder String
+keyDecoder =
+    Decode.field "key" Decode.string

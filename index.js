@@ -295,10 +295,16 @@ function readFileAsync(file) {
 
 function modifyYamlValue(value) {
   // temp fix - https://github.com/MaybeJustJames/yaml/issues/28
-  return value.replace(/relations:\n\s+\n/g, "relations: []\n")
-  .replace(/containers:\n\s+\n/g, "containers: {}\n")
-  .replace(/:\n\s+\n/g, ": []\n")
-  .replace(/-\n\s+x:/g, "- x:")
+  return value
+    .replace(/relations:\n\s+\n/g, "relations: []\n")
+    .replace(/relations:\n\s+$/, "relations: []\n")
+    .replace(/containers:\n\s+\n/g, "containers: {}\n")
+    .replace(/containers:\n\s+$/, "containers: {}\n")
+    .replace(/elements:\n\s+\n/, "elements: {}\n")
+    .replace(/elements:\n\s+$/, "elements: {}\n")
+    .replace(/:\n\s+\n/g, ": []\n")
+    .replace(/:\n\s+$/, ": []\n")
+    .replace(/-\n\s+x:/g, "- x:")
 }
 
 async function showFileSaveDialog(value) {

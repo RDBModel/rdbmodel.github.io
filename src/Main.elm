@@ -351,9 +351,9 @@ update msg model =
 
                                 selectedView = ViewControl.getSelectedView editorModel.viewControl
                                 currentMonacoValue = editorModel.monacoValue.present
-
                                 elementPosition = getPositionForNewElement state.svgElementPosition state.zoom
-                                newViews = updateViews elementPosition selectedView currentMonacoValue.views actions
+                                newViews =
+                                    updateViews elementPosition selectedView currentMonacoValue.views actions
 
                                 newMonacoValue =
                                     if List.isEmpty actions then
@@ -370,8 +370,10 @@ update msg model =
                                             [ cmd |> Cmd.map ViewControl
                                             , Nav.pushUrl (getNavKey model) ("/#/editor/" ++ ViewControl.getSelectedView editorModel.viewControl)
                                             ]
-                                    else
+                                    else if List.isEmpty actions then
                                         cmd |> Cmd.map ViewControl
+                                    else
+                                        updateMonacoValue (rdbEncode newMonacoValue.present)
 
                                 getPossibleRelations =
                                     getCurrentView selectedView newViews
@@ -1207,6 +1209,7 @@ subscriptions model =
               [ readySubscriptions state
               , ViewUndoRedo.subscriptions state.viewUndoRedo |> Sub.map ViewUndoRedo
               , ContextMenu.subscriptions state.containerMenu |> Sub.map ContainerContextMenu
+              , ViewControl.subscriptions |> Sub.map ViewControl
               ]
     , Events.onResize (\_ _ -> Resize)
     , Events.onKeyDown (keyDecoder |> setCtrlState True)

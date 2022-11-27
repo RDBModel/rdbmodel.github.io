@@ -16,4 +16,4 @@ modifyViews position selectedView action views =
             |> Maybe.map (\v -> addElementToView (Tuple.first el) position v)
             |> updateViewByKey selectedView views
         NewView viewName ->
-            views
+            Dict.insert viewName { elements = Dict.empty } views
