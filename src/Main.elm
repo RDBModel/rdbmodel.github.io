@@ -40,7 +40,7 @@ import ViewUndoRedo exposing (UndoRedoMonacoValue, getUndoRedoMonacoValue, newRe
 import ContextMenu
 import DomainEncoder exposing (relationToString)
 import ContainerMenu
-import EditView.ModifyView exposing (updateViews)
+import EditView.ModifyView as ModifyView
 
 -- MAIN
 
@@ -352,28 +352,34 @@ update msg model =
                                 selectedView = ViewControl.getSelectedView editorModel.viewControl
                                 currentMonacoValue = editorModel.monacoValue.present
                                 elementPosition = getPositionForNewElement state.svgElementPosition state.zoom
-                                newViews =
-                                    updateViews elementPosition selectedView currentMonacoValue.views actions
 
-                                newMonacoValue =
-                                    if List.isEmpty actions then
-                                        editorModel.monacoValue
-                                    else
+                                params =
+                                    { position = elementPosition
+                                    , selectedView = selectedView
+                                    , key = getNavKey model
+                                    }
+                                ( newViews, cmds ) =
+                                    ModifyView.update params currentMonacoValue.views actions
+
+                                ( newMonacoValue, finalCmds ) =
+                                    if ModifyView.monacoValueModified actions then
                                         let
                                             updatedMonacoValue = { currentMonacoValue | views = newViews }
                                         in
-                                        newRecord updatedMonacoValue editorModel.monacoValue
-
-                                finalCmds =
-                                    if ViewControl.selectedViewChanged updated then
-                                        Cmd.batch
+                                        ( newRecord updatedMonacoValue editorModel.monacoValue
+                                        , Cmd.batch
                                             [ cmd |> Cmd.map ViewControl
-                                            , Nav.pushUrl (getNavKey model) ("/#/editor/" ++ ViewControl.getSelectedView editorModel.viewControl)
+                                            , cmds
+                                            , updateMonacoValue ( rdbEncode updatedMonacoValue )
                                             ]
-                                    else if List.isEmpty actions then
-                                        cmd |> Cmd.map ViewControl
+                                        )
                                     else
-                                        updateMonacoValue (rdbEncode newMonacoValue.present)
+                                        ( editorModel.monacoValue
+                                        , Cmd.batch
+                                            [ cmd |> Cmd.map ViewControl
+                                            , cmds
+                                            ]
+                                        )
 
                                 getPossibleRelations =
                                     getCurrentView selectedView newViews
@@ -385,7 +391,7 @@ update msg model =
                             in
                             ( { editorModel
                             | viewControl = updated
-                            , toReload = ViewControl.selectedViewChanged updated |> not
+                            , toReload = False
                             , monacoValue = newMonacoValue
                             , viewEditor = updatedViewEditor
                             } |> toEditor

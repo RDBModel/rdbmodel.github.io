@@ -1,5 +1,5 @@
 module EditView.ViewControl exposing (Model, Msg, Action(..), view, update, getSelectedView, init
-    , selectedViewChanged, subscriptions)
+    , subscriptions)
 
 import Html.Attributes exposing (style, class, value)
 import Html.Events exposing (onClick, onInput, onFocus, onBlur)
@@ -24,7 +24,6 @@ type alias Model =
     { selectView : SelectModel String
     , selectedView : String
     , selectElement : SelectModel (String, String)
-    , viewChanged : Bool
     , addNewViewBoxVisible : Bool
     , newViewIdTemp : String
     , newViewInputIsInFocus : Bool
@@ -63,11 +62,12 @@ selectElement =
         |> Select.withPrompt "An element to add")
 
 init : String -> Model
-init selectedView = Model selectView selectedView selectElement False False "" False
+init selectedView = Model selectView selectedView selectElement False "" False
 
 type Action
     = NewView String
     | AddElementToView (String, String)
+    | ChangeView String
 
 type Msg
     = SelectViewMsg (Select.Msg String)
@@ -118,9 +118,9 @@ update msg model =
                     maybeView
                         |> Maybe.withDefault model.selectedView
             in
-            ( { model | selectedView = selected, viewChanged = selected /= model.selectedView }
+            ( { model | selectedView = selected }
             , Cmd.none
-            , []
+            , [ ChangeView selected ]
             )
         OnElementSelect maybeElement ->
             ( model
@@ -134,7 +134,7 @@ update msg model =
         EnterIsClicked ->
             ( { model | newViewIdTemp = "", addNewViewBoxVisible = False }, Cmd.none
             , if model.newViewInputIsInFocus then
-                [NewView model.newViewIdTemp]
+                [ NewView model.newViewIdTemp ]
             else
                 []
             )
@@ -215,9 +215,6 @@ view views elements model =
             ( elements |> List.filter (\(key, _) -> List.member key viewElements |> not) )
             []
         ]
-
-selectedViewChanged : Model -> Bool
-selectedViewChanged model = model.viewChanged
 
 getSelectedView : Model -> String
 getSelectedView model = model.selectedView
