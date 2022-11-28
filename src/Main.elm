@@ -349,24 +349,29 @@ update msg model =
                             let
                                 ( updated, cmd, actions ) = ViewControl.update subMsg editorModel.viewControl
 
-                                selectedView = ViewControl.getSelectedView editorModel.viewControl
-                                currentMonacoValue = editorModel.monacoValue.present
-                                elementPosition = getPositionForNewElement state.svgElementPosition state.zoom
-
-                                params =
-                                    { position = elementPosition
-                                    , selectedView = selectedView
-                                    , key = getNavKey model
-                                    }
-                                ( newViews, cmds ) =
-                                    ModifyView.update params currentMonacoValue.views actions
-
-                                ( newMonacoValue, finalCmds ) =
+                                ( newMonacoValue, updatedViewEditor, finalCmds ) =
                                     if ModifyView.monacoValueModified actions then
                                         let
+                                            selectedView = ViewControl.getSelectedView editorModel.viewControl
+                                            currentMonacoValue = editorModel.monacoValue.present
+                                            elementPosition = getPositionForNewElement state.svgElementPosition state.zoom
+
+                                            params =
+                                                { position = elementPosition
+                                                , selectedView = selectedView
+                                                , key = getNavKey model
+                                                }
+                                            ( newViews, cmds ) =
+                                                ModifyView.update params currentMonacoValue.views actions
                                             updatedMonacoValue = { currentMonacoValue | views = newViews }
+
+                                            getPossibleRelations =
+                                                getCurrentView selectedView newViews
+                                                    |> Maybe.map2 (\d v -> possibleRelationsToAdd (d, v)) editorModel.monacoValue.present.domain
+                                                    |> Maybe.withDefault Dict.empty
                                         in
                                         ( newRecord updatedMonacoValue editorModel.monacoValue
+                                        , Ready { state | containerMenu = ContainerMenu.init getPossibleRelations |> ContextMenu.init }
                                         , Cmd.batch
                                             [ cmd |> Cmd.map ViewControl
                                             , cmds
@@ -375,19 +380,9 @@ update msg model =
                                         )
                                     else
                                         ( editorModel.monacoValue
-                                        , Cmd.batch
-                                            [ cmd |> Cmd.map ViewControl
-                                            , cmds
-                                            ]
+                                        , editorModel.viewEditor
+                                        , cmd |> Cmd.map ViewControl
                                         )
-
-                                getPossibleRelations =
-                                    getCurrentView selectedView newViews
-                                        |> Maybe.map2 (\d v -> possibleRelationsToAdd (d, v)) editorModel.monacoValue.present.domain
-                                        |> Maybe.withDefault Dict.empty
-
-                                updatedViewEditor =
-                                    Ready { state | containerMenu = ContainerMenu.init getPossibleRelations |> ContextMenu.init }
                             in
                             ( { editorModel
                             | viewControl = updated
