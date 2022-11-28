@@ -303,6 +303,9 @@ updateViewByKey key views maybeView =
 possibleRelationsToAdd : (Domain, View) -> Dict String (List Relation)
 possibleRelationsToAdd (domain, view) =
     let
+        existingElementsInView =
+            view.elements |> Dict.keys
+
         existingRelationsInView =
             view.elements
                 |> Dict.map (\_ v -> v.relations |> Dict.keys)
@@ -314,14 +317,20 @@ possibleRelationsToAdd (domain, view) =
             domain.rings |> Dict.toList |> List.map (\(k, v) -> (k, v.relations)) |> Dict.fromList
 
         allPossibleRelationsForDeliveries =
-            domain.rings |> Dict.values
-                |> List.concatMap (\r -> r.delivery |> Dict.toList)
+            domain.rings
+                |> Dict.values
+                |> List.map .delivery
+                |> List.concatMap Dict.toList
                 |> List.map (\(k, v) -> (k, v.relations))
                 |> Dict.fromList
 
         allPossibleRelationsForBlocks =
-            domain.rings |> Dict.values |> List.concatMap (\r -> r.delivery |> Dict.values)
-                |> List.concatMap (\d -> d.blocks |> Dict.toList)
+            domain.rings
+                |> Dict.values
+                |> List.map .delivery
+                |> List.concatMap Dict.values
+                |> List.map .blocks
+                |> List.concatMap Dict.toList
                 |> List.map (\(k, v) -> (k, v.relations))
                 |> Dict.fromList
 
@@ -330,17 +339,20 @@ possibleRelationsToAdd (domain, view) =
                 |> Dict.union allPossibleRelationsForRings
                 |> Dict.union allPossibleRelationsForDeliveries
                 |> Dict.union allPossibleRelationsForBlocks
+
+        onlyNonExistingRelation key candidate =
+            Dict.get key existingRelationsInView
+                |> Maybe.withDefault []
+                |> List.member candidate
+                |> not
+
+        onlyRelationWithExistingTarget _ candidate =
+            existingElementsInView |> List.member (candidate |> Tuple.first)
     in
     existingRelationsInView
         |> Dict.intersect allPossibleRelations
-        |> Dict.map (\k v ->
-            v |> List.filter (\candidate ->
-                Dict.get k existingRelationsInView
-                    |> Maybe.withDefault []
-                    |> List.member candidate
-                    |> not
-            )
-        )
+        |> Dict.map (onlyRelationWithExistingTarget >> List.filter)
+        |> Dict.map (onlyNonExistingRelation >> List.filter)
         |> Dict.filter (\_ v -> List.isEmpty v |> not)
 
 removedEdge : ViewRelationKey -> View -> View
