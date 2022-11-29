@@ -16,7 +16,6 @@ import Task
 import TypedSvg.Attributes as Attrs exposing ( class, x, y, id, d, r, x1, x2, y1, y2)
 import TypedSvg.Types exposing ( Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import TypedSvg.Core exposing (Svg, Attribute)
-import Zoom exposing (Zoom, OnZoom)
 import Elements exposing
     ( renderContainer, renderContainerSelected, markerDot, innerGrid, grid, gridRect, edgeBetweenContainers
     , selectItemsRect, extendPoints
@@ -33,7 +32,7 @@ import Index exposing (index)
 import Scale exposing (domain)
 import EditView.ViewControl as ViewControl
 import Utils exposing (trimList)
-import ViewNavigation
+import Navigation.ViewNavigation as ViewNavigation
 import DomainEncoder exposing (rdbEncode)
 import FilePicker
 import ViewUndoRedo exposing (UndoRedoMonacoValue, getUndoRedoMonacoValue, newRecord, mapPresent)
@@ -86,11 +85,10 @@ type alias MonacoValue =
 
 type alias ViewEditorState =
     { drag : Maybe Drag
-    , zoom : Zoom
+    -- , zoom : Zoom
     , viewNavigation : ViewNavigation.Model
     , viewUndoRedo : ViewUndoRedo.Model
     , svgElementPosition : Element
-    , ctrlIsDown : Bool
     , brush : Maybe Brush
     , selectedItems : List SelectedItem
     , containerMenu : ContextMenu.Model
@@ -123,8 +121,7 @@ type alias Element =
 -- UPDATE
 
 type Msg
-    = ZoomMsg OnZoom
-    | ViewNavigation ViewNavigation.Msg
+    = ViewNavigation ViewNavigation.Msg
     | Resize
     | ReceiveElementPosition (Result Dom.Error Dom.Element)
     | ReceiveMonacoElementPosition (Result Dom.Error Dom.Element)
@@ -252,8 +249,6 @@ update msg model =
                     case msg of
                         ReceiveElementPosition (Ok { element }) ->
                             let
-                                initialZoom = initZoom element
-
                                 views = editorModel.monacoValue.present.views
 
                                 selectedView = ViewControl.getSelectedView editorModel.viewControl
@@ -267,10 +262,8 @@ update msg model =
                             | viewEditor = Ready
                                 { drag = Nothing
                                 , svgElementPosition = element
-                                , zoom = initialZoom
-                                , viewNavigation = ViewNavigation.init initialZoom
+                                , viewNavigation = ViewNavigation.init element
                                 , viewUndoRedo = ViewUndoRedo.init
-                                , ctrlIsDown = False
                                 , brush = Nothing
                                 , selectedItems = []
                                 , containerMenu = ContainerMenu.init getPossibleRelations |> ContextMenu.init
@@ -354,7 +347,7 @@ update msg model =
                                         let
                                             selectedView = ViewControl.getSelectedView editorModel.viewControl
                                             currentMonacoValue = editorModel.monacoValue.present
-                                            elementPosition = getPositionForNewElement state.svgElementPosition state.zoom
+                                            elementPosition = ViewNavigation.getPositionForNewElement state.viewNavigation state.svgElementPosition
 
                                             params =
                                                 { position = elementPosition
@@ -395,15 +388,10 @@ update msg model =
 
                         SelectItemsStart xy ->
                             let
-                                shiftedXY = shiftPosition state.zoom (0, 0) xy
+                                shiftedXY = ViewNavigation.shiftPosition state.viewNavigation (0, 0) xy
                             in
                             (   { editorModel | viewEditor = Ready { state | brush = Just <| Brush shiftedXY shiftedXY }
                                 } |> toEditor
-                            , Cmd.none
-                            )
-
-                        SetCtrlIsDown value ->
-                            ( { editorModel | viewEditor = Ready { state | ctrlIsDown = value } } |> toEditor
                             , Cmd.none
                             )
 
@@ -428,17 +416,9 @@ update msg model =
                         Resize ->
                             ( model, getElementPosition )
 
-                        ZoomMsg zoomMsg ->
-                            (   { editorModel | viewEditor = Ready { state | zoom = Zoom.update zoomMsg state.zoom }
-                                } |> toEditor
-                            , zoomMsgReceived ()
-                            )
-
                         DragViewElementStart viewElementKey xy ->
                             let
-                                currentModel = editorModel
-
-                                (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.svgElementPosition.x, state.svgElementPosition.y) xy
+                                (shiftedStartX, shiftedStartY) = ViewNavigation.shiftPosition state.viewNavigation (state.svgElementPosition.x, state.svgElementPosition.y) xy
 
                                 selectedElementKeys = getSelectedElementKeysAndDeltas state.selectedItems
                                     |> List.map Tuple.first
@@ -446,9 +426,9 @@ update msg model =
                                 isWithinAlreadySelected = selectedElementKeys
                                     |> List.member viewElementKey
 
-                                selectedView = ViewControl.getSelectedView currentModel.viewControl
+                                selectedView = ViewControl.getSelectedView editorModel.viewControl
 
-                                elementsOfCurrentView = getCurrentView selectedView currentModel.monacoValue.present.views
+                                elementsOfCurrentView = getCurrentView selectedView editorModel.monacoValue.present.views
                                     |> getViewElementsOfCurrentView
 
                                 updatedSelectedItems =
@@ -474,10 +454,8 @@ update msg model =
 
                         DragPointStart viewRelationPointKey xy ->
                             let
-                                currentModel = editorModel
-
                                 (viewElementKey, relation, pointIndex) = viewRelationPointKey
-                                (shiftedStartX, shiftedStartY) = shiftPosition state.zoom (state.svgElementPosition.x, state.svgElementPosition.y) xy
+                                (shiftedStartX, shiftedStartY) = ViewNavigation.shiftPosition state.viewNavigation (state.svgElementPosition.x, state.svgElementPosition.y) xy
 
                                 selectedPointKeys = getSelectedPointKeysAndDeltas state.selectedItems
                                     |> List.map Tuple.first
@@ -485,9 +463,9 @@ update msg model =
                                 isWithinAlreadySelected = selectedPointKeys
                                     |> List.member viewRelationPointKey
 
-                                selectedView = ViewControl.getSelectedView currentModel.viewControl
+                                selectedView = ViewControl.getSelectedView editorModel.viewControl
 
-                                elementsOfCurrentView = getCurrentView selectedView currentModel.monacoValue.present.views
+                                elementsOfCurrentView = getCurrentView selectedView editorModel.monacoValue.present.views
                                     |> getViewElementsOfCurrentView
 
                                 updatedSelectedItems =
@@ -565,7 +543,7 @@ update msg model =
                             )
                         ClickEdgeStart (viewElementKey, relation) xy ->
                             let
-                                spxy = shiftPosition state.zoom (state.svgElementPosition.x, state.svgElementPosition.y) xy
+                                spxy = ViewNavigation.shiftPosition state.viewNavigation (state.svgElementPosition.x, state.svgElementPosition.y) xy
 
                                 selectedView = ViewControl.getSelectedView editorModel.viewControl
 
@@ -678,10 +656,10 @@ update msg model =
 
                         ViewNavigation subMsg ->
                             let
-                                ( updated, cmd ) = ViewNavigation.update state.zoom subMsg state.viewNavigation
+                                ( updated, cmd ) = ViewNavigation.update subMsg state.viewNavigation
                             in
                             ( { editorModel
-                            | viewEditor = Ready { state | viewNavigation = updated, zoom = updated.newZoom, ctrlIsDown = updated.ctrlIsDown }
+                            | viewEditor = Ready { state | viewNavigation = updated }
                             } |> toEditor, cmd |> Cmd.map ViewNavigation )
 
                         _ -> ( model, Cmd.none )
@@ -829,11 +807,6 @@ distanceToLine (x, y) ((x1, y1), (x2, y2)) =
     -- distance to the line
     abs ((x2 - x1) * (y1 - y) - (x1 - x) * (y2 - y1)) / sqrt ((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))
 
-initZoom : Element -> Zoom
-initZoom element =
-    Zoom.init { width = element.width, height = element.height }
-        |> Zoom.scaleExtent 0.1 2
-
 floatRemainderBy : Float -> Float -> Float
 floatRemainderBy divisor n =
   n - toFloat(truncate (n / divisor)) * divisor
@@ -843,7 +816,7 @@ handleMouseMove xy ({ drag, brush } as state) currentView =
     case brush of
         Just b ->
             let
-                shiftedXY = shiftPosition state.zoom (0, 0) xy
+                shiftedXY = ViewNavigation.shiftPosition state.viewNavigation (0, 0) xy
                 updatedBrush = { b | end = shiftedXY }
                 elementKeysWithinBrush = currentView
                     |> getViewElementsOfCurrentView
@@ -893,7 +866,7 @@ updateElementAndPointPosition selectedItems xy state =
         selectedPointsDeltas = getSelectedPointKeysAndDeltas selectedItems
             |> List.filterMap (\(k, d) -> d |> Maybe.map (Tuple.pair k))
 
-        (shiftedX, shiftedY) = shiftPosition state.zoom (state.svgElementPosition.x, state.svgElementPosition.y) xy
+        (shiftedX, shiftedY) = ViewNavigation.shiftPosition state.viewNavigation (state.svgElementPosition.x, state.svgElementPosition.y) xy
         updateElementXY : ViewElementKey -> ViewElement -> ViewElement
         updateElementXY viewElementKey viewElement =
             let
@@ -942,52 +915,27 @@ updateElementAndPointPosition selectedItems xy state =
         |> updatedRelations viewElementKey
     )
 
-{-| The mouse events for drag start, drag at and drag end read the client
-position of the cursor, which is relative to the browser viewport. However,
-the node positions are relative to the svg viewport. This function adjusts the
-coordinates accordingly. It also takes the current zoom level and position
-into consideration.
--}
-shiftPosition : Zoom -> ( Float, Float ) -> ( Float, Float ) -> ( Float, Float )
-shiftPosition zoom (elementX, elementY) ( clientX, clientY ) =
-    let
-        zoomRecord =
-            Zoom.asRecord zoom
-    in
-    ( (clientX - zoomRecord.translate.x - elementX) / zoomRecord.scale
-    , (clientY - zoomRecord.translate.y - elementY) / zoomRecord.scale
-    )
-
-
 svgView : (Dict String View, Maybe Domain) -> ViewControl.Model -> ViewEditorState -> List (Html Msg)
 svgView (views, domain) viewControlModel viewEditorState =
     let
-        { zoom, ctrlIsDown } = viewEditorState
+        { viewNavigation } = viewEditorState
 
-        selectItemsEvents : Attribute Msg
-        selectItemsEvents =
-            mouseDownMain SelectItemsStart
+        ctrlIsDown = ViewNavigation.panMode viewNavigation
 
         selectedView = ViewControl.getSelectedView viewControlModel
 
         gridRectEvents : List (Attribute Msg)
         gridRectEvents =
-            [Zoom.onDoubleClick zoom ZoomMsg, Zoom.onWheel zoom ZoomMsg]
-                ++ (if ctrlIsDown then Zoom.onDrag zoom ZoomMsg else [selectItemsEvents])
-
-        zoomTransformAttr : Attribute Msg
-        zoomTransformAttr =
-            Zoom.transform zoom
+            (ViewNavigation.gridRectEvents viewNavigation |> List.map (Html.Attributes.map ViewNavigation))
+                ++ (if ctrlIsDown then [] else [mouseDownMain SelectItemsStart])
 
         transform10 =
-            zoom |> Zoom.asRecord |> .scale |> (*) 10
+            ViewNavigation.getScale viewNavigation |> (*) 10
 
         transform100 = transform10 * 10
 
         getXY =
-            zoom
-            |> Zoom.asRecord
-            |> .translate
+            ViewNavigation.getTranslate viewNavigation
             |> (\t -> (floatRemainderBy transform100 t.x, floatRemainderBy transform100 t.y))
 
         ( x, y ) = getXY
@@ -1006,7 +954,7 @@ svgView (views, domain) viewControlModel viewEditorState =
             ]
         , gridRect gridRectEvents
         , g
-            [ zoomTransformAttr ]
+            [ ViewNavigation.zoomTransformAttr viewEditorState.viewNavigation |> Html.Attributes.map ViewNavigation ]
             [ renderCurrentView (views, domain, selectedView) viewEditorState
             , renderSelectRect viewEditorState
             ]
@@ -1033,22 +981,22 @@ renderSelectRect model =
 renderCurrentView : (Dict String View, Maybe Domain, String) -> ViewEditorState -> Svg Msg
 renderCurrentView (views, domain, selectedView) model =
     let
-        { ctrlIsDown, selectedItems, zoom } = model
+        { selectedItems, viewNavigation } = model
     in
     case (getCurrentView selectedView views, domain) of
         (Just v, Just d) ->
             g []
                 [ getEdges (d, v)
-                    |> List.map (drawEdge zoom ctrlIsDown selectedItems)
+                    |> List.map (drawEdge viewNavigation selectedItems)
                     |> g [ class [ "links" ] ]
                 , getContainers (d, v)
-                    |> List.map (drawContainer zoom ctrlIsDown selectedItems)
+                    |> List.map (drawContainer viewNavigation selectedItems)
                     |> g [ class [ "nodes" ] ]
                 ]
         _ -> text ""
 
-drawEdge : Zoom -> Bool -> List SelectedItem -> Edge -> Svg Msg
-drawEdge zoom panMode selectedItems edge =
+drawEdge : ViewNavigation.Model -> List SelectedItem -> Edge -> Svg Msg
+drawEdge viewNavigation selectedItems edge =
     let
         getSelectedPointIndex vpk =
             if getViewRelationKeyFromViewRelationPointKey vpk == getViewRelationKeyFromEdge edge then
@@ -1062,14 +1010,14 @@ drawEdge zoom panMode selectedItems edge =
     getSelectedPointKeysAndDeltas selectedItems
         |> List.map Tuple.first
         |> List.filterMap getSelectedPointIndex
-        |> linkElement zoom panMode edge
+        |> linkElement viewNavigation edge
 
-drawContainer : Zoom -> Bool -> List SelectedItem -> Container -> Svg Msg
-drawContainer zoom panMode selectedItems container =
+drawContainer : ViewNavigation.Model -> List SelectedItem -> Container -> Svg Msg
+drawContainer viewNavigation selectedItems container =
     let
         mouseDownAttr =
-            if panMode then
-                Zoom.onDrag zoom ZoomMsg
+            if ViewNavigation.panMode viewNavigation then
+                ViewNavigation.panModeEvent viewNavigation |> List.map ( Html.Attributes.map ViewNavigation )
             else
                 [ mouseDownMain (DragViewElementStart container.key) ]
 
@@ -1116,23 +1064,22 @@ getSelectedPointKeysAndDeltas =
     in
     List.filterMap extractPointKeys
 
-linkElement : Zoom -> Bool -> Edge -> List Int -> Svg Msg
-linkElement zoom panMode edge =
+linkElement : ViewNavigation.Model -> Edge -> List Int -> Svg Msg
+linkElement viewNavigation edge =
     let
         viewRelationKey = getViewRelationKeyFromEdge edge
     in
-    edgeBetweenContainers
-        edge
-        (noOpIfPanMode zoom panMode <| onMouseDownEdge viewRelationKey)
-        (if panMode then (\_ -> Zoom.onDrag zoom ZoomMsg) else onMouseDownPoint viewRelationKey)
-
-
-noOpIfPanMode : Zoom -> Bool -> Attribute Msg -> List (Attribute Msg)
-noOpIfPanMode zoom panMode ev =
-    if panMode then
-        Zoom.onDrag zoom ZoomMsg
+    if ViewNavigation.panMode viewNavigation then
+        edgeBetweenContainers
+            edge
+            (ViewNavigation.panModeEvent viewNavigation |> List.map (Html.Attributes.map ViewNavigation))
+            (\_ -> ViewNavigation.panModeEvent viewNavigation |> List.map (Html.Attributes.map ViewNavigation))
     else
-        [ev]
+        edgeBetweenContainers
+            edge
+            (onMouseDownEdge viewRelationKey |> List.singleton)
+            (onMouseDownPoint viewRelationKey)
+
 
 onlyMainButton : Event -> Maybe (Float, Float)
 onlyMainButton e =
@@ -1165,15 +1112,6 @@ onMouseDownPoint (viewRelationElementKey, relation) index =
     |> List.singleton
 
 
-getPositionForNewElement : Element -> Zoom -> (Float, Float)
-getPositionForNewElement svgElement zoom =
-  let
-    record = Zoom.asRecord zoom
-
-    (initY, initX) = ((svgElement.height - svgElement.y)/2, (svgElement.width - svgElement.x)/2)
-  in
-  ( initX - record.scale * record.translate.x, initY - record.scale * record.translate.y)
-
 -- SUBSCRIPTIONS
 
 subscriptions : Model -> Sub Msg
@@ -1189,9 +1127,9 @@ subscriptions model =
         ]
 
     readySubscriptions : ViewEditorState -> Sub Msg
-    readySubscriptions { zoom, brush, drag } =
+    readySubscriptions { viewNavigation, brush, drag } =
       Sub.batch
-        [ Zoom.subscriptions zoom ZoomMsg
+        [ ViewNavigation.subscriptions viewNavigation |> Sub.map ViewNavigation
         , case (brush, drag) of
           (Nothing, Nothing) -> Sub.none
           _ -> dragSubscriptions
@@ -1213,8 +1151,6 @@ subscriptions model =
               , ViewControl.subscriptions |> Sub.map ViewControl
               ]
     , Events.onResize (\_ _ -> Resize)
-    , Events.onKeyDown (keyDecoder |> setCtrlState True)
-    , Events.onKeyUp (keyDecoder |> setCtrlState False)
     , case model of
         Home _ _ -> Sub.none
         Editor _ _ { pane } ->
@@ -1224,15 +1160,3 @@ subscriptions model =
     , initMonacoRequest InitMonacoRequestReceived
     , requestValueToSave RequestValueToSave
     ]
-
-setCtrlState : Bool -> Decode.Decoder String -> Decode.Decoder Msg
-setCtrlState value =
-    Decode.map (\key ->
-        if key == "Control" then
-            SetCtrlIsDown value
-        else
-            NoOp)
-
-keyDecoder : Decode.Decoder String
-keyDecoder =
-    Decode.field "key" Decode.string

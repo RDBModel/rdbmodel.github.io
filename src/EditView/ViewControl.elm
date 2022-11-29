@@ -151,7 +151,7 @@ view views elements model =
     in
     div
         [ style "position" "absolute"
-        , style "display" "grid" -- grid-template-columns: repeat(3, 1fr);
+        , style "display" "grid"
         , style "grid-auto-flow" "row"
         , style "grid-template-columns" "24px auto auto"
         , style "top" "5px"
