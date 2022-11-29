@@ -1,4 +1,4 @@
-module Index exposing (index)
+module Pages.Home exposing (view)
 import Element exposing (Element, el, text, row, alignRight, fill, width, spacing, centerY, padding
   , column, px, height, centerX, paddingXY, link, image, shrink, paragraph, rgba, alpha)
 import Element.Background as Background
@@ -8,8 +8,8 @@ import Element.Border exposing (rounded)
 import Route exposing (editorRoute)
 import Color
 
-index : Html msg
-index =
+view : Html msg
+view =
   Element.layout [] indexMain
 
 indexMain : Element msg
