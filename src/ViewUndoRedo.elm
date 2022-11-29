@@ -4,9 +4,9 @@ import Html exposing (Html, div, button)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
 import TypedSvg.Attributes exposing ( d, viewBox, strokeWidth, stroke, fill, strokeLinecap, strokeLinejoin,
-    cx, cy, r, x1, x2, y1, y2, width, height)
+    width, height)
 import TypedSvg.Types exposing ( Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
-import TypedSvg exposing (svg, path, circle, line)
+import TypedSvg exposing (svg, path)
 import Color
 import UndoList exposing (UndoList)
 import Browser.Events as Events

@@ -144,8 +144,8 @@ innerGrid size =
 gridId : String
 gridId = "grid"
 
-grid : Float -> Float -> Float -> Svg msg
-grid x y size =
+grid : ( Float, Float ) -> Float -> Svg msg
+grid ( x, y ) size =
     pattern
         [ id gridId
         , Attrs.width <| Px size

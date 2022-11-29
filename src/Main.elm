@@ -920,14 +920,16 @@ svgView (views, domain) viewControlModel viewEditorState =
     let
         { viewNavigation } = viewEditorState
 
-        ctrlIsDown = ViewNavigation.panMode viewNavigation
+        rectNavigationEvents = ViewNavigation.gridRectEvents viewNavigation |> List.map (Html.Attributes.map ViewNavigation)
 
         selectedView = ViewControl.getSelectedView viewControlModel
 
         gridRectEvents : List (Attribute Msg)
         gridRectEvents =
-            (ViewNavigation.gridRectEvents viewNavigation |> List.map (Html.Attributes.map ViewNavigation))
-                ++ (if ctrlIsDown then [] else [mouseDownMain SelectItemsStart])
+            if ViewNavigation.panMode viewNavigation then
+                rectNavigationEvents
+            else
+                mouseDownMain SelectItemsStart :: rectNavigationEvents
 
         transform10 =
             ViewNavigation.getScale viewNavigation |> (*) 10
@@ -937,8 +939,6 @@ svgView (views, domain) viewControlModel viewEditorState =
         getXY =
             ViewNavigation.getTranslate viewNavigation
             |> (\t -> (floatRemainderBy transform100 t.x, floatRemainderBy transform100 t.y))
-
-        ( x, y ) = getXY
     in
     [ svg
         [ id elementId
@@ -949,7 +949,7 @@ svgView (views, domain) viewControlModel viewEditorState =
         ]
         [ defs []
             [ innerGrid transform10
-            , grid x y transform100
+            , grid getXY transform100
             , markerDot -- for circle in edges
             ]
         , gridRect gridRectEvents
