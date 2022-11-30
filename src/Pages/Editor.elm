@@ -31,7 +31,7 @@ import Session exposing (Session)
 import Browser exposing (Document)
 import Html exposing (text)
 import Html exposing (Html, div, text, a)
-import Html.Attributes exposing (href, style)
+import Html.Attributes exposing (style)
 import TypedSvg.Attributes as Attrs exposing ( class, x, y, id, d, r, x1, x2, y1, y2)
 import TypedSvg.Core exposing (Svg, Attribute)
 import Html.Events.Extra.Mouse as Mouse exposing (Event)
@@ -1033,10 +1033,8 @@ subscriptions model =
     dragSubscriptions : Sub Msg
     dragSubscriptions =
       Sub.batch
-        [ Events.onMouseMove
-          (Decode.map (.clientPos >> MouseMove) Mouse.eventDecoder)
-        , Events.onMouseUp
-          (Decode.map (\_ -> MouseMoveEnd) Mouse.eventDecoder)
+        [ Events.onMouseMove (Decode.map (.clientPos >> MouseMove) Mouse.eventDecoder)
+        , Events.onMouseUp (Decode.map (\_ -> MouseMoveEnd) Mouse.eventDecoder)
         ]
 
     readySubscriptions : ViewEditorState -> Sub Msg
@@ -1044,14 +1042,13 @@ subscriptions model =
       Sub.batch
         [ ViewNavigation.subscriptions viewNavigation |> Sub.map ViewNavigation
         , case (brush, drag) of
-          (Nothing, Nothing) -> Sub.none
-          _ -> dragSubscriptions
+            (Nothing, Nothing) -> Sub.none
+            _ -> dragSubscriptions
         ]
   in
   Sub.batch
     [ case model.viewEditor of
-        Init ->
-            Sub.none
+        Init -> Sub.none
 
         Ready state ->
             Sub.batch
