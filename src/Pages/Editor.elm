@@ -1,7 +1,7 @@
 module Pages.Editor exposing (Model, Msg, update, init, view, subscriptions)
 
 import Dict exposing (Dict)
-import SplitPane exposing (Orientation(..), ViewConfig, createViewConfig)
+import SplitPanel.SplitPane as SplitPane exposing (Orientation(..), ViewConfig, State, createViewConfig)
 import Domain exposing (Domain, View, ViewElement, ViewItemKey(..), ViewElementKey, ViewRelationKey, ViewRelationPointKey
     , ViewRelationPoint, ViewRelationPointIndex, Edge, Container, getViewElementKeysByCondition, getElementAndItsKeys
     , getCurrentView, possibleRelationsToAdd, addRelationToView, updateViewByKey, deleteContainer
@@ -42,7 +42,7 @@ import Json.Decode as Decode
 
 type alias Model =
     { session : Session
-    , pane : SplitPane.State
+    , pane : State
     , viewEditor : ViewEditor
     , monacoValue : UndoRedoMonacoValue MonacoValue
     , viewControl : ViewControl.Model

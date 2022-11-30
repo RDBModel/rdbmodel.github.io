@@ -291,7 +291,7 @@ deleteContainer containerId =
             Dict.remove containerId v.elements
 
         cleanUpRelations =
-            Dict.map (\_ el -> { el | relations = Dict.filter (\r _ -> (Tuple.first r |> Debug.log "ttt") /= containerId) el.relations })
+            Dict.map (\_ el -> { el | relations = Dict.filter (\r _ -> (Tuple.first r) /= containerId) el.relations })
     in
     Maybe.map (\v ->  { v | elements = v |> withoutContainer |> cleanUpRelations } )
 

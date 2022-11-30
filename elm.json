@@ -23,8 +23,7 @@
             "gampleman/elm-visualization": "2.3.0",
             "mdgriffith/elm-ui": "1.1.8",
             "mpizenberg/elm-pointer-events": "4.0.2",
-            "sporto/elm-select": "6.0.1",
-            "whale9490/elm-split-pane": "1.0.0"
+            "sporto/elm-select": "6.0.1"
         },
         "indirect": {
             "avh4/elm-fifo": "1.0.4",
