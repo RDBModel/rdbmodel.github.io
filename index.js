@@ -311,7 +311,7 @@ async function showFileSaveDialog(value) {
   const newHandle = await window.showSaveFilePicker()
 
   const writableStream = await newHandle.createWritable({types: [{
-    description: 'Taml',
+    description: 'Yaml',
     accept: {'text/plain': ['.yaml']},
   }]});
 

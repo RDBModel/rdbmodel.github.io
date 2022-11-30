@@ -16,7 +16,7 @@ update params views actions =
     List.foldl (modifyViews params) ( views, Cmd.none ) actions
 
 modifyViews : Params -> Action -> ( Dict String View, Cmd msg ) -> ( Dict String View, Cmd msg )
-modifyViews params action (views, cmd ) =
+modifyViews params action ( views, cmd ) =
     case action of
         AddElementToView el ->
             ( getCurrentView params.selectedView views

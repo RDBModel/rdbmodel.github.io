@@ -303,21 +303,20 @@ update msg model =
                         ViewControl subMsg ->
                             let
                                 ( updated, cmd, actions ) = ViewControl.update subMsg model.viewControl
+                                selectedView = ViewControl.getSelectedView model.viewControl
+                                currentMonacoValue = model.monacoValue.present
+                                elementPosition = ViewNavigation.getPositionForNewElement state.viewNavigation state.svgElementPosition
+                                params =
+                                    { position = elementPosition
+                                    , selectedView = selectedView
+                                    , key = model.session.key
+                                    }
+                                ( newViews, cmds ) =
+                                    ModifyView.update params currentMonacoValue.views actions
 
                                 ( newMonacoValue, updatedViewEditor, finalCmds ) =
                                     if ModifyView.monacoValueModified actions then
                                         let
-                                            selectedView = ViewControl.getSelectedView model.viewControl
-                                            currentMonacoValue = model.monacoValue.present
-                                            elementPosition = ViewNavigation.getPositionForNewElement state.viewNavigation state.svgElementPosition
-
-                                            params =
-                                                { position = elementPosition
-                                                , selectedView = selectedView
-                                                , key = model.session.key
-                                                }
-                                            ( newViews, cmds ) =
-                                                ModifyView.update params currentMonacoValue.views actions
                                             updatedMonacoValue = { currentMonacoValue | views = newViews }
 
                                             getPossibleRelations =
@@ -336,7 +335,10 @@ update msg model =
                                     else
                                         ( model.monacoValue
                                         , model.viewEditor
-                                        , cmd |> Cmd.map ViewControl
+                                        , Cmd.batch
+                                            [ cmd |> Cmd.map ViewControl
+                                            , cmds
+                                            ]
                                         )
                             in
                             ( { model
