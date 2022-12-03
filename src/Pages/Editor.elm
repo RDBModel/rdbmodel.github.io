@@ -45,14 +45,13 @@ type alias Model =
     , pane : State
     , viewEditor : ViewEditor
     , monacoValue : UndoRedoMonacoValue MonacoValue
-    , viewControl : ViewControl.Model
     , showOpenFileButton : Bool
     , toReload : Bool
     , errors : String
     }
 
 type ViewEditor
-    = Init
+    = Init String
     | Ready ViewEditorState
 
 type alias MonacoValue =
@@ -65,6 +64,7 @@ type alias ViewEditorState =
     -- , zoom : Zoom
     , viewNavigation : ViewNavigation.Model
     , viewUndoRedo : ViewUndoRedo.Model
+    , viewControl : ViewControl.Model
     , svgElementPosition : Element
     , brush : Maybe Brush
     , selectedItems : List SelectedItem
@@ -100,9 +100,8 @@ init session selectedView =
     ( Model
         session
         (SplitPane.init Horizontal)
-        Init
+        (Init selectedView)
         (getUndoRedoMonacoValue getMonacoValue)
-        (ViewControl.init selectedView)
         False
         True
         ""
@@ -209,13 +208,13 @@ update msg model =
 
         _ ->
             case model.viewEditor of
-                Init ->
+                Init selectedView ->
                     case msg of
                         ReceiveElementPosition (Ok { element }) ->
                             let
                                 views = model.monacoValue.present.views
 
-                                selectedView = ViewControl.getSelectedView model.viewControl
+                                --selectedView = ViewControl.getSelectedView model.viewControl
 
                                 getPossibleRelations =
                                     getCurrentView selectedView views
@@ -227,6 +226,7 @@ update msg model =
                                 { drag = Nothing
                                 , svgElementPosition = element
                                 , viewNavigation = ViewNavigation.init element
+                                , viewControl = ViewControl.init selectedView
                                 , viewUndoRedo = ViewUndoRedo.init
                                 , brush = Nothing
                                 , selectedItems = []
@@ -253,7 +253,7 @@ update msg model =
                             let
                                 (updatedModel, cmd, (selectResult, containerIdToDelete)) = ContextMenu.update subMsg state.containerMenu
 
-                                selectedView = ViewControl.getSelectedView model.viewControl
+                                selectedView = ViewControl.getSelectedView state.viewControl
                                 currentMonacoValue = model.monacoValue.present
                                 newViewsWithRelation =
                                     case selectResult of
@@ -302,8 +302,8 @@ update msg model =
 
                         ViewControl subMsg ->
                             let
-                                ( updated, cmd, actions ) = ViewControl.update subMsg model.viewControl
-                                selectedView = ViewControl.getSelectedView model.viewControl
+                                ( updated, cmd, actions ) = ViewControl.update subMsg state.viewControl
+                                selectedView = ViewControl.getSelectedView state.viewControl
                                 currentMonacoValue = model.monacoValue.present
                                 elementPosition = ViewNavigation.getPositionForNewElement state.viewNavigation state.svgElementPosition
                                 params =
@@ -325,7 +325,10 @@ update msg model =
                                                     |> Maybe.withDefault Dict.empty
                                         in
                                         ( newRecord updatedMonacoValue model.monacoValue
-                                        , Ready { state | containerMenu = ContainerMenu.init getPossibleRelations |> ContextMenu.init }
+                                        , Ready { state
+                                        | containerMenu = ContainerMenu.init getPossibleRelations |> ContextMenu.init
+                                        , viewControl = updated
+                                        }
                                         , Cmd.batch
                                             [ cmd |> Cmd.map ViewControl
                                             , cmds
@@ -334,7 +337,9 @@ update msg model =
                                         )
                                     else
                                         ( model.monacoValue
-                                        , model.viewEditor
+                                        , Ready { state
+                                        | viewControl = updated
+                                        }
                                         , Cmd.batch
                                             [ cmd |> Cmd.map ViewControl
                                             , cmds
@@ -342,8 +347,7 @@ update msg model =
                                         )
                             in
                             ( { model
-                            | viewControl = updated
-                            , toReload = False
+                            | toReload = False
                             , monacoValue = newMonacoValue
                             , viewEditor = updatedViewEditor
                             }
@@ -390,7 +394,7 @@ update msg model =
                                 isWithinAlreadySelected = selectedElementKeys
                                     |> List.member viewElementKey
 
-                                selectedView = ViewControl.getSelectedView model.viewControl
+                                selectedView = ViewControl.getSelectedView state.viewControl
 
                                 elementsOfCurrentView = getCurrentView selectedView model.monacoValue.present.views
                                     |> getViewElementsOfCurrentView
@@ -427,7 +431,7 @@ update msg model =
                                 isWithinAlreadySelected = selectedPointKeys
                                     |> List.member viewRelationPointKey
 
-                                selectedView = ViewControl.getSelectedView model.viewControl
+                                selectedView = ViewControl.getSelectedView state.viewControl
 
                                 elementsOfCurrentView = getCurrentView selectedView model.monacoValue.present.views
                                     |> getViewElementsOfCurrentView
@@ -459,7 +463,7 @@ update msg model =
                             let
                                 removePointAtIndex list = List.take pointIndex list ++ List.drop (pointIndex + 1) list
 
-                                selectedView = ViewControl.getSelectedView model.viewControl
+                                selectedView = ViewControl.getSelectedView state.viewControl
 
                                 currentMonacoValue = model.monacoValue.present
 
@@ -479,7 +483,7 @@ update msg model =
 
                         RemoveEdge viewRelationKey ->
                             let
-                                selectedView = ViewControl.getSelectedView model.viewControl
+                                selectedView = ViewControl.getSelectedView state.viewControl
 
                                 currentView = getCurrentView selectedView model.monacoValue.present.views
                                 currentMonacoValue = model.monacoValue.present
@@ -509,7 +513,7 @@ update msg model =
                             let
                                 spxy = ViewNavigation.shiftPosition state.viewNavigation (state.svgElementPosition.x, state.svgElementPosition.y) xy
 
-                                selectedView = ViewControl.getSelectedView model.viewControl
+                                selectedView = ViewControl.getSelectedView state.viewControl
 
                                 currentView = getCurrentView selectedView model.monacoValue.present.views
 
@@ -576,7 +580,7 @@ update msg model =
 
                         MouseMove xy ->
                             let
-                                selectedViewKey = ViewControl.getSelectedView model.viewControl
+                                selectedViewKey = ViewControl.getSelectedView state.viewControl
                                 selectedView = getCurrentView selectedViewKey model.monacoValue.present.views
                                 updatedViewEditor = handleMouseMove xy state selectedView
 
@@ -820,12 +824,12 @@ updateElementAndPointPosition selectedItems xy state =
 view : Model -> Document Msg
 view model =
     let
-        { pane, viewEditor, monacoValue, viewControl } = model
+        { pane, viewEditor, monacoValue } = model
         { domain, views } = monacoValue.present
         graphics =
             case viewEditor of
-                Init -> [ text "" ]
-                Ready state -> (svgView (views, domain) viewControl state)
+                Init _ -> [ text "" ]
+                Ready state -> (svgView (views, domain) state)
     in
     { title = "RDB Model Editor"
     , body =
@@ -854,14 +858,14 @@ monacoViewPart showButton =
     , if showButton then FilePicker.view |> Html.map FilePicker else text ""
     ]
 
-svgView : (Dict String View, Maybe Domain) -> ViewControl.Model -> ViewEditorState -> List (Html Msg)
-svgView (views, domain) viewControlModel viewEditorState =
+svgView : (Dict String View, Maybe Domain) -> ViewEditorState -> List (Html Msg)
+svgView (views, domain) viewEditorState =
     let
-        { viewNavigation } = viewEditorState
+        { viewNavigation, viewControl } = viewEditorState
 
         rectNavigationEvents = ViewNavigation.gridRectEvents viewNavigation |> List.map (Html.Attributes.map ViewNavigation)
 
-        selectedView = ViewControl.getSelectedView viewControlModel
+        selectedView = ViewControl.getSelectedView viewControl
 
         gridRectEvents : List (Attribute Msg)
         gridRectEvents =
@@ -898,7 +902,7 @@ svgView (views, domain) viewControlModel viewEditorState =
             , renderSelectRect viewEditorState
             ]
         ]
-    , ViewControl.view views (getElementsToAdd domain) viewControlModel |> Html.map ViewControl
+    , ViewControl.view views (getElementsToAdd domain) viewControl |> Html.map ViewControl
     , ViewNavigation.view viewEditorState.viewNavigation |> Html.map ViewNavigation
     , ViewUndoRedo.view |> Html.map ViewUndoRedo
     , ContextMenu.view viewEditorState.containerMenu |> Html.map ContainerContextMenu
@@ -1050,7 +1054,7 @@ subscriptions model =
   in
   Sub.batch
     [ case model.viewEditor of
-        Init -> Sub.none
+        Init _ -> Sub.none
 
         Ready state ->
             Sub.batch
