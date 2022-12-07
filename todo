@@ -15,6 +15,8 @@
 
 [ ] change representation of positions of elements in view (x, y -> position: (x, y))
 
+[ ] show edge circles only when mouse hover otherwise show as a line
+
 ------
 [x] extract pages
 [x] new view via ui
