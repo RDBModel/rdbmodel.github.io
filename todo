@@ -10,13 +10,16 @@
 
 ## refactor
 
-[ ] extract pages
 [ ] viewUndoRedo component - actions
+[ ] containerMenu component - actions
 [ ] show errors
 
 [ ] remove Monaco from variable names
 
+[ ] change representation of positions of elements in view (x, y -> position: (x, y))
+
 ------
+[x] extract pages
 [x] new view via ui
 [x] delete element via ui
 [x] delete relation via ui

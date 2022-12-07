@@ -1,4 +1,4 @@
-module ViewUndoRedo exposing (..)
+module ViewUndoRedo exposing (Model, Msg, UndoRedoMonacoValue, update, view, init, newRecord, getUndoRedoMonacoValue, mapPresent, subscriptions)
 
 import Html exposing (Html, div, button)
 import Html.Attributes exposing (style)
