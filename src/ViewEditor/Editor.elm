@@ -24,7 +24,7 @@ import Utils exposing (trimList)
 import Session exposing (Session)
 import Html exposing (text)
 import Html exposing (Html, div, text, a)
-import Html.Attributes exposing (style)
+import Html.Attributes
 import TypedSvg.Attributes as Attrs exposing ( class, x, y, id, d, r, x1, x2, y1, y2)
 import TypedSvg.Core exposing (Svg, Attribute)
 import Html.Events.Extra.Mouse as Mouse exposing (Event)
@@ -387,7 +387,7 @@ update session { views, domain } msg model =
                                     (txy, (txy, maxSafeInteger))
                                     allPoints
 
-                                (listWithNewPoint, indexOfNewPoint, _ ) = List.foldr
+                                (listWithNewPoint, _, _ ) = List.foldr
                                     (\a -> \(b, i, found) ->
                                         if insertAfterValue == a then
                                             (a :: spxy :: b, i, True)

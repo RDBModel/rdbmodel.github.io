@@ -58,7 +58,7 @@ import Html exposing (Attribute, Html, div, span)
 import Html.Attributes exposing (class, style)
 import Html.Events
 import Json.Decode as D exposing (at, field)
-import Json.Encode as E exposing (encode, float, int)
+import Json.Encode exposing (encode, float, int)
 import Maybe
 
 

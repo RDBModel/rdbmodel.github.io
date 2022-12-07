@@ -7,9 +7,6 @@
 [ ] add loading icon for editor
 [ ] notify about unsaved text in editor before saving
 
-
-## refactor
-
 [ ] viewUndoRedo component - actions
 [ ] containerMenu component - actions
 [ ] show errors

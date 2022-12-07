@@ -48,9 +48,6 @@ init : Dict String (List Relation) -> Model
 init possibleRelations =
     Model "" initSelect possibleRelations
 
-type MenuContext
-    = Container (Dict String (List Relation))
-
 type Msg
     = OnRelationSelect (Maybe ViewRelationKey)
     | SelectRelationMsg (Select.Msg ViewRelationKey)
