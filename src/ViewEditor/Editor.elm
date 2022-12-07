@@ -1,4 +1,4 @@
-module Pages.EditorUI exposing (Model, Msg, Action(..), view, init, update, getElementPosition, subscriptions)
+module ViewEditor.Editor exposing (Model, Msg, Action(..), view, init, update, getElementPosition, subscriptions)
 
 
 import Dict exposing (Dict)

@@ -19,8 +19,8 @@ import Html exposing (Html, div, text, a)
 import Html.Attributes exposing (style)
 import TypedSvg.Attributes exposing (id)
 import TypedSvg.Types exposing ( Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
-import Pages.EditorUI as EditorUI
-import Pages.EditorUIAction as EditorUIActions
+import ViewEditor.Editor as EditorUI
+import ViewEditor.EditorAction as EditorUIActions
 
 type alias Model =
     { session : Session

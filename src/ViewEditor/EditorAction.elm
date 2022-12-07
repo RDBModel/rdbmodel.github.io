@@ -1,8 +1,8 @@
-module Pages.EditorUIAction exposing (apply)
+module ViewEditor.EditorAction exposing (apply)
 
 import Dict exposing (Dict)
 import Domain exposing (View, Domain)
-import Pages.EditorUI exposing (Action(..), Msg)
+import ViewEditor.Editor exposing (Action(..), Msg)
 import ViewUndoRedo exposing (newRecord)
 import ViewUndoRedo exposing (UndoRedoMonacoValue)
 import JsInterop exposing (updateMonacoValue)
