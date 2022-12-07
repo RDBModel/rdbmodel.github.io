@@ -1,4 +1,4 @@
-module EditView.ModifyView exposing (update, monacoValueModified)
+module EditView.ViewControlActions exposing (update, monacoValueModified)
 
 import EditView.ViewControl exposing (Action(..))
 import Dict exposing (Dict)

@@ -12,6 +12,9 @@
 
 [ ] extract pages
 [ ] viewUndoRedo component - actions
+[ ] show errors
+
+[ ] remove Monaco from variable names
 
 ------
 [x] new view via ui
