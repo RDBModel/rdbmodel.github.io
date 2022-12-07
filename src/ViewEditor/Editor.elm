@@ -12,10 +12,10 @@ import Domain exposing (Domain, View, ViewElement, ViewItemKey(..), ViewElementK
     , getElementsToAdd, getViewPointKeysByCondition)
 import ViewControl.ViewControl as ViewControl
 import Navigation.ViewNavigation as ViewNavigation
-import ContextMenu
+import ContainerMenu.ContextMenu as ContextMenu
 import Browser.Dom as Dom
 import Task
-import ContainerMenu
+import ContainerMenu.Menu
 import ViewControl.ViewControlActions as ModifyView
 import Elements exposing (extendPoints, innerGrid, grid, markerDot, gridRect, renderContainerSelected
     , renderContainer, selectItemsRect, edgeBetweenContainers)
@@ -121,7 +121,7 @@ update session { views, domain } msg model =
                     , viewControl = ViewControl.init selectedView
                     , brush = Nothing
                     , selectedItems = []
-                    , containerMenu = ContainerMenu.init getPossibleRelations |> ContextMenu.init
+                    , containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init
                     }
                     , Cmd.none
                     , []
@@ -196,7 +196,7 @@ update session { views, domain } msg model =
                                 in
                                 ( Ready
                                     { state
-                                    | containerMenu = ContainerMenu.init getPossibleRelations |> ContextMenu.init
+                                    | containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init
                                     , viewControl = updated
                                     }
                                 , Cmd.batch
@@ -343,7 +343,7 @@ update session { views, domain } msg model =
                                 |> Maybe.withDefault Dict.empty
 
                         updatedViewEditor =
-                            Ready { state | containerMenu = ContainerMenu.init getPossibleRelations |> ContextMenu.init }
+                            Ready { state | containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init }
                     in
                     ( updatedViewEditor
                     , Cmd.none

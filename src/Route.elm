@@ -14,14 +14,10 @@ parser =
         , Parser.map Editor (s "editor" </> string)
         ]
 
--- PUBLIC HELPERS
-
 fromUrl : Url -> Maybe Route
 fromUrl url =
     { url | path = Maybe.withDefault "" url.fragment, fragment = Nothing }
         |> Parser.parse parser
-
--- INTERNAL
 
 editorRoute : String
 editorRoute = "#/editor/view-1"

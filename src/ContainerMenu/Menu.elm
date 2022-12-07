@@ -1,4 +1,4 @@
-module ContainerMenu exposing (..)
+module ContainerMenu.Menu exposing (..)
 import Dict exposing (Dict)
 import Domain exposing (Relation)
 import Html exposing (Html, div, button, text)

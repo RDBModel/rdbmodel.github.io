@@ -1,11 +1,11 @@
-module ContextMenu exposing (..)
+module ContainerMenu.ContextMenu exposing (..)
 
 import Html.Events.Extra.Mouse as Mouse
 import Html exposing (Attribute, text, div, Html)
 import Html.Attributes exposing (style)
 import Browser.Events as Events
 import Json.Decode as Decode
-import ContainerMenu
+import ContainerMenu.Menu as ContainerMenu
 import JsInterop exposing (onWheel)
 import Domain exposing (ViewRelationKey)
 
