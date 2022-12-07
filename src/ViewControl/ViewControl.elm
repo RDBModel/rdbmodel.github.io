@@ -1,4 +1,4 @@
-module EditView.ViewControl exposing (Model, Msg, Action(..), view, update, getSelectedView, init
+module ViewControl.ViewControl exposing (Model, Msg, Action(..), view, update, getSelectedView, init
     , subscriptions)
 
 import Html.Attributes exposing (style, class, value)

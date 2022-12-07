@@ -1,6 +1,6 @@
-module EditView.ViewControlActions exposing (update, monacoValueModified)
+module ViewControl.ViewControlActions exposing (update, monacoValueModified)
 
-import EditView.ViewControl exposing (Action(..))
+import ViewControl.ViewControl exposing (Action(..))
 import Dict exposing (Dict)
 import Domain exposing (View, addElementToView, getCurrentView, updateViewByKey)
 import Browser.Navigation as Nav

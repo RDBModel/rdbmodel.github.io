@@ -10,13 +10,13 @@ import Domain exposing (Domain, View, ViewElement, ViewItemKey(..), ViewElementK
     , updateRelationsInElements, updateElementsInViews, removedEdge, getViewRelationPoints
     , getEdges, getContainers, getViewRelationKeyFromViewRelationPointKey, getViewRelationKeyFromEdge
     , getElementsToAdd, getViewPointKeysByCondition)
-import EditView.ViewControl as ViewControl
+import ViewControl.ViewControl as ViewControl
 import Navigation.ViewNavigation as ViewNavigation
 import ContextMenu
 import Browser.Dom as Dom
 import Task
 import ContainerMenu
-import EditView.ViewControlActions as ModifyView
+import ViewControl.ViewControlActions as ModifyView
 import Elements exposing (extendPoints, innerGrid, grid, markerDot, gridRect, renderContainerSelected
     , renderContainer, selectItemsRect, edgeBetweenContainers)
 import Basics.Extra exposing (maxSafeInteger)
