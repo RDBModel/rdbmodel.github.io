@@ -19,13 +19,13 @@ import Html exposing (Html, div, text, a)
 import Html.Attributes exposing (style)
 import TypedSvg.Attributes exposing (id)
 import TypedSvg.Types exposing ( Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
-import ViewEditor.Editor as EditorUI
-import ViewEditor.EditorAction as EditorUIActions
+import ViewEditor.Editor as ViewEditor
+import ViewEditor.EditorAction as ViewEditorActions
 
 type alias Model =
     { session : Session
     , pane : State
-    , viewEditor : EditorUI.Model
+    , viewEditor : ViewEditor.Model
     , monacoValue : UndoRedoMonacoValue MonacoValue
     , viewUndoRedo : ViewUndoRedo.Model
     , showOpenFileButton : Bool
@@ -43,7 +43,7 @@ init session selectedView =
     ( Model
         session
         (SplitPane.init Horizontal)
-        (EditorUI.init selectedView)
+        (ViewEditor.init selectedView)
         (getUndoRedoMonacoValue getMonacoValue)
         ViewUndoRedo.init
         False
@@ -60,7 +60,7 @@ type Msg
     = MonacoEditorValueReceived String
     | ReceiveMonacoElementPosition (Result Dom.Error Dom.Element)
     | MonacoEditorInitialValueReceived String
-    | EditorUIMsg EditorUI.Msg
+    | ViewEditorMsg ViewEditor.Msg
     | PaneMsg SplitPane.Msg
     | InitMonacoRequestReceived ()
     | RequestValueToSave ()
@@ -106,7 +106,7 @@ update msg model =
                     in
                     ( newModel
                     , Cmd.batch
-                        [ EditorUI.getElementPosition |> Cmd.map EditorUIMsg
+                        [ ViewEditor.getElementPosition |> Cmd.map ViewEditorMsg
                         , validationErrors ""
                         ]
                     )
@@ -137,7 +137,7 @@ update msg model =
                     in
                     ( newModel
                     , Cmd.batch
-                        [ EditorUI.getElementPosition |> Cmd.map EditorUIMsg
+                        [ ViewEditor.getElementPosition |> Cmd.map ViewEditorMsg
                         , validationErrors ""
                         ]
                     )
@@ -155,14 +155,14 @@ update msg model =
         RequestValueToSave _ ->
             ( model, saveValueToFile (rdbEncode model.monacoValue.present) )
 
-        EditorUIMsg subMsg ->
+        ViewEditorMsg subMsg ->
             let
-                ( updated, cmd, actions ) = EditorUI.update model.session model.monacoValue.present subMsg model.viewEditor
+                ( updated, cmd, actions ) = ViewEditor.update model.session model.monacoValue.present subMsg model.viewEditor
 
-                ( newMonacoModel, updatedCmds ) = EditorUIActions.apply { monacoValue = model.monacoValue, cmd = cmd } actions
+                ( newMonacoModel, updatedCmds ) = ViewEditorActions.apply { monacoValue = model.monacoValue, cmd = cmd } actions
             in
             ( { model | viewEditor = updated, monacoValue = newMonacoModel, toReload = False }
-            , updatedCmds |> Cmd.map EditorUIMsg
+            , updatedCmds |> Cmd.map ViewEditorMsg
             )
 
         FilePicker subMsg ->
@@ -195,7 +195,7 @@ view model =
             [ SplitPane.view
                 viewConfig
                 ( div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
-                    [ EditorUI.view monacoValue.present viewEditor |> Html.map EditorUIMsg
+                    [ ViewEditor.view monacoValue.present viewEditor |> Html.map ViewEditorMsg
                     , ViewUndoRedo.view |> Html.map ViewUndoRedo
                     ]
                 )
@@ -223,7 +223,7 @@ monacoViewPart showButton =
 subscriptions : Model -> Sub Msg
 subscriptions model =
   Sub.batch
-    [ EditorUI.subscriptions model.viewEditor |> Sub.map EditorUIMsg
+    [ ViewEditor.subscriptions model.viewEditor |> Sub.map ViewEditorMsg
     , ViewUndoRedo.subscriptions model.viewUndoRedo |> Sub.map ViewUndoRedo
     , Sub.map PaneMsg <| SplitPane.subscriptions model.pane
     , monacoEditorInitialValue <| MonacoEditorInitialValueReceived

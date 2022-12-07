@@ -75,7 +75,6 @@ type alias Element =
 init : String -> Model
 init selectedView = Init selectedView
 
-
 type Msg
     = ViewNavigation ViewNavigation.Msg
     | Resize
@@ -338,7 +337,6 @@ update session { views, domain } msg model =
                             |> Maybe.map (removedEdge viewRelationKey)
                             |> updateViewByKey selectedView views
 
-
                         getPossibleRelations =
                             getCurrentView selectedView updatedViews
                                 |> Maybe.map2 (\d v -> possibleRelationsToAdd (d, v)) domain
@@ -477,7 +475,6 @@ elementId : String
 elementId =
     "main-graph"
 
-
 getSelectedElementKeysAndDeltas : List SelectedItem -> List (ViewElementKey, Maybe (Float, Float))
 getSelectedElementKeysAndDeltas =
     let
@@ -487,7 +484,6 @@ getSelectedElementKeysAndDeltas =
                 PointKey _ -> Nothing
     in
     List.filterMap extractViewElelementKeys
-
 
 updateSelectedItemsDeltas : Maybe (Dict ViewElementKey ViewElement) -> (Float, Float) -> List SelectedItem -> List SelectedItem
 updateSelectedItemsDeltas viewElementsOfCurrentView (shiftedStartX, shiftedStartY) selectedItems =
