@@ -1,11 +1,12 @@
 module ContainerMenu.Menu exposing (..)
+
 import Dict exposing (Dict)
-import Domain exposing (Relation)
+import Domain.Domain exposing (Relation)
 import Html exposing (Html, div, button, text)
 import Html.Attributes exposing (style)
-import DomainEncoder exposing (relationToString)
+import Domain.DomainEncoder exposing (relationToString)
 import Select
-import Domain exposing (ViewRelationKey)
+import Domain.Domain exposing (ViewRelationKey)
 import Html.Events exposing (onClick)
 
 type alias SelectModel a =

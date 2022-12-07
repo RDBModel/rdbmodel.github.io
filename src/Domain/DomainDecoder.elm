@@ -1,9 +1,9 @@
-module DomainDecoder exposing (rdbDecoder)
+module Domain.DomainDecoder exposing (rdbDecoder)
 
 import Yaml.Decode exposing (..)
-import Domain exposing (..)
+import Domain.Domain exposing (..)
 import Dict exposing (Dict)
-import Validation exposing (validateViews, validateDomain)
+import Domain.Validation exposing (validateViews, validateDomain)
 
 rdbDecoder : Decoder (Domain, Dict String View)
 rdbDecoder =

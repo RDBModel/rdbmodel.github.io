@@ -1,4 +1,4 @@
-module Domain exposing (..)
+module Domain.Domain exposing (..)
 
 import Dict exposing (Dict)
 import Scale exposing (domain)

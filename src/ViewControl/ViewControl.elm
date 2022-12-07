@@ -5,7 +5,7 @@ import Html.Attributes exposing (style, class, value)
 import Html.Events exposing (onClick, onInput, onFocus, onBlur)
 import Html exposing (Html, div, button, input, text)
 import Select
-import Domain exposing (View, getViewElements)
+import Domain.Domain exposing (View, getViewElements)
 import Dict exposing (Dict)
 import TypedSvg exposing (svg, path, line)
 import TypedSvg.Attributes exposing ( d, viewBox, strokeWidth, stroke, fill, strokeLinecap, strokeLinejoin,

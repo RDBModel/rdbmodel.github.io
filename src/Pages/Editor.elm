@@ -2,16 +2,16 @@ module Pages.Editor exposing (Model, Msg, update, init, view, subscriptions)
 
 import Dict exposing (Dict)
 import SplitPanel.SplitPane as SplitPane exposing (Orientation(..), ViewConfig, State, createViewConfig)
-import Domain exposing (Domain, View, ViewItemKey(..))
+import Domain.Domain exposing (Domain, View, ViewItemKey(..))
 import ViewUndoRedo exposing (UndoRedoMonacoValue, getUndoRedoMonacoValue, newRecord, mapPresent)
 import Browser.Dom as Dom
 import FilePicker
 import JsInterop exposing (initMonacoResponse, validationErrors, updateMonacoValue, saveValueToFile
     , monacoEditorInitialValue, monacoEditorSavedValue, initMonacoRequest, requestValueToSave)
 import Yaml.Decode as D
-import DomainDecoder exposing (rdbDecoder)
+import Domain.DomainDecoder exposing (rdbDecoder)
 import Task
-import DomainEncoder exposing (rdbEncode)
+import Domain.DomainEncoder exposing (rdbEncode)
 import Session exposing (Session)
 import Browser exposing (Document)
 import Html exposing (text)

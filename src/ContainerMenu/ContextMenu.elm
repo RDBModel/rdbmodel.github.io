@@ -7,7 +7,7 @@ import Browser.Events as Events
 import Json.Decode as Decode
 import ContainerMenu.Menu as ContainerMenu
 import JsInterop exposing (onWheel)
-import Domain exposing (ViewRelationKey)
+import Domain.Domain exposing (ViewRelationKey)
 
 type alias Model =
     { menuState : Maybe { position : (Float, Float), hover : Bool }

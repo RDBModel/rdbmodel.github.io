@@ -3,7 +3,7 @@ module ViewEditor.Editor exposing (Model, Msg, Action(..), view, init, update, g
 
 import Dict exposing (Dict)
 import SplitPanel.SplitPane exposing (Orientation(..))
-import Domain exposing (Domain, View, ViewElement, ViewItemKey(..), ViewElementKey, ViewRelationKey, ViewRelationPointKey
+import Domain.Domain exposing (Domain, View, ViewElement, ViewItemKey(..), ViewElementKey, ViewRelationKey, ViewRelationPointKey
     , ViewRelationPoint, ViewRelationPointIndex, Edge, Container, getViewElementKeysByCondition, getElementAndItsKeys
     , getCurrentView, possibleRelationsToAdd, addRelationToView, updateViewByKey, deleteContainer
     , getViewElementsOfCurrentView, getElement, getRelationPoints, getPoint, updatePointsInRelations

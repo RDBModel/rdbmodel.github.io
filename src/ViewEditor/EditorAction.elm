@@ -1,12 +1,12 @@
 module ViewEditor.EditorAction exposing (apply)
 
 import Dict exposing (Dict)
-import Domain exposing (View, Domain)
+import Domain.Domain exposing (View, Domain)
 import ViewEditor.Editor exposing (Action(..), Msg)
 import ViewUndoRedo exposing (newRecord)
 import ViewUndoRedo exposing (UndoRedoMonacoValue)
 import JsInterop exposing (updateMonacoValue)
-import DomainEncoder exposing (rdbEncode)
+import Domain.DomainEncoder exposing (rdbEncode)
 import ViewUndoRedo exposing (mapPresent)
 
 type alias Params msg =

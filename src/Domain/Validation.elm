@@ -1,6 +1,6 @@
-module Validation exposing (validateDomain, validateViews)
+module Domain.Validation exposing (validateDomain, validateViews)
 
-import Domain exposing (..)
+import Domain.Domain exposing (..)
 import Dict exposing (Dict)
 import Set exposing (..)
 import Json.Encode exposing (dict, string, list, encode)

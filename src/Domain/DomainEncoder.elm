@@ -1,10 +1,10 @@
-module DomainEncoder exposing (..)
+module Domain.DomainEncoder exposing (..)
 
 import Yaml.Encode exposing (..)
-import Domain exposing (Domain, View, Relation, Ring, ViewElement, ViewRelationPoint, relationSplitter)
+import Domain.Domain exposing (Domain, View, Relation, Ring, ViewElement, ViewRelationPoint, relationSplitter)
 import Dict exposing (Dict)
 import Element.Region exposing (description)
-import Domain exposing (Delivery)
+import Domain.Domain exposing (Delivery)
 
 rdbEncode : { a | views: Dict String View, domain: Maybe Domain } -> String
 rdbEncode { views, domain } =

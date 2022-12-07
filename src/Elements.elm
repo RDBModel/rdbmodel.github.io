@@ -13,7 +13,7 @@ import Color
 import Path exposing (Path)
 import Shape exposing (linearCurve)
 import SubPath exposing (arcLengthParameterized, arcLength)
-import Domain exposing (Container, Edge)
+import Domain.Domain exposing (Container, Edge)
 
 containerWidth : Float
 containerWidth = 100
