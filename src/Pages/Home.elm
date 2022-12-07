@@ -1,4 +1,5 @@
 module Pages.Home exposing (view)
+
 import Element exposing (Element, el, text, row, alignRight, fill, width, spacing, centerY, padding
   , column, px, height, centerX, paddingXY, link, image, shrink, paragraph, rgba, alpha)
 import Element.Background as Background

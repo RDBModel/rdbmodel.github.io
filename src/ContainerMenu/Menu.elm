@@ -1,4 +1,4 @@
-module ContainerMenu.Menu exposing (..)
+module ContainerMenu.Menu exposing (Model, init, Msg, update, view, updateContainerId)
 
 import Dict exposing (Dict)
 import Domain.Domain exposing (Relation)

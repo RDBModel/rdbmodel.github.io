@@ -1,4 +1,4 @@
-module ContainerMenu.ContextMenu exposing (..)
+module ContainerMenu.ContextMenu exposing (Msg, Model, view, update, init, attach, subscriptions)
 
 import Html.Events.Extra.Mouse as Mouse
 import Html exposing (Attribute, text, div, Html)
