@@ -10,13 +10,15 @@ import Domain.Domain exposing ( Domain, View, ViewElement, ViewItemKey(..), View
     , updateRelationsInElements, updateElementsInViews, removedEdge, getViewRelationPoints
     , getEdges, getContainers, getViewRelationKeyFromViewRelationPointKey, getViewRelationKeyFromEdge
     , getElementsToAdd, getViewPointKeysByCondition )
-import ViewControl.ViewControl as ViewControl
 import Navigation.ViewNavigation as ViewNavigation
 import ContainerMenu.ContextMenu as ContextMenu
 import Browser.Dom as Dom
 import Task
 import ContainerMenu.Menu
-import ViewControl.ViewControlActions as ModifyView
+import ViewControl.ViewControl as ViewControl
+import ViewControl.ViewControlActions as ViewControlActions
+import ViewControl.AddView as AddView
+import ViewControl.AddViewActions as AddViewActions
 import Elements exposing ( extendPoints, innerGrid, grid, markerDot, gridRect, renderContainerSelected
     , renderContainer, selectItemsRect, edgeBetweenContainers )
 import Basics.Extra exposing ( maxSafeInteger )
@@ -41,6 +43,7 @@ type alias ViewEditorState =
     { drag : Maybe Drag
     , viewNavigation : ViewNavigation.Model
     , viewControl : ViewControl.Model
+    , addView : AddView.Model
     , svgElementPosition : Element
     , brush : Maybe Brush
     , selectedItems : List SelectedItem
@@ -88,6 +91,7 @@ type Msg
     | MouseMoveEnd
     | SelectItemsStart ( Float, Float )
     | ViewControl ViewControl.Msg
+    | AddView AddView.Msg
     | ContainerContextMenu ContextMenu.Msg
     | NoOp
 
@@ -116,6 +120,7 @@ update session { views, domain } msg model =
             { drag = Nothing
             , svgElementPosition = element
             , viewNavigation = ViewNavigation.init element
+            , addView = AddView.init
             , viewControl = ViewControl.init selectedView
             , brush = Nothing
             , selectedItems = []
@@ -180,10 +185,10 @@ update session { views, domain } msg model =
                     , key = session.key
                     }
                 ( newViews, cmds ) =
-                    ModifyView.update params views actions
+                    ViewControlActions.update params views actions
 
                 ( updatedViewEditor, finalCmds, newActions ) =
-                    if ModifyView.monacoValueModified actions then
+                    if ViewControlActions.monacoValueModified actions then
                         let
                             getPossibleRelations =
                                 getCurrentView selectedView newViews
@@ -208,6 +213,49 @@ update session { views, domain } msg model =
                             }
                         , Cmd.batch
                             [ cmd |> Cmd.map ViewControl
+                            , cmds
+                            ]
+                        , []
+                        )
+            in
+            ( updatedViewEditor
+            , finalCmds
+            , newActions
+            )
+
+        ( Ready state, AddView subMsg ) ->
+            let
+                ( updated, cmd, actions ) = AddView.update subMsg state.addView
+                selectedView = ViewControl.getSelectedView state.viewControl
+                ( newViews, cmds ) =
+                    AddViewActions.update views actions
+
+                ( updatedViewEditor, finalCmds, newActions ) =
+                    if AddViewActions.monacoValueModified actions then
+                        let
+                            getPossibleRelations =
+                                getCurrentView selectedView newViews
+                                    |> Maybe.map2 (\d v -> possibleRelationsToAdd ( d, v )) domain
+                                    |> Maybe.withDefault Dict.empty
+                        in
+                        ( Ready
+                            { state
+                            | containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init
+                            , addView = updated
+                            }
+                        , Cmd.batch
+                            [ cmd |> Cmd.map AddView
+                            , cmds
+                            ]
+                        , UpdateViews newViews |> List.singleton
+                        )
+                    else
+                        ( Ready
+                            { state
+                            | addView = updated
+                            }
+                        , Cmd.batch
+                            [ cmd |> Cmd.map AddView
                             , cmds
                             ]
                         , []
@@ -640,12 +688,12 @@ updateElementAndPointPosition selectedItems xy state =
 
 
 view : MonacoState -> Model -> Html Msg
-view { views, domain } model =
+view domain model =
     let
         graphics =
             case model of
                 Init _ -> [ text "" ]
-                Ready state -> ( svgView ( views, domain ) state )
+                Ready state -> ( svgView domain state )
     in
     div
         [ id elementId, Html.Attributes.style "width" "100%"
@@ -653,8 +701,8 @@ view { views, domain } model =
         , Html.Attributes.style "position" "relative" ]
         graphics
 
-svgView : ( Dict String View, Maybe Domain ) -> ViewEditorState -> List ( Html Msg )
-svgView ( views, domain ) viewEditorState =
+svgView : MonacoState -> ViewEditorState -> List ( Html Msg )
+svgView { views, domain } viewEditorState =
     let
         { viewNavigation, viewControl } = viewEditorState
 
@@ -662,7 +710,12 @@ svgView ( views, domain ) viewEditorState =
 
         selectedView = ViewControl.getSelectedView viewControl
 
-        gridRectEvents : List ( Attribute Msg )
+        currentView =
+            case ( getCurrentView selectedView views, domain ) of
+                ( Just v, Just d ) ->
+                    renderCurrentView ( v, d, selectedView ) viewEditorState
+                _ -> text ""
+
         gridRectEvents =
             if ViewNavigation.panMode viewNavigation then
                 rectNavigationEvents
@@ -682,7 +735,6 @@ svgView ( views, domain ) viewEditorState =
         [ id elementId
         , Attrs.width <| Percent 100
         , Attrs.height <| Percent 100
-        -- TODO Disable right click menu
         , Mouse.onContextMenu (\_ -> NoOp )
         ]
         [ defs []
@@ -693,12 +745,13 @@ svgView ( views, domain ) viewEditorState =
         , gridRect gridRectEvents
         , g
             [ ViewNavigation.zoomTransformAttr viewEditorState.viewNavigation |> Html.Attributes.map ViewNavigation ]
-            [ renderCurrentView ( views, domain, selectedView ) viewEditorState
+            [ currentView
             , renderSelectRect viewEditorState
             ]
         ]
     , ViewControl.view views ( getElementsToAdd domain ) viewControl |> Html.map ViewControl
     , ViewNavigation.view viewEditorState.viewNavigation |> Html.map ViewNavigation
+    , AddView.view viewEditorState.addView |> Html.map AddView
     , ContextMenu.view viewEditorState.containerMenu |> Html.map ContainerContextMenu
     ]
 
@@ -720,22 +773,19 @@ floatRemainderBy divisor n =
   n - toFloat ( truncate ( n / divisor )) * divisor
 
 
-renderCurrentView : ( Dict String View, Maybe Domain, String ) -> ViewEditorState -> Svg Msg
-renderCurrentView ( views, domain, selectedView ) model =
+renderCurrentView : ( View, Domain, String ) -> ViewEditorState -> Svg Msg
+renderCurrentView ( v, domain, selectedView ) model =
     let
         { selectedItems, viewNavigation } = model
     in
-    case ( getCurrentView selectedView views, domain ) of
-        ( Just v, Just d ) ->
-            g []
-                [ getEdges ( d, v )
-                    |> List.map ( drawEdge viewNavigation selectedItems )
-                    |> g [ class [ "links" ] ]
-                , getContainers ( d, v )
-                    |> List.map ( drawContainer viewNavigation selectedItems )
-                    |> g [ class [ "nodes" ] ]
-                ]
-        _ -> text ""
+    g []
+        [ getEdges ( domain, v )
+            |> List.map ( drawEdge viewNavigation selectedItems )
+            |> g [ class [ "links" ] ]
+        , getContainers ( domain, v )
+            |> List.map ( drawContainer viewNavigation selectedItems )
+            |> g [ class [ "nodes" ] ]
+        ]
 
 renderSelectRect : ViewEditorState -> Svg Msg
 renderSelectRect model =
@@ -854,7 +904,7 @@ subscriptions model =
             Sub.batch
                 [ readySubscriptions state
                 , ContextMenu.subscriptions state.containerMenu |> Sub.map ContainerContextMenu
-                , ViewControl.subscriptions |> Sub.map ViewControl
+                , AddView.subscriptions |> Sub.map AddView
                 ]
     , Events.onResize (\_ _ -> Resize )
     ]

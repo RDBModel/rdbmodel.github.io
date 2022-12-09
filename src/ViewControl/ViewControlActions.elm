@@ -24,10 +24,6 @@ modifyViews params action ( views, cmd ) =
                 |> updateViewByKey params.selectedView views
             , cmd
             )
-        NewView viewName ->
-            ( Dict.insert viewName { elements = Dict.empty } views
-            , cmd
-            )
         ChangeView view ->
             ( views
             , Cmd.batch [ cmd, Nav.pushUrl params.key ("/#/editor/" ++ view) ]
@@ -41,5 +37,4 @@ actionModifyView : Action -> Bool
 actionModifyView action =
     case action of
         AddElementToView _ -> True
-        NewView _ -> True
         ChangeView _ -> False
