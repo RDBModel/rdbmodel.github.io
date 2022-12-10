@@ -1,13 +1,13 @@
 module ContainerMenu.Menu exposing (Model, init, Msg, update, view, updateContainerId)
 
 import Dict exposing (Dict)
-import Domain.Domain exposing (Relation)
+import Domain.Domain exposing (Relation, ViewRelationKey)
 import Html exposing (Html, div, button, text)
 import Html.Attributes exposing (style)
 import Domain.DomainEncoder exposing (relationToString)
 import Select
-import Domain.Domain exposing (ViewRelationKey)
 import Html.Events exposing (onClick)
+import ContainerMenu.MenuActions exposing (Action(..))
 
 type alias SelectModel a =
     { state : Select.State
@@ -44,32 +44,24 @@ type alias Model =
 updateContainerId : String -> Model -> Model
 updateContainerId containerId model = { model | containerId = containerId }
 
-init : Dict String (List Relation) -> Model
+init : Dict String ( List Relation ) -> Model
 init possibleRelations =
     Model "" initSelect possibleRelations
 
 type Msg
-    = OnRelationSelect (Maybe ViewRelationKey)
-    | SelectRelationMsg (Select.Msg ViewRelationKey)
+    = OnRelationSelect ( Maybe ViewRelationKey )
+    | SelectRelationMsg ( Select.Msg ViewRelationKey )
     | DeleteAnElement
 
-update : Msg -> Model -> (Model, Cmd Msg, (Maybe ViewRelationKey, Maybe String))
+update : Msg -> Model -> ( Model, Cmd Msg, List Action )
 update msg model =
     case msg of
-        OnRelationSelect maybeRelation ->
-            let
-                updatedRelations =
-                    case maybeRelation of
-                        Just (containerId, relation) ->
-                            Dict.update containerId
-                                (Maybe.map (List.filter (\i -> i /= relation)))
-                                model.possibleRelations
-                        Nothing -> model.possibleRelations
-            in
-            ( { model | possibleRelations = updatedRelations }
+        OnRelationSelect ( Just ( containerId, relation )) ->
+            ( { model | possibleRelations = Dict.update containerId ( Maybe.map ( List.filter ( \i -> i /= relation ))) model.possibleRelations }
             , Cmd.none
-            , Tuple.pair maybeRelation Nothing
+            , SelectRelation ( containerId, relation ) |> List.singleton
             )
+
         SelectRelationMsg subMsg ->
             let
                 ( updated, cmd ) =
@@ -82,13 +74,12 @@ update msg model =
             in
             ( { model | selectRelation = updatedSelectModel model.selectRelation }
             , cmd
-            , Tuple.pair Nothing Nothing
+            , []
             )
-        DeleteAnElement ->
-             ( model
-            , Cmd.none
-            , Tuple.pair Nothing (Just model.containerId)
-            )
+
+        DeleteAnElement -> ( model, Cmd.none, DeleteElement model.containerId |> List.singleton )
+
+        _ -> ( model, Cmd.none, [] )
 
 view : Model -> Html Msg
 view model =

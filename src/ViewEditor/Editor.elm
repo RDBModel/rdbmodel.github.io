@@ -9,12 +9,13 @@ import Domain.Domain exposing ( Domain, View, ViewElement, ViewItemKey(..), View
     , getViewElementsOfCurrentView, getElement, getRelationPoints, getPoint, updatePointsInRelations
     , updateRelationsInElements, updateElementsInViews, removedEdge, getViewRelationPoints
     , getEdges, getContainers, getViewRelationKeyFromViewRelationPointKey, getViewRelationKeyFromEdge
-    , getElementsToAdd, getViewPointKeysByCondition )
+    , getViewPointKeysByCondition, getElementsKeysAndNames )
 import Navigation.ViewNavigation as ViewNavigation
 import ContainerMenu.ContextMenu as ContextMenu
 import Browser.Dom as Dom
 import Task
 import ContainerMenu.Menu
+import ContainerMenu.MenuActions as MenuActions
 import ViewControl.ViewControl as ViewControl
 import ViewControl.ViewControlActions as ViewControlActions
 import ViewControl.AddView as AddView
@@ -142,36 +143,15 @@ update session { views, domain } msg model =
 
         ( Ready state, ContainerContextMenu subMsg ) ->
             let
-                ( updatedModel, cmd, ( selectResult, containerIdToDelete )) = ContextMenu.update subMsg state.containerMenu
+                ( updatedModel, cmd, actions ) = ContextMenu.update subMsg state.containerMenu
 
                 selectedView = ViewControl.getSelectedView state.viewControl
 
-                actions =
-                    case ( selectResult, containerIdToDelete ) of
-                        ( Just ( containerId, relation ), Just containerId2 ) ->
-                            getCurrentView selectedView views
-                                |> addRelationToView containerId relation
-                                |> deleteContainer containerId2
-                                |> updateViewByKey selectedView views
-                                |> UpdateViews
-                                |> List.singleton
-                        ( Just ( containerId, relation ), Nothing ) ->
-                            getCurrentView selectedView views
-                                |> addRelationToView containerId relation
-                                |> updateViewByKey selectedView views
-                                |> UpdateViews
-                                |> List.singleton
-                        ( Nothing, Just containerId2 ) ->
-                            getCurrentView selectedView views
-                                |> deleteContainer containerId2
-                                |> updateViewByKey selectedView views
-                                |> UpdateViews
-                                |> List.singleton
-                        _ -> []
+                updatedViews = MenuActions.apply selectedView views actions
             in
             ( Ready { state | containerMenu = updatedModel }
             , cmd |> Cmd.map ContainerContextMenu
-            , actions
+            , UpdateViews updatedViews |> List.singleton
             )
 
         ( Ready state, ViewControl subMsg ) ->
@@ -185,7 +165,7 @@ update session { views, domain } msg model =
                     , key = session.key
                     }
                 ( newViews, cmds ) =
-                    ViewControlActions.update params views actions
+                    ViewControlActions.apply params views actions
 
                 ( updatedViewEditor, finalCmds, newActions ) =
                     if ViewControlActions.monacoValueModified actions then
@@ -228,7 +208,7 @@ update session { views, domain } msg model =
                 ( updated, cmd, actions ) = AddView.update subMsg state.addView
                 selectedView = ViewControl.getSelectedView state.viewControl
                 ( newViews, cmds ) =
-                    AddViewActions.update views actions
+                    AddViewActions.apply views actions
 
                 ( updatedViewEditor, finalCmds, newActions ) =
                     if AddViewActions.monacoValueModified actions then
@@ -710,11 +690,11 @@ svgView { views, domain } viewEditorState =
 
         selectedView = ViewControl.getSelectedView viewControl
 
-        currentView =
+        ( currentView, currentControl ) =
             case ( getCurrentView selectedView views, domain ) of
                 ( Just v, Just d ) ->
-                    renderCurrentView ( v, d, selectedView ) viewEditorState
-                _ -> text ""
+                    ( renderCurrentView ( v, d, selectedView ) viewEditorState, ViewControl.view views ( getElementsKeysAndNames d ) viewControl |> Html.map ViewControl )
+                _ -> ( text "", text "" )
 
         gridRectEvents =
             if ViewNavigation.panMode viewNavigation then
@@ -749,7 +729,7 @@ svgView { views, domain } viewEditorState =
             , renderSelectRect viewEditorState
             ]
         ]
-    , ViewControl.view views ( getElementsToAdd domain ) viewControl |> Html.map ViewControl
+    , currentControl
     , ViewNavigation.view viewEditorState.viewNavigation |> Html.map ViewNavigation
     , AddView.view viewEditorState.addView |> Html.map AddView
     , ContextMenu.view viewEditorState.containerMenu |> Html.map ContainerContextMenu

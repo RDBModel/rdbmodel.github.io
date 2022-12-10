@@ -8,6 +8,7 @@ import Json.Decode as Decode
 import ContainerMenu.Menu as ContainerMenu
 import JsInterop exposing (onWheel)
 import Domain.Domain exposing (ViewRelationKey)
+import ContainerMenu.MenuActions exposing (Action)
 
 type alias Model =
     { menuState : Maybe { position : (Float, Float), hover : Bool }
@@ -25,7 +26,7 @@ type Msg
     | HideMenu
     | ContainerMenuMsg ContainerMenu.Msg
 
-update : Msg -> Model -> (Model, Cmd Msg, (Maybe ViewRelationKey, Maybe String))
+update : Msg -> Model -> (Model, Cmd Msg, List Action)
 update msg model =
     case msg of
         ShowMenu containerId pos ->
@@ -34,40 +35,41 @@ update msg model =
             , context = ContainerMenu.updateContainerId containerId model.context
             }
             , Cmd.none
-            , Tuple.pair Nothing Nothing )
+            , [] )
         HideMenu ->
             case model.menuState of
                 Just m ->
                     if m.hover then
-                        ( model, Cmd.none, Tuple.pair Nothing Nothing )
+                        ( model, Cmd.none, [] )
                     else
-                        ( { model | menuState = Nothing }, Cmd.none, Tuple.pair Nothing Nothing )
-                Nothing -> ( model, Cmd.none, Tuple.pair Nothing Nothing )
+                        ( { model | menuState = Nothing }, Cmd.none, [] )
+                Nothing -> ( model, Cmd.none, [] )
         EnterMenu ->
             case model.menuState of
                 Just m ->
-                    ( { model | menuState = Just { position = m.position, hover = True } }, Cmd.none, Tuple.pair Nothing Nothing )
+                    ( { model | menuState = Just { position = m.position, hover = True } }, Cmd.none, [] )
                 Nothing ->
-                    ( model, Cmd.none, Tuple.pair Nothing Nothing )
+                    ( model, Cmd.none, [] )
         LeaveMenu ->
             case model.menuState of
                 Just m ->
-                    ( { model | menuState = Just { position = m.position, hover = False } }, Cmd.none, Tuple.pair Nothing Nothing )
+                    ( { model | menuState = Just { position = m.position, hover = False } }, Cmd.none, [] )
                 Nothing ->
-                    ( model, Cmd.none, Tuple.pair Nothing Nothing )
+                    ( model, Cmd.none, [] )
         ContainerMenuMsg subMsg ->
             let
-                (updatedModel, cmd, (maybeRelation, maybeContainerIdToDelete)) =
+                ( updatedModel, cmd, actions ) =
                     ContainerMenu.update subMsg model.context
 
-                updatedMenuState = case (maybeRelation, maybeContainerIdToDelete) of
-                    (Just _, Nothing) -> Nothing
-                    (Nothing, Just _) -> Nothing
-                    _ -> model.menuState
+                updatedMenuState =
+                    if List.isEmpty actions then
+                        model.menuState
+                    else
+                        Nothing
             in
             ( { model | context = updatedModel, menuState = updatedMenuState }
             , cmd |> Cmd.map ContainerMenuMsg
-            , (maybeRelation, maybeContainerIdToDelete)
+            , actions
             )
 
 view : Model -> Html Msg

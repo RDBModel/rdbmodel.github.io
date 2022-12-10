@@ -11,8 +11,8 @@ type alias Params =
     , key : Nav.Key
     }
 
-update : Dict String View -> List Action -> ( Dict String View, Cmd msg )
-update views actions =
+apply : Dict String View -> List Action -> ( Dict String View, Cmd msg )
+apply views actions =
     List.foldl modifyViews ( views, Cmd.none ) actions
 
 modifyViews : Action -> ( Dict String View, Cmd msg ) -> ( Dict String View, Cmd msg )
