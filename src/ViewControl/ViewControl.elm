@@ -1,5 +1,4 @@
-module ViewControl.ViewControl exposing (Model, Msg, Action(..), view, update, getSelectedView, init
-    , subscriptions)
+module ViewControl.ViewControl exposing (Model, Msg, Action(..), view, update, getSelectedView, init)
 
 import Html.Attributes exposing (style, class, value)
 import Html.Events exposing (onClick, onInput, onFocus, onBlur)
@@ -24,9 +23,6 @@ type alias Model =
     { selectView : SelectModel String
     , selectedView : String
     , selectElement : SelectModel (String, String)
-    , addNewViewBoxVisible : Bool
-    , newViewIdTemp : String
-    , newViewInputIsInFocus : Bool
     }
 
 selectView : SelectModel String
@@ -62,11 +58,10 @@ selectElement =
         |> Select.withPrompt "An element to add")
 
 init : String -> Model
-init selectedView = Model selectView selectedView selectElement False "" False
+init selectedView = Model selectView selectedView selectElement
 
 type Action
-    = NewView String
-    | AddElementToView (String, String)
+    = AddElementToView (String, String)
     | ChangeView String
 
 type Msg
@@ -74,12 +69,6 @@ type Msg
     | SelectElementMsg (Select.Msg (String, String))
     | OnViewSelect (Maybe String)
     | OnElementSelect (Maybe (String, String))
-    | AddView
-    | NewViewId String
-    | EnterIsClicked
-    | InputFocused
-    | InputBlur
-    | NoOp
 
 update : Msg -> Model -> ( Model, Cmd Msg, List Action )
 update msg model =
@@ -127,22 +116,6 @@ update msg model =
             , Cmd.none
             , maybeElement |> Maybe.map AddElementToView |> Maybe.map List.singleton |> Maybe.withDefault []
             )
-        AddView ->
-            ( { model | addNewViewBoxVisible = model.addNewViewBoxVisible |> not }, Cmd.none, [] )
-        NewViewId value ->
-            ( { model | newViewIdTemp = value }, Cmd.none, [] )
-        EnterIsClicked ->
-            ( { model | newViewIdTemp = "", addNewViewBoxVisible = False }, Cmd.none
-            , if model.newViewInputIsInFocus then
-                [ NewView model.newViewIdTemp ]
-            else
-                []
-            )
-        InputFocused ->
-            ( { model | newViewInputIsInFocus = True }, Cmd.none, [] )
-        InputBlur ->
-            ( { model | newViewInputIsInFocus = False }, Cmd.none, [] )
-        NoOp -> ( model, Cmd.none, [] )
 
 view : Dict String View -> List (String, String) -> Model -> Html Msg
 view views elements model =
@@ -153,7 +126,7 @@ view views elements model =
         [ style "position" "absolute"
         , style "display" "grid"
         , style "grid-auto-flow" "row"
-        , style "grid-template-columns" "24px auto auto"
+        , style "grid-template-columns" "auto auto"
         , style "top" "5px"
         , style "left" "50%"
         , style "transform" "translateX(-50%)"
@@ -161,50 +134,7 @@ view views elements model =
         , style "user-select" "none"
         --, Mouse.onContextMenu (\_ -> NoOp)
         ]
-        [ button
-            [ style "background-color" "white"
-            , style "border" "1px solid rgba(204, 204, 204, .6)"
-            , style "min-height" "24px"
-            , style "min-width" "24px"
-            , style "max-width" "24px"
-            , style "padding" "0"
-            , style "grid-column" "1"
-            , style "grid-row" "1"
-            , onClick AddView
-            ]
-            [ svg
-                [ style "vertical-align" "middle"
-                , width <| Px 24
-                , height <| Px 24
-                , viewBox 0 0 24 24
-                , strokeWidth <| Px 1
-                , stroke (Paint Color.black)
-                , fill PaintNone
-                , strokeLinecap StrokeLinecapRound
-                , strokeLinejoin StrokeLinejoinRound
-                ]
-                [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
-                , line [ x1 (Px 12), y1 (Px 5), x2 (Px 12), y2 (Px 19)] []
-                , line [ x1 (Px 5), y1 (Px 12), x2 (Px 19), y2 (Px 12)] []
-                ]
-            ]
-        , if model.addNewViewBoxVisible then
-            input
-                    [ style "background-color" "white"
-                    , style "border" "1px solid rgba(204, 204, 204, .6)"
-                    , class "elm-select-input"
-                    , style "margin-top" "2px"
-                    , style "min-height" "20px"
-                    , style "grid-column" "1/3"
-                    , style "grid-row" "2"
-                    , onInput NewViewId
-                    , onFocus InputFocused
-                    , onBlur InputBlur
-                    , value model.newViewIdTemp
-                    ] []
-            else
-                text ""
-        , Select.view
+        [ Select.view
             model.selectView.config
             model.selectView.state
             (Dict.keys views)
@@ -218,19 +148,3 @@ view views elements model =
 
 getSelectedView : Model -> String
 getSelectedView model = model.selectedView
-
-subscriptions : Sub Msg
-subscriptions =
-    Events.onKeyDown (keyDecoder |> enterButton)
-
-enterButton : Decode.Decoder String -> Decode.Decoder Msg
-enterButton =
-    Decode.map (\key ->
-        if key == "Enter" then
-            EnterIsClicked
-        else
-            NoOp)
-
-keyDecoder : Decode.Decoder String
-keyDecoder =
-    Decode.field "key" Decode.string

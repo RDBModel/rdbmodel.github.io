@@ -263,11 +263,6 @@ getViewElements view =
         |> Maybe.withDefault Dict.empty
         |> Dict.keys
 
-getElementsToAdd : Maybe Domain -> List (String, String)
-getElementsToAdd domain =
-    Maybe.map getElementsKeysAndNames domain
-        |> Maybe.withDefault []
-
 addElementToView : String -> (Float, Float) -> View -> View
 addElementToView key (x, y) v =
     { v | elements = Dict.insert key (ViewElement x y Dict.empty) v.elements }

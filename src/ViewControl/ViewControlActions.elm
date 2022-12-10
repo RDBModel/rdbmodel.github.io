@@ -1,4 +1,4 @@
-module ViewControl.ViewControlActions exposing (update, monacoValueModified)
+module ViewControl.ViewControlActions exposing (apply, monacoValueModified)
 
 import ViewControl.ViewControl exposing (Action(..))
 import Dict exposing (Dict)
@@ -11,8 +11,8 @@ type alias Params =
     , key : Nav.Key
     }
 
-update : Params -> Dict String View -> List Action -> ( Dict String View, Cmd msg )
-update params views actions =
+apply : Params -> Dict String View -> List Action -> ( Dict String View, Cmd msg )
+apply params views actions =
     List.foldl (modifyViews params) ( views, Cmd.none ) actions
 
 modifyViews : Params -> Action -> ( Dict String View, Cmd msg ) -> ( Dict String View, Cmd msg )
@@ -22,10 +22,6 @@ modifyViews params action ( views, cmd ) =
             ( getCurrentView params.selectedView views
                 |> Maybe.map (\v -> addElementToView (Tuple.first el) params.position v)
                 |> updateViewByKey params.selectedView views
-            , cmd
-            )
-        NewView viewName ->
-            ( Dict.insert viewName { elements = Dict.empty } views
             , cmd
             )
         ChangeView view ->
@@ -41,5 +37,4 @@ actionModifyView : Action -> Bool
 actionModifyView action =
     case action of
         AddElementToView _ -> True
-        NewView _ -> True
         ChangeView _ -> False
