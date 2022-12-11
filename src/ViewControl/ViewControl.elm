@@ -1,31 +1,11 @@
 module ViewControl.ViewControl exposing (Action(..), Model, Msg, getSelectedView, init, update, view)
 
-import Browser.Events as Events
-import Color
 import Dict exposing (Dict)
 import Domain.Domain exposing (View, getViewElements)
-import Html exposing (Html, button, div, input, text)
-import Html.Attributes exposing (class, style, value)
-import Html.Events exposing (onBlur, onClick, onFocus, onInput)
-import Json.Decode as Decode
+import Html exposing (Html, div)
+import Html.Attributes exposing (style, value)
 import Select
-import TypedSvg exposing (line, path, svg)
-import TypedSvg.Attributes
-    exposing
-        ( d
-        , fill
-        , height
-        , stroke
-        , strokeLinecap
-        , strokeLinejoin
-        , strokeWidth
-        , viewBox
-        , width
-        , x1
-        , x2
-        , y1
-        , y2
-        )
+
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 
 
