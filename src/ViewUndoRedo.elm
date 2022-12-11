@@ -1,35 +1,56 @@
-module ViewUndoRedo exposing (Model, Msg, UndoRedoMonacoValue, update, view, init, newRecord, getUndoRedoMonacoValue, mapPresent, subscriptions)
+module ViewUndoRedo exposing (Model, Msg, UndoRedoMonacoValue, getUndoRedoMonacoValue, init, mapPresent, newRecord, subscriptions, update, view)
 
-import Html exposing (Html, div, button)
+import Browser.Events as Events
+import Color
+import Html exposing (Html, button, div)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
-import TypedSvg.Attributes exposing ( d, viewBox, strokeWidth, stroke, fill, strokeLinecap, strokeLinejoin,
-    width, height)
-import TypedSvg.Types exposing ( Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
-import TypedSvg exposing (svg, path)
-import Color
-import UndoList exposing (UndoList)
-import Browser.Events as Events
 import Json.Decode as Decode
+import TypedSvg exposing (path, svg)
+import TypedSvg.Attributes
+    exposing
+        ( d
+        , fill
+        , height
+        , stroke
+        , strokeLinecap
+        , strokeLinejoin
+        , strokeWidth
+        , viewBox
+        , width
+        )
+import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
+import UndoList exposing (UndoList)
+
 
 type alias Model =
     { ctrlIsDown : Bool
     }
 
+
 init : Model
-init = Model False
+init =
+    Model False
+
 
 getUndoRedoMonacoValue : a -> UndoRedoMonacoValue a
 getUndoRedoMonacoValue a =
     a |> UndoList.fresh
 
+
 newRecord : a -> UndoRedoMonacoValue a -> UndoRedoMonacoValue a
-newRecord a previous = UndoList.new a previous
+newRecord a previous =
+    UndoList.new a previous
+
 
 mapPresent : (a -> a) -> UndoRedoMonacoValue a -> UndoRedoMonacoValue a
-mapPresent a current = UndoList.mapPresent a current
+mapPresent a current =
+    UndoList.mapPresent a current
 
-type alias UndoRedoMonacoValue a = UndoList a
+
+type alias UndoRedoMonacoValue a =
+    UndoList a
+
 
 type Msg
     = Undo
@@ -37,13 +58,22 @@ type Msg
     | NoOp
     | SetCtrlIsDown Bool
 
-update : UndoRedoMonacoValue a -> Msg -> Model -> (Model, UndoRedoMonacoValue a, Bool)
+
+update : UndoRedoMonacoValue a -> Msg -> Model -> ( Model, UndoRedoMonacoValue a, Bool )
 update targetValue msg model =
     case msg of
-        Undo -> ( model , UndoList.undo targetValue, True )
-        Redo -> ( model , UndoList.redo targetValue, True)
-        SetCtrlIsDown value -> ( { model | ctrlIsDown = value }, targetValue, False )
-        NoOp -> ( model, targetValue, False )
+        Undo ->
+            ( model, UndoList.undo targetValue, True )
+
+        Redo ->
+            ( model, UndoList.redo targetValue, True )
+
+        SetCtrlIsDown value ->
+            ( { model | ctrlIsDown = value }, targetValue, False )
+
+        NoOp ->
+            ( model, targetValue, False )
+
 
 view : Html Msg
 view =
@@ -57,6 +87,7 @@ view =
         , style "transform" "translateX(-50%)"
         , style "font-size" "16px"
         , style "user-select" "none"
+
         --, Mouse.onContextMenu (\_ -> NoOp)
         ]
         [ button
@@ -102,34 +133,46 @@ view =
                 , strokeLinejoin StrokeLinejoinRound
                 ]
                 [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
-                , path [ d "M15 13l4 -4l-4 -4m4 4h-11a4 4 0 0 0 0 8h1"] []
+                , path [ d "M15 13l4 -4l-4 -4m4 4h-11a4 4 0 0 0 0 8h1" ] []
                 ]
             ]
         ]
+
 
 keyDecoder : Decode.Decoder String
 keyDecoder =
     Decode.field "key" Decode.string
 
+
 setCtrlState : Decode.Decoder String -> Decode.Decoder Msg
 setCtrlState =
-    Decode.map (\key ->
-        if key == "Control" then
-            SetCtrlIsDown False
-        else
-            NoOp)
+    Decode.map
+        (\key ->
+            if key == "Control" then
+                SetCtrlIsDown False
+
+            else
+                NoOp
+        )
+
 
 setCtrlAndOtherState : Model -> Decode.Decoder String -> Decode.Decoder Msg
 setCtrlAndOtherState model =
-    Decode.map (\key ->
-        if key == "Control" then
-            SetCtrlIsDown True
-        else if key == "z" && model.ctrlIsDown then
-            Undo
-        else if key == "y" && model.ctrlIsDown then
-            Redo
-        else
-            NoOp)
+    Decode.map
+        (\key ->
+            if key == "Control" then
+                SetCtrlIsDown True
+
+            else if key == "z" && model.ctrlIsDown then
+                Undo
+
+            else if key == "y" && model.ctrlIsDown then
+                Redo
+
+            else
+                NoOp
+        )
+
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
