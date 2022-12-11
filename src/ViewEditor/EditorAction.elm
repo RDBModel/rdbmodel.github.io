@@ -5,7 +5,7 @@ import Domain.Domain exposing (Domain, View)
 import Domain.DomainEncoder exposing (rdbEncode)
 import JsInterop exposing (updateMonacoValue)
 import ViewEditor.Editor exposing (Action(..), Msg)
-import ViewUndoRedo exposing (UndoRedoMonacoValue, mapPresent, newRecord)
+import UndoRedo.ViewUndoRedo exposing (UndoRedoMonacoValue, mapPresent, newRecord)
 
 
 type alias Params msg =

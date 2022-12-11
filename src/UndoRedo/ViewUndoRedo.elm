@@ -1,4 +1,4 @@
-module ViewUndoRedo exposing (Model, Msg, UndoRedoMonacoValue, getUndoRedoMonacoValue, init, mapPresent, newRecord, subscriptions, update, view)
+module UndoRedo.ViewUndoRedo exposing (Model, Msg, UndoRedoMonacoValue, getUndoRedoMonacoValue, init, mapPresent, newRecord, subscriptions, update, view)
 
 import Browser.Events as Events
 import Color
@@ -21,7 +21,7 @@ import TypedSvg.Attributes
         )
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import UndoList exposing (UndoList)
-
+import UndoRedo.ViewUndoRedoActions exposing (Action(..))
 
 type alias Model =
     { ctrlIsDown : Bool
@@ -59,20 +59,20 @@ type Msg
     | SetCtrlIsDown Bool
 
 
-update : UndoRedoMonacoValue a -> Msg -> Model -> ( Model, UndoRedoMonacoValue a, Bool )
+update : UndoRedoMonacoValue a -> Msg -> Model -> ( Model, UndoRedoMonacoValue a, List Action )
 update targetValue msg model =
     case msg of
         Undo ->
-            ( model, UndoList.undo targetValue, True )
+            ( model, UndoList.undo targetValue, List.singleton UpdateMonacoValue )
 
         Redo ->
-            ( model, UndoList.redo targetValue, True )
+            ( model, UndoList.redo targetValue, List.singleton UpdateMonacoValue )
 
         SetCtrlIsDown value ->
-            ( { model | ctrlIsDown = value }, targetValue, False )
+            ( { model | ctrlIsDown = value }, targetValue, [] )
 
         NoOp ->
-            ( model, targetValue, False )
+            ( model, targetValue, [] )
 
 
 view : Html Msg

@@ -25,9 +25,10 @@ import SplitPanel.SplitPane as SplitPane exposing (Orientation(..), State, ViewC
 import Task
 import TypedSvg.Attributes exposing (id)
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
+import UndoRedo.ViewUndoRedo as ViewUndoRedo exposing (UndoRedoMonacoValue, getUndoRedoMonacoValue, mapPresent, newRecord)
+import UndoRedo.ViewUndoRedoActions as ViewUndoRedoActions exposing (MonacoValue)
 import ViewEditor.Editor as ViewEditor
 import ViewEditor.EditorAction as ViewEditorActions
-import ViewUndoRedo exposing (UndoRedoMonacoValue, getUndoRedoMonacoValue, mapPresent, newRecord)
 import Yaml.Decode as D
 
 
@@ -40,12 +41,6 @@ type alias Model =
     , showOpenFileButton : Bool
     , toReload : Bool
     , errors : String
-    }
-
-
-type alias MonacoValue =
-    { views : Dict String View
-    , domain : Maybe Domain
     }
 
 
@@ -195,18 +190,14 @@ update msg model =
 
         ViewUndoRedo subMsg ->
             let
-                ( subModel, updatedMonacoValue, renew ) =
+                ( subModel, updatedMonacoValue, actions ) =
                     ViewUndoRedo.update model.monacoValue subMsg model.viewUndoRedo
             in
             ( { model
                 | viewUndoRedo = subModel
                 , monacoValue = updatedMonacoValue
               }
-            , if renew then
-                updateMonacoValue (rdbEncode updatedMonacoValue.present)
-
-              else
-                Cmd.none
+            , ViewUndoRedoActions.apply updatedMonacoValue.present actions
             )
 
 
