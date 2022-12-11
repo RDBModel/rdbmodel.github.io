@@ -65,7 +65,6 @@ import TypedSvg exposing (defs, g, svg)
 import TypedSvg.Attributes as Attrs exposing (class, d, id, r, x, x1, x2, y, y1, y2)
 import TypedSvg.Core exposing (Attribute, Svg)
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
-import Utils exposing (trimList)
 import ViewControl.AddView as AddView
 import ViewControl.AddViewActions as AddViewActions
 import ViewControl.ViewControl as ViewControl
@@ -1128,3 +1127,11 @@ subscriptions model =
                     ]
         , Events.onResize (\_ _ -> Resize)
         ]
+
+
+trimList : Int -> List a -> List a
+trimList count =
+    List.drop count
+        >> List.reverse
+        >> List.drop count
+        >> List.reverse
