@@ -7,8 +7,6 @@
 [ ] add loading icon for editor
 [ ] notify about unsaved text in editor before saving
 
-[ ] viewUndoRedo component - actions
-[ ] containerMenu component - actions
 [ ] show errors
 
 [ ] remove Monaco from variable names
@@ -18,6 +16,9 @@
 [ ] show edge circles only when mouse hover otherwise show as a line
 
 ------
+[x] containerMenu component - actions
+[x] viewUndoRedo component - actions
+
 [x] extract pages
 [x] new view via ui
 [x] delete element via ui
