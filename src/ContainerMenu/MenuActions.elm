@@ -11,18 +11,18 @@ type Action
 
 apply : String -> Dict String View -> List Action -> Dict String View
 apply selectedView views actions =
-    List.foldl (modifyViews selectedView) views actions
+    actions
+        |> List.foldl modifyViews (getCurrentView selectedView views)
+        |> updateViewByKey selectedView views
 
 
-modifyViews : String -> Action -> Dict String View -> Dict String View
-modifyViews selectedView action views =
+modifyViews : Action -> Maybe View -> Maybe View
+modifyViews action view =
     case action of
         SelectRelation ( containerId, relation ) ->
-            getCurrentView selectedView views
+            view
                 |> addRelationToView containerId relation
-                |> updateViewByKey selectedView views
 
         DeleteElement containerId ->
-            getCurrentView selectedView views
+            view
                 |> deleteContainer containerId
-                |> updateViewByKey selectedView views
