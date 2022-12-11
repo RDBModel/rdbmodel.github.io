@@ -1,73 +1,140 @@
 module Elements exposing
-     ( renderContainerSelected, renderContainer, markerDot, innerGrid, grid, gridRect, edgeBetweenContainers, gridCellSize
-     , selectItemsRect, extendPoints
-     )
-import TypedSvg exposing (rect, circle, pattern, marker, g, text_, title)
-import TypedSvg.Attributes as Attrs exposing
-    ( x, y, width, height, rx, cx, cy, r, id, strokeWidth, fill, stroke, strokeOpacity, transform, dominantBaseline
-    , textAnchor, cursor, d, fillOpacity)
-import TypedSvg.Core exposing (Svg, Attribute, text)
-import TypedSvg.Types exposing (Length(..), AnchorAlignment(..), Cursor(..), Paint(..), CoordinateSystem(..), Opacity(..)
-    , DominantBaseline(..), Transform(..))
+    ( edgeBetweenContainers
+    , extendPoints
+    , grid
+    , gridCellSize
+    , gridRect
+    , innerGrid
+    , markerDot
+    , renderContainer
+    , renderContainerSelected
+    , selectItemsRect
+    )
+
 import Color
+import Domain.Domain exposing (Container, Edge)
 import Path exposing (Path)
 import Shape exposing (linearCurve)
-import SubPath exposing (arcLengthParameterized, arcLength)
-import Domain.Domain exposing (Container, Edge)
+import SubPath exposing (arcLength, arcLengthParameterized)
+import TypedSvg exposing (circle, g, marker, pattern, rect, text_, title)
+import TypedSvg.Attributes as Attrs
+    exposing
+        ( cursor
+        , cx
+        , cy
+        , d
+        , dominantBaseline
+        , fill
+        , fillOpacity
+        , height
+        , id
+        , r
+        , rx
+        , stroke
+        , strokeOpacity
+        , strokeWidth
+        , textAnchor
+        , transform
+        , width
+        , x
+        , y
+        )
+import TypedSvg.Core exposing (Attribute, Svg, text)
+import TypedSvg.Types
+    exposing
+        ( AnchorAlignment(..)
+        , CoordinateSystem(..)
+        , Cursor(..)
+        , DominantBaseline(..)
+        , Length(..)
+        , Opacity(..)
+        , Paint(..)
+        , Transform(..)
+        )
+
 
 containerWidth : Float
-containerWidth = 100
+containerWidth =
+    100
+
+
 containerHeight : Float
-containerHeight = 50
+containerHeight =
+    50
+
+
 containerRadius : Float
-containerRadius = 0
+containerRadius =
+    0
+
+
+
 -- systemRadius : Float
 -- systemRadius = 50
+
+
 gridCellSize : Float
-gridCellSize = 10
+gridCellSize =
+    10
 
 
 renderContainerSelected : Container -> List (Attribute msg) -> Svg msg
-renderContainerSelected = renderContainerInternal True
+renderContainerSelected =
+    renderContainerInternal True
+
 
 renderContainer : Container -> List (Attribute msg) -> Svg msg
-renderContainer = renderContainerInternal False
+renderContainer =
+    renderContainerInternal False
+
 
 renderContainerInternal : Bool -> Container -> List (Attribute msg) -> Svg msg
 renderContainerInternal selected { key, name, description, xy } events =
     let
-        (xCenter, yCenter) = xy
+        ( xCenter, yCenter ) =
+            xy
 
         updatedName a =
             if String.length name > 15 then
                 String.slice 0 15 a
+
             else
                 a
 
-        tooltip = key ++ "\n" ++ description
+        tooltip =
+            key ++ "\n" ++ description
     in
     g events
         [ rect
-            ([ x <| Px <| xCenter - containerWidth / 2
+            [ x <| Px <| xCenter - containerWidth / 2
             , y <| Px <| yCenter - containerHeight / 2
             , width <| Px containerWidth
             , height <| Px containerHeight
             , rx <| Px containerRadius
             , Attrs.fill <| Paint <| Color.white
-            , Attrs.stroke <| Paint <| if selected then Color.blue else Color.black
+            , Attrs.stroke <|
+                Paint <|
+                    if selected then
+                        Color.blue
+
+                    else
+                        Color.black
             , Attrs.strokeWidth <| Px 1
-            ]) [ title [] [text tooltip]]
+            ]
+            [ title [] [ text tooltip ] ]
         , text_
-            ([ x <| Px <| xCenter
+            [ x <| Px <| xCenter
             , y <| Px <| yCenter
             , width <| Px containerWidth
             , height <| Px containerHeight
             , dominantBaseline DominantBaselineMiddle
             , textAnchor AnchorMiddle
             , cursor CursorDefault
-            ])
-            [text <| updatedName name, title [] [text tooltip] ]
+            ]
+            [ text <| updatedName name, title [] [ text tooltip ] ]
         ]
+
+
 
 -- renderSystem : Float -> Float -> Svg msg
 -- renderSystem xValue yValue =
@@ -79,6 +146,7 @@ renderContainerInternal selected { key, name, description, xy } events =
 --         , Attrs.stroke <| Paint <| Color.black
 --         , Attrs.strokeWidth <| Px 1
 --         ] []
+
 
 circleDot : Path
 circleDot =
@@ -92,8 +160,10 @@ circleDot =
         , padRadius = 0
         }
 
+
 pointDotId : String
-pointDotId = "dot"
+pointDotId =
+    "dot"
 
 
 markerDot : Svg msg
@@ -105,21 +175,21 @@ markerDot =
         , Attrs.markerWidth <| Px 10
         , Attrs.markerHeight <| Px 10
         ]
-        [
-            circle
-                [ cx <| Px 5
-                , cy <| Px 5
-                , r <| Px 3
-                , Attrs.fill <| Paint <| Color.white
-                , Attrs.stroke <| Paint <| Color.black
-                , Attrs.strokeWidth <| Px 1
-                ]
-                []
+        [ circle
+            [ cx <| Px 5
+            , cy <| Px 5
+            , r <| Px 3
+            , Attrs.fill <| Paint <| Color.white
+            , Attrs.stroke <| Paint <| Color.black
+            , Attrs.strokeWidth <| Px 1
+            ]
+            []
         ]
 
 
 innerGridId : String
-innerGridId = "inner-grid"
+innerGridId =
+    "inner-grid"
 
 
 innerGrid : Float -> Svg msg
@@ -130,8 +200,7 @@ innerGrid size =
         , Attrs.height <| Px size
         , Attrs.patternUnits CoordinateSystemUserSpaceOnUse
         ]
-        [
-            rect
+        [ rect
             [ Attrs.width <| Percent 100
             , Attrs.height <| Percent 100
             , Attrs.fill PaintNone
@@ -141,8 +210,11 @@ innerGrid size =
             []
         ]
 
+
 gridId : String
-gridId = "grid"
+gridId =
+    "grid"
+
 
 grid : ( Float, Float ) -> Float -> Svg msg
 grid ( x, y ) size =
@@ -154,8 +226,7 @@ grid ( x, y ) size =
         , Attrs.y <| Px y
         , Attrs.patternUnits CoordinateSystemUserSpaceOnUse
         ]
-        [
-            rect
+        [ rect
             [ Attrs.width <| Percent 100
             , Attrs.height <| Percent 100
             , Attrs.fill <| Reference innerGridId
@@ -170,75 +241,112 @@ gridRect : List (Attribute msg) -> Svg msg
 gridRect events =
     rect
         ([ Attrs.width <| Percent 100
-        , Attrs.height <| Percent 100
-        , fill <| Reference gridId
-        --, cursor CursorMove
-        ] ++ events) []
+         , Attrs.height <| Percent 100
+         , fill <| Reference gridId
+
+         --, cursor CursorMove
+         ]
+            ++ events
+        )
+        []
+
 
 edgeStrokeWidthExtend : number
-edgeStrokeWidthExtend = 3
+edgeStrokeWidthExtend =
+    3
 
- -- as the actual edge is wider then visible, we are extending the search area
-extendPoints : (number, number) -> (number, number) -> ((number, number), (number, number))
-extendPoints (x1, y1) (x2, y2) =
+
+
+-- as the actual edge is wider then visible, we are extending the search area
+
+
+extendPoints : ( number, number ) -> ( number, number ) -> ( ( number, number ), ( number, number ) )
+extendPoints ( x1, y1 ) ( x2, y2 ) =
     let
         extend v1 v2 =
             if v1 < v2 || v1 == v2 then
-                (v1 - edgeStrokeWidthExtend, v2 + edgeStrokeWidthExtend)
-            else
-                (v2 - edgeStrokeWidthExtend, v1 + edgeStrokeWidthExtend)
+                ( v1 - edgeStrokeWidthExtend, v2 + edgeStrokeWidthExtend )
 
-        (ux1, ux2) = extend x1 x2
-        (uy1, uy2) = extend y1 y2
+            else
+                ( v2 - edgeStrokeWidthExtend, v1 + edgeStrokeWidthExtend )
+
+        ( ux1, ux2 ) =
+            extend x1 x2
+
+        ( uy1, uy2 ) =
+            extend y1 y2
     in
-    ((ux1, uy1), (ux2, uy2))
+    ( ( ux1, uy1 ), ( ux2, uy2 ) )
+
 
 edgeBetweenContainers : Edge -> List (Attribute msg) -> (Int -> List (Attribute msg)) -> List Int -> Svg msg
 edgeBetweenContainers edge addPointEvent removeOrDragPointEvent selectedIndexes =
-     let
-        points = edge.points |> filterPointsUnderContainer edge.source.xy edge.target.xy
-        (sx, sy) = edge.source.xy
-        (tx, ty) = edge.target.xy
+    let
+        points =
+            edge.points |> filterPointsUnderContainer edge.source.xy edge.target.xy
 
-        (cx, cy) = points
-            |> List.reverse
-            |> List.head
-            |> Maybe.withDefault edge.source.xy
+        ( sx, sy ) =
+            edge.source.xy
 
-        preparedPoints = (sx, sy) :: points ++ [ (tx, ty) ]
-        curve = linearCurve preparedPoints
+        ( tx, ty ) =
+            edge.target.xy
+
+        ( cx, cy ) =
+            points
+                |> List.reverse
+                |> List.head
+                |> Maybe.withDefault edge.source.xy
+
+        preparedPoints =
+            ( sx, sy ) :: points ++ [ ( tx, ty ) ]
+
+        curve =
+            linearCurve preparedPoints
 
         -- half of rect
-        (rx, ry) = (containerWidth / 2, containerHeight / 2)
+        ( rx, ry ) =
+            ( containerWidth / 2, containerHeight / 2 )
 
         -- size of sides of big triangle create by dots
-        (x, y) = ((cx - tx) |> abs, (cy - ty) |> abs)
+        ( x, y ) =
+            ( (cx - tx) |> abs, (cy - ty) |> abs )
 
         -- if the line crosses the rect in the top or bottom
         -- otherwise it crosses left or right borders or rect
-        topBottom = y / x > ry / rx
+        topBottom =
+            y / x > ry / rx
 
         -- distance between start and end dots
-        distanceXY = sqrt (x * x + y * y)
+        distanceXY =
+            sqrt (x * x + y * y)
 
         -- magic offset for ➤ symbol
-        magicOffset = 9
+        magicOffset =
+            9
 
-        curveLength = curve |> arcLengthParameterized 1e-4 |> arcLength
+        curveLength =
+            curve |> arcLengthParameterized 1.0e-4 |> arcLength
 
         -- offset based on aspect ratio
         offset =
             let
-                temp = if topBottom then ry / y else rx / x
+                temp =
+                    if topBottom then
+                        ry / y
+
+                    else
+                        rx / x
             in
             curveLength - distanceXY * temp - magicOffset
 
         idValue =
             "from-" ++ edge.source.name ++ "-to-" ++ edge.target.name
 
-        strokeWidthValue = 1
+        strokeWidthValue =
+            1
 
-        tooltip = String.join " " ["'" ++ edge.source.name ++ "'", edge.description, "'" ++ edge.target.name ++ "'"]
+        tooltip =
+            String.join " " [ "'" ++ edge.source.name ++ "'", edge.description, "'" ++ edge.target.name ++ "'" ]
     in
     g []
         [ SubPath.element curve
@@ -249,77 +357,119 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent selectedIndexes 
             ]
         , TypedSvg.path
             ([ d (curve |> SubPath.toString)
-            , strokeWidth <| Px (strokeWidthValue + edgeStrokeWidthExtend)
-            , stroke <| Paint <| Color.black
-            , strokeOpacity <| Opacity 0
-            , fill <| PaintNone
-            ] ++ addPointEvent) [ title [] [ text tooltip ]]
+             , strokeWidth <| Px (strokeWidthValue + edgeStrokeWidthExtend)
+             , stroke <| Paint <| Color.black
+             , strokeOpacity <| Opacity 0
+             , fill <| PaintNone
+             ]
+                ++ addPointEvent
+            )
+            [ title [] [ text tooltip ] ]
         , TypedSvg.text_ []
-            [
-                TypedSvg.textPath
-                    [ Attrs.xlinkHref ("#" ++ idValue)
-                    , Attrs.startOffset <| String.fromFloat offset
-                    , Attrs.dominantBaseline DominantBaselineCentral
-                    , Attrs.fontSize <| Px 10
-                    , Attrs.style "user-select: none;" --forbid to select arrow as text
-                    ]
-                    [ text "➤" ]
+            [ TypedSvg.textPath
+                [ Attrs.xlinkHref ("#" ++ idValue)
+                , Attrs.startOffset <| String.fromFloat offset
+                , Attrs.dominantBaseline DominantBaselineCentral
+                , Attrs.fontSize <| Px 10
+                , Attrs.style "user-select: none;" --forbid to select arrow as text
+                ]
+                [ text "➤" ]
             ]
-        , g [] <| List.indexedMap
-            (\i (dx, dy) ->
-                let
-                    eventToAdd = removeOrDragPointEvent i
-                in
-                TypedSvg.path
-                    ([ d (circleDot |> Path.toString)
-                    , fill (Paint Color.white)
-                    , stroke (Paint <| if List.member i selectedIndexes then Color.blue else Color.black
+        , g [] <|
+            List.indexedMap
+                (\i ( dx, dy ) ->
+                    let
+                        eventToAdd =
+                            removeOrDragPointEvent i
+                    in
+                    TypedSvg.path
+                        ([ d (circleDot |> Path.toString)
+                         , fill (Paint Color.white)
+                         , stroke
+                            (Paint <|
+                                if List.member i selectedIndexes then
+                                    Color.blue
+
+                                else
+                                    Color.black
+                            )
+                         , transform [ Translate dx dy ]
+                         ]
+                            ++ eventToAdd
                         )
-                    , transform [ Translate dx dy ]
-                    ] ++ eventToAdd) [ title [] [ text tooltip ] ]) points
+                        [ title [] [ text tooltip ] ]
+                )
+                points
         ]
+
+
 
 {--
     Removing temprorary points which are under container
 --}
-filterPointsUnderContainer : (Float, Float) -> (Float, Float) -> List (Float, Float) -> List (Float, Float)
+
+
+filterPointsUnderContainer : ( Float, Float ) -> ( Float, Float ) -> List ( Float, Float ) -> List ( Float, Float )
 filterPointsUnderContainer sourceXY targetXY =
-    List.foldl (\point result ->
-        if List.isEmpty result && pointUnderRect sourceXY point then
-            result
-        else
-            point :: result
-    ) []
-    >> List.foldl (\point result ->
-        if List.isEmpty result && pointUnderRect targetXY point then
-            result
-        else
-            point :: result
-    ) []
+    List.foldl
+        (\point result ->
+            if List.isEmpty result && pointUnderRect sourceXY point then
+                result
+
+            else
+                point :: result
+        )
+        []
+        >> List.foldl
+            (\point result ->
+                if List.isEmpty result && pointUnderRect targetXY point then
+                    result
+
+                else
+                    point :: result
+            )
+            []
 
 
-pointUnderRect: (Float, Float) -> (Float, Float) -> Bool
-pointUnderRect (x, y) (px, py) =
-    px > (x - containerWidth / 2) && px < (x + containerWidth / 2)
-        && py > (y - containerHeight / 2) && py < (y + containerHeight / 2)
+pointUnderRect : ( Float, Float ) -> ( Float, Float ) -> Bool
+pointUnderRect ( x, y ) ( px, py ) =
+    px
+        > (x - containerWidth / 2)
+        && px
+        < (x + containerWidth / 2)
+        && py
+        > (y - containerHeight / 2)
+        && py
+        < (y + containerHeight / 2)
 
 
-selectItemsRect : (Float, Float) -> (Float, Float) -> Svg msg
+selectItemsRect : ( Float, Float ) -> ( Float, Float ) -> Svg msg
 selectItemsRect start end =
     let
-        (x1, y1) = start
-        (x2, y2) = end
-        width = abs <| (Tuple.first end - Tuple.first start)
-        height = abs <| (Tuple.second end - Tuple.second start)
-    in
-    rectToSelect (min x1 x2, min y1 y2) (width, height)
+        ( x1, y1 ) =
+            start
 
-rectToSelect : (Float, Float) -> (Float, Float) -> Svg msg
-rectToSelect (xValue, yValue) (w, h) =
-    rect [x <| Px <| xValue
-    , fill <| Paint <| Color.blue
-    , fillOpacity <| Opacity 0.3
-    , y <| Px <| yValue
-    , stroke <| Paint <| Color.white
-    , width <| Px <| w
-    , height <| Px <| h] []
+        ( x2, y2 ) =
+            end
+
+        width =
+            abs <| (Tuple.first end - Tuple.first start)
+
+        height =
+            abs <| (Tuple.second end - Tuple.second start)
+    in
+    rectToSelect ( min x1 x2, min y1 y2 ) ( width, height )
+
+
+rectToSelect : ( Float, Float ) -> ( Float, Float ) -> Svg msg
+rectToSelect ( xValue, yValue ) ( w, h ) =
+    rect
+        [ x <| Px <| xValue
+        , fill <| Paint <| Color.blue
+        , fillOpacity <| Opacity 0.3
+        , y <| Px <| yValue
+        , stroke <| Paint <| Color.white
+        , width <| Px <| w
+        , height <| Px <| h
+        ]
+        []

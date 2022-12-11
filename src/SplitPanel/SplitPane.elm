@@ -45,6 +45,13 @@ Check out the [examples] to see how it works.
 
 -}
 
+import Browser.Events
+import Html exposing (Attribute, Html, div, span)
+import Html.Attributes exposing (class, style)
+import Html.Events
+import Json.Decode as D exposing (at, field)
+import Json.Encode exposing (encode, float, int)
+import Maybe
 import SplitPanel.Bound
     exposing
         ( Bounded
@@ -53,13 +60,6 @@ import SplitPanel.Bound
         , getValue
         , updateValue
         )
-import Browser.Events
-import Html exposing (Attribute, Html, div, span)
-import Html.Attributes exposing (class, style)
-import Html.Events
-import Json.Decode as D exposing (at, field)
-import Json.Encode exposing (encode, float, int)
-import Maybe
 
 
 
@@ -539,7 +539,7 @@ firstChildViewStyle (State state) =
         Px p ->
             let
                 v =
-                    ((encode 0) <| int <| (getValue p)) ++ "px"
+                    (encode 0 <| int <| getValue p) ++ "px"
             in
             case state.orientation of
                 Horizontal ->
@@ -563,7 +563,7 @@ firstChildViewStyle (State state) =
         Percentage p ->
             let
                 v =
-                    (encode 0) <| float <| getValue p
+                    encode 0 <| float <| getValue p
             in
             [ style "display" "flex"
             , style "flex" v
@@ -591,7 +591,7 @@ secondChildViewStyle (State state) =
         Percentage p ->
             let
                 v =
-                    (encode 0) <| float <| 1 - getValue p
+                    encode 0 <| float <| 1 - getValue p
             in
             [ style "display" "flex"
             , style "flex" v

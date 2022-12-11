@@ -2,41 +2,46 @@ module Main exposing (..)
 
 import Browser exposing (Document)
 import Browser.Navigation as Nav
-import Url exposing (Url)
-import Route exposing (Route)
-import Pages.Home as Home
-import Pages.Editor as Editor
-import Session exposing (Session)
 import Html
+import Pages.Editor as Editor
+import Pages.Home as Home
+import Route exposing (Route)
+import Session exposing (Session)
+import Url exposing (Url)
+
 
 main : Program Bool Model Msg
 main =
-  Browser.application
-    { init = init
-    , update = update
-    , view = view
-    , subscriptions = subscriptions
-    , onUrlRequest = ClickedLink
-    , onUrlChange = ChangedUrl
-    }
+    Browser.application
+        { init = init
+        , update = update
+        , view = view
+        , subscriptions = subscriptions
+        , onUrlRequest = ClickedLink
+        , onUrlChange = ChangedUrl
+        }
+
 
 init : Bool -> Url -> Nav.Key -> ( Model, Cmd Msg )
-init isFileSystemSupported url navKey  =
-    changeRouteTo (Route.fromUrl url) ( Session isFileSystemSupported navKey )
+init isFileSystemSupported url navKey =
+    changeRouteTo (Route.fromUrl url) (Session isFileSystemSupported navKey)
+
 
 type Model
     = Home Session
     | Editor Editor.Model
+
 
 type Msg
     = ClickedLink Browser.UrlRequest
     | ChangedUrl Url
     | EditorMsg Editor.Msg
 
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case (msg, model) of
-        (ClickedLink urlRequest, _ ) ->
+    case ( msg, model ) of
+        ( ClickedLink urlRequest, _ ) ->
             case urlRequest of
                 Browser.Internal url ->
                     ( model
@@ -48,30 +53,36 @@ update msg model =
                     , Nav.load href
                     )
 
-        (ChangedUrl url, Home session) ->
+        ( ChangedUrl url, Home session ) ->
             changeRouteTo (Route.fromUrl url) session
 
-        (ChangedUrl url, Editor editorModel) ->
+        ( ChangedUrl url, Editor editorModel ) ->
             if editorModel.toReload then
                 changeRouteTo (Route.fromUrl url) editorModel.session
+
             else
-                (Editor { editorModel | toReload = True }, Cmd.none)
+                ( Editor { editorModel | toReload = True }, Cmd.none )
 
-        ( EditorMsg subMsg, Editor subModel) ->
+        ( EditorMsg subMsg, Editor subModel ) ->
             let
-                ( updatedSubModel, subCmd ) = Editor.update subMsg subModel
+                ( updatedSubModel, subCmd ) =
+                    Editor.update subMsg subModel
             in
-            (Editor updatedSubModel, Cmd.map EditorMsg subCmd)
+            ( Editor updatedSubModel, Cmd.map EditorMsg subCmd )
 
-        (_, Home _) ->
-            (model, Cmd.none)
+        ( _, Home _ ) ->
+            ( model, Cmd.none )
 
 
 getNavKey : Model -> Nav.Key
 getNavKey model =
     case model of
-        Home { key } -> key
-        Editor { session } -> session.key
+        Home { key } ->
+            key
+
+        Editor { session } ->
+            session.key
+
 
 changeRouteTo : Maybe Route -> Session -> ( Model, Cmd Msg )
 changeRouteTo maybeRoute session =
@@ -84,7 +95,8 @@ changeRouteTo maybeRoute session =
 
         Just (Route.Editor selectedView) ->
             let
-                ( subModel, subCmd ) = Editor.init session selectedView
+                ( subModel, subCmd ) =
+                    Editor.init session selectedView
             in
             ( Editor subModel
             , Cmd.map EditorMsg subCmd
@@ -98,6 +110,7 @@ view model =
             { title = "RDB Model"
             , body = [ Home.view ]
             }
+
         Editor editorModel ->
             let
                 viewPage toMsg config =
@@ -114,6 +127,9 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  case model of
-    Home _ -> Sub.none
-    Editor editorModel -> Editor.subscriptions editorModel |> Sub.map EditorMsg
+    case model of
+        Home _ ->
+            Sub.none
+
+        Editor editorModel ->
+            Editor.subscriptions editorModel |> Sub.map EditorMsg

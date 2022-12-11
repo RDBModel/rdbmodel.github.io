@@ -1,42 +1,79 @@
-module Navigation.ViewNavigation exposing (Model, Msg, view, update, init, subscriptions
-    , gridRectEvents, panModeEvent, getScale, getTranslate, zoomTransformAttr, shiftPosition
-    , getPositionForNewElement, panMode)
+module Navigation.ViewNavigation exposing
+    ( Model
+    , Msg
+    , getPositionForNewElement
+    , getScale
+    , getTranslate
+    , gridRectEvents
+    , init
+    , panMode
+    , panModeEvent
+    , shiftPosition
+    , subscriptions
+    , update
+    , view
+    , zoomTransformAttr
+    )
 
-import Html exposing (Html, Attribute, div, button)
+import Browser.Events as Events
+import Color
+import Html exposing (Attribute, Html, button, div)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
-import TypedSvg.Attributes exposing ( d, viewBox, strokeWidth, stroke, fill, strokeLinecap, strokeLinejoin,
-    cx, cy, r, x1, x2, y1, y2, width, height)
-import TypedSvg.Types exposing ( Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
-import TypedSvg exposing (svg, path, circle, line)
-import Zoom exposing (Zoom, OnZoom)
-import Color
 import JsInterop exposing (zoomMsgReceived)
-import Browser.Events as Events
 import Json.Decode as Decode
+import TypedSvg exposing (circle, line, path, svg)
+import TypedSvg.Attributes
+    exposing
+        ( cx
+        , cy
+        , d
+        , fill
+        , height
+        , r
+        , stroke
+        , strokeLinecap
+        , strokeLinejoin
+        , strokeWidth
+        , viewBox
+        , width
+        , x1
+        , x2
+        , y1
+        , y2
+        )
+import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
+import Zoom exposing (OnZoom, Zoom)
+
 
 type alias Model =
     { ctrlIsDown : Bool
     , zoom : Zoom
     }
 
+
 init : { height : Float, width : Float, x : Float, y : Float } -> Model
-init element = Model False (initZoom element)
+init element =
+    Model False (initZoom element)
+
 
 initZoom : { height : Float, width : Float, x : Float, y : Float } -> Zoom
 initZoom element =
     Zoom.init { width = element.width, height = element.height }
         |> Zoom.scaleExtent 0.1 2
 
+
 type ZoomDirection
     = In
     | Out
+
 
 type Msg
     = DoZoom ZoomDirection
     | SetCtrlIsDown Bool
     | ZoomMsg OnZoom
     | NoOp
+
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -45,9 +82,15 @@ update msg model =
             let
                 scaleValue =
                     case direction of
-                        In -> 1.2
-                        Out -> 0.8
-                current = Zoom.asRecord model.zoom
+                        In ->
+                            1.2
+
+                        Out ->
+                            0.8
+
+                current =
+                    Zoom.asRecord model.zoom
+
                 newZoom =
                     Zoom.setTransform Zoom.instantly { scale = current.scale * scaleValue, translate = current.translate } model.zoom
             in
@@ -63,16 +106,19 @@ update msg model =
             , zoomMsgReceived ()
             )
 
-        NoOp -> ( model, Cmd.none )
+        NoOp ->
+            ( model, Cmd.none )
+
 
 view : Model -> Html Msg
 view model =
     let
-        (backgroundColorForMoveButton, backgroundColorForDefaultButton) =
+        ( backgroundColorForMoveButton, backgroundColorForDefaultButton ) =
             if model.ctrlIsDown then
-                ("#d3d3d3", "white")
+                ( "#d3d3d3", "white" )
+
             else
-                ("white", "#d3d3d3")
+                ( "white", "#d3d3d3" )
     in
     div
         [ style "position" "absolute"
@@ -82,6 +128,7 @@ view model =
         , style "user-select" "none"
         , style "display" "flex"
         , style "flex-direction" "column"
+
         --, Mouse.onContextMenu (\_ -> NoOp)
         ]
         [ button
@@ -105,9 +152,9 @@ view model =
                 ]
                 [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
                 , circle [ cx (Px 10), cy (Px 10), r (Px 7) ] []
-                , line [ x1 (Px 7), y1 (Px 10), x2 (Px 13), y2 (Px 10)] []
-                , line [ x1 (Px 10), y1 (Px 7), x2 (Px 10), y2 (Px 13)] []
-                , line [ x1 (Px 21), y1 (Px 21), x2 (Px 15), y2 (Px 15)] []
+                , line [ x1 (Px 7), y1 (Px 10), x2 (Px 13), y2 (Px 10) ] []
+                , line [ x1 (Px 10), y1 (Px 7), x2 (Px 10), y2 (Px 13) ] []
+                , line [ x1 (Px 21), y1 (Px 21), x2 (Px 15), y2 (Px 15) ] []
                 ]
             ]
         , button
@@ -133,8 +180,8 @@ view model =
                 ]
                 [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
                 , circle [ cx (Px 10), cy (Px 10), r (Px 7) ] []
-                , line [ x1 (Px 7), y1 (Px 10), x2 (Px 13), y2 (Px 10)] []
-                , line [ x1 (Px 21), y1 (Px 21), x2 (Px 15), y2 (Px 15)] []
+                , line [ x1 (Px 7), y1 (Px 10), x2 (Px 13), y2 (Px 10) ] []
+                , line [ x1 (Px 21), y1 (Px 21), x2 (Px 15), y2 (Px 15) ] []
                 ]
             ]
         , button
@@ -197,6 +244,7 @@ view model =
             ]
         ]
 
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
@@ -205,13 +253,18 @@ subscriptions model =
         , Zoom.subscriptions model.zoom ZoomMsg
         ]
 
+
 setCtrlState : Bool -> Decode.Decoder String -> Decode.Decoder Msg
 setCtrlState value =
-    Decode.map (\key ->
-        if key == "Control" then
-            SetCtrlIsDown value
-        else
-            NoOp)
+    Decode.map
+        (\key ->
+            if key == "Control" then
+                SetCtrlIsDown value
+
+            else
+                NoOp
+        )
+
 
 keyDecoder : Decode.Decoder String
 keyDecoder =
@@ -220,24 +273,34 @@ keyDecoder =
 
 gridRectEvents : Model -> List (Attribute Msg)
 gridRectEvents model =
-    [Zoom.onDoubleClick model.zoom ZoomMsg, Zoom.onWheel model.zoom ZoomMsg]
-        ++ (if model.ctrlIsDown then panModeEvent model else [])
+    [ Zoom.onDoubleClick model.zoom ZoomMsg, Zoom.onWheel model.zoom ZoomMsg ]
+        ++ (if model.ctrlIsDown then
+                panModeEvent model
+
+            else
+                []
+           )
+
 
 panModeEvent : Model -> List (Attribute Msg)
 panModeEvent model =
     Zoom.onDrag model.zoom ZoomMsg
 
+
 getScale : Model -> Float
 getScale model =
     model.zoom |> Zoom.asRecord |> .scale
+
 
 getTranslate : Model -> { x : Float, y : Float }
 getTranslate model =
     model.zoom |> Zoom.asRecord |> .translate
 
+
 zoomTransformAttr : Model -> Attribute Msg
 zoomTransformAttr model =
     Zoom.transform model.zoom
+
 
 {-| The mouse events for drag start, drag at and drag end read the client
 position of the cursor, which is relative to the browser viewport. However,
@@ -246,7 +309,7 @@ coordinates accordingly. It also takes the current zoom level and position
 into consideration.
 -}
 shiftPosition : Model -> ( Float, Float ) -> ( Float, Float ) -> ( Float, Float )
-shiftPosition model (elementX, elementY) ( clientX, clientY ) =
+shiftPosition model ( elementX, elementY ) ( clientX, clientY ) =
     let
         zoomRecord =
             Zoom.asRecord model.zoom
@@ -256,15 +319,18 @@ shiftPosition model (elementX, elementY) ( clientX, clientY ) =
     )
 
 
-getPositionForNewElement : Model -> { height : Float, width : Float, x : Float, y : Float } -> (Float, Float)
+getPositionForNewElement : Model -> { height : Float, width : Float, x : Float, y : Float } -> ( Float, Float )
 getPositionForNewElement model svgElement =
-  let
-    record = Zoom.asRecord model.zoom
+    let
+        record =
+            Zoom.asRecord model.zoom
 
-    (initY, initX) = ((svgElement.height - svgElement.y)/2, (svgElement.width - svgElement.x)/2)
-  in
-  ( initX - record.scale * record.translate.x, initY - record.scale * record.translate.y)
+        ( initY, initX ) =
+            ( (svgElement.height - svgElement.y) / 2, (svgElement.width - svgElement.x) / 2 )
+    in
+    ( initX - record.scale * record.translate.x, initY - record.scale * record.translate.y )
 
 
 panMode : Model -> Bool
-panMode model = model.ctrlIsDown
+panMode model =
+    model.ctrlIsDown

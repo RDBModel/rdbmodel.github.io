@@ -1,24 +1,44 @@
 module FilePicker exposing (..)
 
-import Html exposing (Html, div, button)
+import Color
+import Html exposing (Html, button, div)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
-import TypedSvg.Attributes exposing ( d, viewBox, strokeWidth, stroke, fill, strokeLinecap, strokeLinejoin, width, height
-    , cx, cy, r, points)
-import TypedSvg.Types exposing ( Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
-import TypedSvg exposing (svg, path, polyline,circle)
 import JsInterop exposing (openFileOpenDialog, openSaveFileDialog)
-import Color
+import TypedSvg exposing (circle, path, polyline, svg)
+import TypedSvg.Attributes
+    exposing
+        ( cx
+        , cy
+        , d
+        , fill
+        , height
+        , points
+        , r
+        , stroke
+        , strokeLinecap
+        , strokeLinejoin
+        , strokeWidth
+        , viewBox
+        , width
+        )
+import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
+
 
 type Msg
     = OpenFile
     | SaveFile
 
+
 update : Msg -> Cmd Msg
 update msg =
     case msg of
-        OpenFile -> openFileOpenDialog ()
-        SaveFile -> openSaveFileDialog ()
+        OpenFile ->
+            openFileOpenDialog ()
+
+        SaveFile ->
+            openSaveFileDialog ()
+
 
 view : Html Msg
 view =
@@ -76,7 +96,7 @@ view =
                 [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
                 , path [ d "M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" ] []
                 , circle [ cx (Px 12), cy (Px 14), r (Px 2) ] []
-                , polyline [ points [(14, 4), (14, 8), (8, 8), (8, 4)] ] []
+                , polyline [ points [ ( 14, 4 ), ( 14, 8 ), ( 8, 8 ), ( 8, 4 ) ] ] []
                 ]
             ]
         ]

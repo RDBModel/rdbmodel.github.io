@@ -1,19 +1,22 @@
 module ViewControl.AddViewActions exposing (..)
 
-import ViewControl.AddView exposing (Action(..))
+import Browser.Navigation as Nav
 import Dict exposing (Dict)
 import Domain.Domain exposing (View)
-import Browser.Navigation as Nav
+import ViewControl.AddView exposing (Action(..))
+
 
 type alias Params =
-    { position : (Float, Float)
+    { position : ( Float, Float )
     , selectedView : String
     , key : Nav.Key
     }
 
+
 apply : Dict String View -> List Action -> ( Dict String View, Cmd msg )
 apply views actions =
     List.foldl modifyViews ( views, Cmd.none ) actions
+
 
 modifyViews : Action -> ( Dict String View, Cmd msg ) -> ( Dict String View, Cmd msg )
 modifyViews action ( views, cmd ) =
@@ -23,11 +26,14 @@ modifyViews action ( views, cmd ) =
             , cmd
             )
 
+
 monacoValueModified : List Action -> Bool
 monacoValueModified =
-    List.foldl (\a v -> actionModifyView a |> (||) v ) False
+    List.foldl (\a v -> actionModifyView a |> (||) v) False
+
 
 actionModifyView : Action -> Bool
 actionModifyView action =
     case action of
-        NewView _ -> True
+        NewView _ ->
+            True
