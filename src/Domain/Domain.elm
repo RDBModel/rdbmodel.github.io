@@ -68,7 +68,7 @@ type alias ViewRelationPoint =
     }
 
 
-type alias Container =
+type alias Vertex =
     { name : String
     , key : String
     , description : String
@@ -77,8 +77,8 @@ type alias Container =
 
 
 type alias Edge =
-    { source : Container
-    , target : Container
+    { source : Vertex
+    , target : Vertex
     , points : List ( Float, Float )
     , description : String
     }
@@ -144,7 +144,7 @@ getEdges ( domain, currentView ) =
                 Just ( sourceName, sourceDescription ) ->
                     let
                         sourceContainer =
-                            Container sourceName viewElementKey sourceDescription source
+                            Vertex sourceName viewElementKey sourceDescription source
                     in
                     Dict.toList viewElement.relations
                         |> List.filterMap
@@ -172,7 +172,7 @@ getEdges ( domain, currentView ) =
                                         (\( targetName, targetDescription ) ->
                                             let
                                                 targetContainer =
-                                                    Container targetName targetElementKey targetDescription target
+                                                    Vertex targetName targetElementKey targetDescription target
                                             in
                                             Edge sourceContainer targetContainer convertedViewRelationPoints description
                                         )
@@ -185,7 +185,7 @@ getEdges ( domain, currentView ) =
         |> List.concatMap getTargetAndPoints
 
 
-getContainers : ( Domain, View ) -> List Container
+getContainers : ( Domain, View ) -> List Vertex
 getContainers ( domain, currentView ) =
     let
         elementsNamesAndDescriptions =
@@ -196,7 +196,7 @@ getContainers ( domain, currentView ) =
             (\( viewElementKey, viewElement ) ->
                 elementsNamesAndDescriptions
                     |> getNameAndDescriptionByKey viewElementKey
-                    |> Maybe.map (\( name, description ) -> Container name viewElementKey description (Tuple.pair viewElement.x viewElement.y))
+                    |> Maybe.map (\( name, description ) -> Vertex name viewElementKey description (Tuple.pair viewElement.x viewElement.y))
             )
 
 

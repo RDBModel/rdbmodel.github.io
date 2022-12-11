@@ -12,7 +12,7 @@ module Elements exposing
     )
 
 import Color
-import Domain.Domain exposing (Container, Edge)
+import Domain.Domain exposing (Vertex, Edge)
 import Path exposing (Path)
 import Shape exposing (linearCurve)
 import SubPath exposing (arcLength, arcLengthParameterized)
@@ -78,17 +78,17 @@ gridCellSize =
     10
 
 
-renderContainerSelected : Container -> List (Attribute msg) -> Svg msg
+renderContainerSelected : Vertex -> List (Attribute msg) -> Svg msg
 renderContainerSelected =
     renderContainerInternal True
 
 
-renderContainer : Container -> List (Attribute msg) -> Svg msg
+renderContainer : Vertex -> List (Attribute msg) -> Svg msg
 renderContainer =
     renderContainerInternal False
 
 
-renderContainerInternal : Bool -> Container -> List (Attribute msg) -> Svg msg
+renderContainerInternal : Bool -> Vertex -> List (Attribute msg) -> Svg msg
 renderContainerInternal selected { key, name, description, xy } events =
     let
         ( xCenter, yCenter ) =

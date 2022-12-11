@@ -9,7 +9,7 @@ import ContainerMenu.MenuActions as MenuActions
 import Dict exposing (Dict)
 import Domain.Domain
     exposing
-        ( Container
+        ( Vertex
         , Domain
         , Edge
         , View
@@ -94,10 +94,6 @@ type alias Brush =
     }
 
 
-
--- Select information
-
-
 type alias Drag =
     { current : ( Float, Float ) -- current mouse position
     , start : ( Float, Float ) -- start mouse position
@@ -108,10 +104,6 @@ type alias SelectedItem =
     { key : ViewItemKey -- selected node id or point index
     , delta : Maybe ( Float, Float ) -- delta between start and node center to do ajustment during movement
     }
-
-
-
--- SVG element position and size in DOM
 
 
 type alias Element =
@@ -1062,7 +1054,7 @@ onMouseDownPoint ( viewRelationElementKey, relation ) index =
         |> List.singleton
 
 
-drawContainer : ViewNavigation.Model -> List SelectedItem -> Container -> Svg Msg
+drawContainer : ViewNavigation.Model -> List SelectedItem -> Vertex -> Svg Msg
 drawContainer viewNavigation selectedItems container =
     let
         mouseDownAttr =
