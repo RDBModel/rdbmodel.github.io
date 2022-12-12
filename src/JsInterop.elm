@@ -1,9 +1,6 @@
 port module JsInterop exposing (..)
 
 
-port monacoEditorInitialValue : (String -> msg) -> Sub msg
-
-
 port monacoEditorSavedValue : (String -> msg) -> Sub msg
 
 
@@ -16,7 +13,7 @@ port requestValueToSave : (() -> msg) -> Sub msg
 port onWheel : (() -> msg) -> Sub msg
 
 
-port initMonacoResponse : () -> Cmd msg
+port initMonacoResponse : String -> Cmd msg
 
 
 port zoomMsgReceived : () -> Cmd msg

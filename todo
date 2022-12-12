@@ -4,7 +4,6 @@
 
 [ ] help
 
-[ ] add loading icon for editor
 [ ] notify about unsaved text in editor before saving
 
 [ ] show errors
@@ -15,7 +14,10 @@
 
 [ ] show edge circles only when mouse hover otherwise show as a line
 
+
 ------
+[x] load yaml from url
+[x] add loading icon for editor
 [x] containerMenu component - actions
 [x] viewUndoRedo component - actions
 

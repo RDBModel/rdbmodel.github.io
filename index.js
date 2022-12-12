@@ -8,90 +8,6 @@ window.MonacoEnvironment = {
   },
 }
 
-const initialValue =
-`domain:
-  name: Name
-  description: Description
-  actors:
-    actor-1:
-      name: Actor
-      description: Description
-      relations:
-        - uses - container-1
-  systems:
-    system-1:
-      name: System 1 name
-      description: Description
-      relations: []
-      containers: {}
-    system-2:
-      name: System 2 name
-      description: Description
-      relations:
-        - uses - system-1
-      containers:
-        container-1:
-          name: container 1
-          description: Description
-          relations:
-            - calls - container-2
-            - uses - system-1
-          components:
-            container-1--component-1:
-              name: component 1
-              description: Description
-              relations:
-                - uses - container-1--component-2
-                - calls - container-2--component-1
-                - uses - system-1
-            container-1--component-2:
-              name: component 2
-              description: Description
-              relations:
-                []
-        container-2:
-          name: container 2
-          description: Description
-          relations:
-            []
-          components:
-            container-2--component-1:
-              name: component 1
-              description: Description
-              relations:
-                - uses - container-2--component-2
-            container-2--component-2:
-              name: component 2
-              description: Description
-              relations:
-                []
-views:
-  view-1:
-    elements:
-      system-1:
-        x: 100
-        y: 100
-      container-1:
-        x: 200
-        y: 200
-        relations:
-          'calls - container-2':
-            - x: 300
-              y: 150
-      container-2:
-        x: 300
-        y: 300
-  view-2:
-    elements:
-      actor-1:
-        x: 100
-        y: 100
-        relations:
-          'uses - container-1': []
-      container-1:
-        x: 200
-        y: 200`
-
 const app = Elm.Main.init({
   node: document.getElementById("root"),
   flags: window.showOpenFilePicker !== undefined
@@ -100,13 +16,13 @@ const app = Elm.Main.init({
 let editor
 let decorations = []
 
-function initMonaco() {
+function initMonaco(initialValue) {
   if (editor != null) {
     editor.dispose()
   }
   editor = monaco.editor.create(document.getElementById("monaco"), {
     // theme: 'vs-dark',
-    value: YAML.stringify(YAML.parse(initialValue.trim())),
+    value: modifyYamlValue(initialValue),
     language: 'yaml',
     wordWrap: 'off',
     automaticLayout: true,
@@ -136,8 +52,6 @@ function initMonaco() {
       document.querySelectorAll('.elm-select-input').forEach(el => el.blur())
     }
   })
-
-  app.ports.monacoEditorInitialValue.send(editor.getValue())
 }
 
 app.ports.zoomMsgReceived.subscribe(() => {
@@ -148,7 +62,7 @@ app.ports.openFileOpenDialog.subscribe(async () => await showFilePicker())
 app.ports.openSaveFileDialog.subscribe(() => app.ports.requestValueToSave.send(null))
 app.ports.saveValueToFile.subscribe(async (value) => await showFileSaveDialog(value))
 
-app.ports.initMonacoResponse.subscribe(() => initMonaco())
+app.ports.initMonacoResponse.subscribe((message) => initMonaco(message))
 app.ports.updateMonacoValue.subscribe((message) => updateMonacoValue(message))
 app.ports.validationErrors.subscribe((message) => {
   const newDecorators = []

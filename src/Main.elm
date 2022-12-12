@@ -93,10 +93,10 @@ changeRouteTo maybeRoute session =
         Just Route.Home ->
             ( Home session, Cmd.none )
 
-        Just (Route.Editor selectedView) ->
+        Just (Route.Editor selectedView link) ->
             let
                 ( subModel, subCmd ) =
-                    Editor.init session selectedView
+                    Editor.init session selectedView link
             in
             ( Editor subModel
             , Cmd.map EditorMsg subCmd

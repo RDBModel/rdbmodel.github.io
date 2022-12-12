@@ -10,17 +10,18 @@ import Domain.DomainEncoder exposing (rdbEncode)
 import FilePicker
 import Html exposing (Html, a, div, text)
 import Html.Attributes exposing (style)
+import Http
 import JsInterop
     exposing
         ( initMonacoRequest
         , initMonacoResponse
-        , monacoEditorInitialValue
         , monacoEditorSavedValue
         , requestValueToSave
         , saveValueToFile
         , updateMonacoValue
         , validationErrors
         )
+import Result
 import Session exposing (Session)
 import SplitPanel.SplitPane as SplitPane exposing (Orientation(..), State, ViewConfig, createViewConfig)
 import Task
@@ -62,8 +63,8 @@ type alias Model =
     }
 
 
-init : Session -> String -> ( Model, Cmd Msg )
-init session selectedView =
+init : Session -> String -> Maybe String -> ( Model, Cmd Msg )
+init session selectedView link =
     ( Model
         session
         (SplitPane.init Horizontal)
@@ -73,7 +74,7 @@ init session selectedView =
         False
         True
         ""
-    , Task.attempt ReceiveMonacoElementPosition (Dom.getElement "monaco")
+    , Task.attempt (ReceiveMonacoElementPosition link) (Dom.getElement "monaco")
     )
 
 
@@ -84,25 +85,67 @@ getMonacoValue =
 
 type Msg
     = MonacoEditorValueReceived String
-    | ReceiveMonacoElementPosition (Result Dom.Error Dom.Element)
-    | MonacoEditorInitialValueReceived String
+    | ReceiveMonacoElementPosition (Maybe String) (Result Dom.Error Dom.Element)
     | ViewEditorMsg ViewEditor.Msg
     | PaneMsg SplitPane.Msg
     | InitMonacoRequestReceived ()
     | RequestValueToSave ()
     | FilePicker FilePicker.Msg
     | ViewUndoRedo ViewUndoRedo.Msg
+    | GotDomain (Result Http.Error String)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        ReceiveMonacoElementPosition (Ok _) ->
+        GotDomain (Ok val) ->
+            case D.fromString rdbDecoder val of
+                Ok ( domain, views ) ->
+                    let
+                        monacoModel =
+                            MonacoValue views (Just domain)
+
+                        newModel =
+                            { model
+                                | errors = ""
+                                , monacoValue = monacoModel |> getUndoRedoMonacoValue
+                            }
+                    in
+                    ( newModel
+                    , Cmd.batch
+                        [ initMonacoResponse (rdbEncode monacoModel)
+                        , ViewEditor.getElementPosition |> Cmd.map ViewEditorMsg
+                        ]
+                    )
+
+                Err err ->
+                    case err of
+                        D.Parsing errMsg ->
+                            ( { model | errors = errMsg }, validationErrors errMsg )
+
+                        D.Decoding errMsg ->
+                            ( { model | errors = errMsg }, validationErrors errMsg )
+
+        GotDomain (Err _) ->
+            -- TODO
             ( model
-            , initMonacoResponse ()
+            , Cmd.none
             )
 
-        ReceiveMonacoElementPosition (Err _) ->
+        ReceiveMonacoElementPosition link (Ok _) ->
+            ( model
+            , case link of
+                Just l ->
+                    Http.get
+                        { url = l
+                        , expect = Http.expectString GotDomain
+                        }
+
+                Nothing ->
+                    Cmd.batch [ initMonacoResponse "", ViewEditor.getElementPosition |> Cmd.map ViewEditorMsg ]
+            )
+
+        ReceiveMonacoElementPosition _ (Err _) ->
             -- TODO
             ( model
             , Cmd.none
@@ -114,7 +157,11 @@ update msg model =
             )
 
         MonacoEditorValueReceived val ->
-            case D.fromString rdbDecoder val of
+            let
+                cleaned =
+                    String.replace "\u{000D}\n" "\n" val
+            in
+            case D.fromString rdbDecoder cleaned of
                 Ok ( domain, views ) ->
                     let
                         newModel =
@@ -149,40 +196,8 @@ update msg model =
                         D.Decoding errMsg ->
                             ( model, validationErrors errMsg )
 
-        MonacoEditorInitialValueReceived val ->
-            case D.fromString rdbDecoder val of
-                Ok ( domain, views ) ->
-                    let
-                        newMonacoValue a =
-                            { a
-                                | domain = Just domain
-                                , views = views
-                            }
-
-                        newModel =
-                            { model
-                                | errors = ""
-                                , showOpenFileButton = True
-                                , monacoValue = mapPresent newMonacoValue model.monacoValue
-                            }
-                    in
-                    ( newModel
-                    , Cmd.batch
-                        [ ViewEditor.getElementPosition |> Cmd.map ViewEditorMsg
-                        , validationErrors ""
-                        ]
-                    )
-
-                Err err ->
-                    case err of
-                        D.Parsing errMsg ->
-                            ( model, validationErrors errMsg )
-
-                        D.Decoding errMsg ->
-                            ( model, validationErrors errMsg )
-
         InitMonacoRequestReceived _ ->
-            ( model, initMonacoResponse () )
+            ( model, initMonacoResponse "" )
 
         RequestValueToSave _ ->
             ( model, saveValueToFile (rdbEncode model.monacoValue.present) )
@@ -297,7 +312,6 @@ subscriptions model =
         [ ViewEditor.subscriptions model.viewEditor |> Sub.map ViewEditorMsg
         , ViewUndoRedo.subscriptions model.viewUndoRedo |> Sub.map ViewUndoRedo
         , Sub.map PaneMsg <| SplitPane.subscriptions model.pane
-        , monacoEditorInitialValue <| MonacoEditorInitialValueReceived
         , monacoEditorSavedValue <| MonacoEditorValueReceived
         , initMonacoRequest InitMonacoRequestReceived
         , requestValueToSave RequestValueToSave

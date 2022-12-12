@@ -86,16 +86,15 @@ yamlItem value =
 digramDescription : Element msg
 digramDescription =
     column [ defaultSpacing, defaultPadding, defaultFontSize ]
-        [ yamlItem "View domain representation via view editor"
-        , yamlItem "☝ Systems are runnable applications, aka Software systems"
-        , yamlItem "☝ Containers are deployable units, aka Containers"
-        , yamlItem "☝ Components are buildable packages, aka Components"
+        [ yamlItem "View domain representations via view editor"
+        , yamlItem "☝ Systems are applications or any type of product that brings value for end users"
+        , yamlItem "☝ Containers are units that can be deployed independently"
+        , yamlItem "☝ Components are buildable packages that are repsented as artifacts in the file system"
         , yamlItem "See 🔎 connections between actors, systems, containers, and components"
-
-        -- , text "Save models in SVG format"
         , yamlItem "Layout selected view elements and edges manually"
         , yamlItem "Check elements and edges descriptions"
         , yamlItem "Zoom, scroll, and navigate through the view"
+        , yamlItem "Create and edit views"
         ]
 
 
@@ -135,8 +134,8 @@ mapColor =
 editor : Element msg
 editor =
     row [ width fill, blockPadding ]
-        [ el [ width fill ] editorDescription
-        , el [ width shrink ] (image [] { src = "[VITE_PLUGIN_ELM_ASSET:/src/img/editor.gif]", description = "editor" })
+        [ el [ width shrink ] (image [] { src = "[VITE_PLUGIN_ELM_ASSET:/src/img/editor.gif]", description = "editor" })
+        , el [ width fill ] editorDescription
         ]
 
 
