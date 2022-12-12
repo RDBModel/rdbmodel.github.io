@@ -2,6 +2,7 @@ module Pages.Editor exposing (Model, Msg, init, subscriptions, update, view)
 
 import Browser exposing (Document)
 import Browser.Dom as Dom
+import Color
 import Dict exposing (Dict)
 import Domain.Domain exposing (Domain, View, ViewItemKey(..))
 import Domain.DomainDecoder exposing (rdbDecoder)
@@ -23,7 +24,24 @@ import JsInterop
 import Session exposing (Session)
 import SplitPanel.SplitPane as SplitPane exposing (Orientation(..), State, ViewConfig, createViewConfig)
 import Task
-import TypedSvg.Attributes exposing (id)
+import TypedSvg exposing (line, path, svg)
+import TypedSvg.Attributes
+    exposing
+        ( d
+        , fill
+        , height
+        , id
+        , stroke
+        , strokeLinecap
+        , strokeLinejoin
+        , strokeWidth
+        , viewBox
+        , width
+        , x1
+        , x2
+        , y1
+        , y2
+        )
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import UndoRedo.ViewUndoRedo as ViewUndoRedo exposing (UndoRedoMonacoValue, getUndoRedoMonacoValue, mapPresent, newRecord)
 import UndoRedo.ViewUndoRedoActions as ViewUndoRedoActions exposing (MonacoValue)
@@ -217,7 +235,7 @@ view model =
                     , ViewUndoRedo.view |> Html.map ViewUndoRedo
                     ]
                 )
-                (monacoViewPart (model.showOpenFileButton && model.session.isFileSystemSupported))
+                (monacoViewPart (model.showOpenFileButton && model.session.isFileSystemSupported) (ViewEditor.isInitState model.viewEditor))
                 pane
             , div [ style "position" "fixed", style "bottom" "0", style "left" "0", style "font-size" "9px" ] [ text "v0.0.1" ]
             ]
@@ -233,10 +251,38 @@ viewConfig =
         }
 
 
-monacoViewPart : Bool -> Html Msg
-monacoViewPart showButton =
+monacoViewPart : Bool -> Bool -> Html Msg
+monacoViewPart showButton showLoading =
     div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
-        [ div [ id "monaco", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ] []
+        [ div [ id "monaco", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
+            [ if showLoading then
+                svg
+                    [ style "vertical-align" "middle"
+                    , style "top" "50%"
+                    , style "left" "50%"
+                    , style "transform" "translate(-50%,-50%)"
+                    , style "position" "absolute"
+                    , width <| Px 24
+                    , height <| Px 24
+                    , viewBox 0 0 24 24
+                    , strokeWidth <| Px 1
+                    , stroke (Paint Color.black)
+                    , fill PaintNone
+                    , strokeLinecap StrokeLinecapRound
+                    , strokeLinejoin StrokeLinejoinRound
+                    ]
+                    [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
+                    , path [ d "M9 4.55a8 8 0 0 1 6 14.9m0 -4.45v5h5" ] []
+                    , line [ x1 (Px 5.63), y1 (Px 7.16), x2 (Px 5.63), y2 (Px 7.17) ] []
+                    , line [ x1 (Px 4.06), y1 (Px 11), x2 (Px 4.06), y2 (Px 11.01) ] []
+                    , line [ x1 (Px 4.63), y1 (Px 15.1), x2 (Px 4.63), y2 (Px 15.11) ] []
+                    , line [ x1 (Px 7.16), y1 (Px 18.37), x2 (Px 7.16), y2 (Px 18.38) ] []
+                    , line [ x1 (Px 11), y1 (Px 19.94), x2 (Px 11), y2 (Px 19.95) ] []
+                    ]
+
+              else
+                text ""
+            ]
         , if showButton then
             FilePicker.view |> Html.map FilePicker
 

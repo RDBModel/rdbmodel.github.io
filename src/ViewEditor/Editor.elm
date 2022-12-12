@@ -1,4 +1,4 @@
-module ViewEditor.Editor exposing (Action(..), Model, Msg, getElementPosition, init, subscriptions, update, view)
+module ViewEditor.Editor exposing (Action(..), Model, Msg, getElementPosition, init, isInitState, subscriptions, update, view)
 
 import Basics.Extra exposing (maxSafeInteger)
 import Browser.Dom as Dom
@@ -9,9 +9,9 @@ import ContainerMenu.MenuActions as MenuActions
 import Dict exposing (Dict)
 import Domain.Domain
     exposing
-        ( Vertex
-        , Domain
+        ( Domain
         , Edge
+        , Vertex
         , View
         , ViewElement
         , ViewElementKey
@@ -74,6 +74,16 @@ import ViewControl.ViewControlActions as ViewControlActions
 type Model
     = Init String
     | Ready ViewEditorState
+
+
+isInitState : Model -> Bool
+isInitState model =
+    case model of
+        Init _ ->
+            True
+
+        _ ->
+            False
 
 
 type alias ViewEditorState =
