@@ -78,10 +78,11 @@ app.ports.validationErrors.subscribe((message) => {
 
 // TODO: import from ELM
 const domainErrorKeys = ['Elements with empty name', 'Not existing target', 'Duplicated element key']
-const yamlParseError = 'Non-unique keys in record'
+const viewsErrorKeys = ['Not existing element in domain', 'Not existing relation in domain']
+const yamlParseError = ['Non-unique keys in record']
 function showErrors(message, newDecorators) {
-  console.log(message)
   const allErrors = []
+  console.log(message)
   if (message.includes(yamlParseError)) {
     const elementName = message.split(`${yamlParseError}:`)[1].trim()
     allErrors.push([yamlParseError, elementName])
@@ -131,17 +132,16 @@ function showErrors(message, newDecorators) {
             isDomainOrView = 2
           }
           for (const [name, error] of allErrors) {
-            const case1 = (name === 'Elements with empty name' && isDomainOrView === 1) || name !== 'Elements with empty name'
-            const case2 = (name === 'Duplicated element key' && isDomainOrView === 1) || name !== 'Duplicated element key'
-            if (subValue.key.value === error && case1 && case2) {
-              const { line, col } = lineCounter.linePos(subValue.key.srcToken.offset)
-              newDecorators.push({
-                range: new monaco.Range(line, col, line, col + error.length + 1),
-                options: {
-                  inlineClassName: 'error',
-                  hoverMessage: { value: name }
-                }
-              })
+            const domainError = domainErrorKeys.indexOf(name) > -1 && isDomainOrView === 1
+            if (subValue.key.value === error && domainError) {
+              pushDecorator(subValue.key.srcToken.offset, error, name)
+            }
+            const viewsError = viewsErrorKeys.indexOf(name) > -1 && isDomainOrView === 2
+            if (subValue.key.value === error && viewsError) {
+              pushDecorator(subValue.key.srcToken.offset, error, name)
+            }
+            if (subValue.key.value === error && !viewsError && !domainError) {
+              pushDecorator(subValue.key.srcToken.offset, error, name)
             }
           }
         }
@@ -149,16 +149,16 @@ function showErrors(message, newDecorators) {
           populateAnalyzers(subValue, isDomainOrView)
         } else if ('type' in subValue && subValue.type === 'PLAIN') {
           for (const [name, error] of allErrors) {
-            if (subValue.value === error) {
-              console.log(subValue.value)
-              const { line, col } = lineCounter.linePos(subValue.srcToken.offset)
-              newDecorators.push({
-                range: new monaco.Range(line, col, line, col + error.length + 1),
-                options: {
-                  inlineClassName: 'error',
-                  hoverMessage: { value: name }
-                }
-              })
+            const domainError = domainErrorKeys.indexOf(name) > -1 && isDomainOrView === 1
+            if (subValue.value === error && domainError) {
+              pushDecorator(subValue.srcToken.offset, error, name)
+            }
+            const viewsError = viewsErrorKeys.indexOf(name) > -1 && isDomainOrView === 2
+            if (subValue.value === error && viewsError) {
+              pushDecorator(subValue.srcToken.offset, error, name)
+            }
+            if (subValue.value === error && !viewsError && !domainError) {
+              pushDecorator(subValue.srcToken.offset, error, name)
             }
           }
         } else if (subValue.value instanceof YAMLMap || subValue.value instanceof YAMLSeq) {
@@ -166,6 +166,17 @@ function showErrors(message, newDecorators) {
         }
       }
     }
+  }
+
+  function pushDecorator (offset, error, name) {
+    const { line, col } = lineCounter.linePos(offset)
+    newDecorators.push({
+      range: new monaco.Range(line, col, line, col + error.length + 1),
+      options: {
+        inlineClassName: 'error',
+        hoverMessage: { value: name }
+      }
+    })
   }
 }
 

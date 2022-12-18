@@ -7,6 +7,8 @@ import Dict exposing (Dict)
 import Domain.Domain exposing (Domain, View, ViewItemKey(..))
 import Domain.DomainDecoder exposing (rdbDecoder)
 import Domain.DomainEncoder exposing (rdbEncode)
+import Domain.Validation exposing (errorDomainDecoder)
+import Error.Error as Error exposing (Source(..))
 import FilePicker
 import Html exposing (Html, a, div, text)
 import Html.Attributes exposing (style)
@@ -18,10 +20,9 @@ import JsInterop
         , monacoEditorSavedValue
         , requestValueToSave
         , saveValueToFile
-        , updateMonacoValue
         , validationErrors
         )
-import Result
+import Json.Decode as JsonDecoder
 import Session exposing (Session)
 import SplitPanel.SplitPane as SplitPane exposing (Orientation(..), State, ViewConfig, createViewConfig)
 import Task
@@ -44,7 +45,7 @@ import TypedSvg.Attributes
         , y2
         )
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
-import UndoRedo.ViewUndoRedo as ViewUndoRedo exposing (UndoRedoMonacoValue, getUndoRedoMonacoValue, mapPresent, newRecord)
+import UndoRedo.ViewUndoRedo as ViewUndoRedo exposing (UndoRedoMonacoValue, getUndoRedoMonacoValue, newRecord)
 import UndoRedo.ViewUndoRedoActions as ViewUndoRedoActions exposing (MonacoValue)
 import ViewEditor.Editor as ViewEditor
 import ViewEditor.EditorAction as ViewEditorActions
@@ -59,7 +60,7 @@ type alias Model =
     , viewUndoRedo : ViewUndoRedo.Model
     , showOpenFileButton : Bool
     , toReload : Bool
-    , errors : String
+    , errors : Error.Model
     }
 
 
@@ -73,7 +74,7 @@ init session selectedView link =
         ViewUndoRedo.init
         False
         True
-        ""
+        []
     , Task.attempt (ReceiveMonacoElementPosition link) (Dom.getElement "monaco")
     )
 
@@ -93,6 +94,7 @@ type Msg
     | FilePicker FilePicker.Msg
     | ViewUndoRedo ViewUndoRedo.Msg
     | GotDomain (Result Http.Error String)
+    | ErrorMsg Error.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -107,7 +109,7 @@ update msg model =
 
                         newModel =
                             { model
-                                | errors = ""
+                                | errors = []
                                 , monacoValue = monacoModel |> getUndoRedoMonacoValue
                             }
                     in
@@ -121,10 +123,15 @@ update msg model =
                 Err err ->
                     case err of
                         D.Parsing errMsg ->
-                            ( { model | errors = errMsg }, validationErrors errMsg )
+                            ( { model | errors = DomainParse errMsg |> List.singleton }, validationErrors errMsg )
 
                         D.Decoding errMsg ->
-                            ( { model | errors = errMsg }, validationErrors errMsg )
+                            case JsonDecoder.decodeString errorDomainDecoder errMsg of
+                                Ok parsedErrors ->
+                                    ( { model | errors = parsedErrors |> List.singleton }, validationErrors errMsg )
+
+                                Err decodeErr ->
+                                    ( { model | errors = ParseError decodeErr |> List.singleton }, validationErrors errMsg )
 
         GotDomain (Err _) ->
             -- TODO
@@ -166,7 +173,7 @@ update msg model =
                     let
                         newModel =
                             { model
-                                | errors = ""
+                                | errors = []
                                 , monacoValue =
                                     let
                                         currentMonacoValue =
@@ -191,10 +198,15 @@ update msg model =
                 Err err ->
                     case err of
                         D.Parsing errMsg ->
-                            ( model, validationErrors errMsg )
+                            ( { model | errors = DomainParse errMsg |> List.singleton }, validationErrors errMsg )
 
                         D.Decoding errMsg ->
-                            ( model, validationErrors errMsg )
+                            case JsonDecoder.decodeString errorDomainDecoder errMsg of
+                                Ok parsedErrors ->
+                                    ( { model | errors = parsedErrors |> List.singleton }, validationErrors errMsg )
+
+                                Err decodeErr ->
+                                    ( { model | errors = ParseError decodeErr |> List.singleton }, validationErrors errMsg )
 
         InitMonacoRequestReceived _ ->
             ( model, initMonacoResponse "" )
@@ -233,6 +245,11 @@ update msg model =
             , ViewUndoRedoActions.apply updatedMonacoValue.present actions
             )
 
+        ErrorMsg subMsg ->
+            ( { model | errors = Error.update subMsg model.errors }
+            , Cmd.none
+            )
+
 
 view : Model -> Document Msg
 view model =
@@ -253,6 +270,7 @@ view model =
                 (monacoViewPart (model.showOpenFileButton && model.session.isFileSystemSupported) (ViewEditor.isInitState model.viewEditor))
                 pane
             , div [ style "position" "fixed", style "bottom" "0", style "left" "0", style "font-size" "9px" ] [ text "v0.0.1" ]
+            , Error.view model.errors |> Html.map ErrorMsg
             ]
         ]
     }

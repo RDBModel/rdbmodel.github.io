@@ -1,10 +1,11 @@
-module Domain.Validation exposing (validateDomain, validateViews)
+module Domain.Validation exposing (errorDomainDecoder, validateDomain, validateViews)
 
 import Dict exposing (Dict)
 import Domain.Domain exposing (..)
+import Error.Error exposing (Source(..), ErrorLocation(..), ViewError(..))
+import Json.Decode as Decode exposing (Decoder)
 import Json.Encode exposing (dict, encode, list, string)
 import Set exposing (..)
-
 
 validateDomain : Domain -> Result String Domain
 validateDomain domain =
@@ -165,3 +166,15 @@ getRelations domain =
 getUniqueRelations : Domain -> Set ( String, Relation )
 getUniqueRelations =
     getRelations >> Set.fromList
+
+
+errorDomainDecoder : Decoder Source
+errorDomainDecoder =
+    Decode.oneOf
+        [ Decode.string |> Decode.list |> Decode.dict |> Decode.map DomainLocation
+        , Decode.oneOf
+            [ Decode.string |> Decode.list |> Decode.dict |> Decode.map SimpleViewError
+            , Decode.string |> Decode.dict |> Decode.dict |> Decode.map ComplexViewError
+            ] |> Decode.list |> Decode.dict |> Decode.map ViewsLocation
+        ]
+        |> Decode.map DomainDecode
