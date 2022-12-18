@@ -1,10 +1,12 @@
 module Error.Error exposing (ErrorLocation(..), Model, Msg, Source(..), ViewError(..), update, view)
 
+import Browser.Dom as Dom
 import Color
 import Dict exposing (Dict)
 import Html exposing (Html, a, br, button, div, text)
 import Html.Attributes exposing (href, style)
 import Html.Events exposing (onClick)
+import Http
 import Json.Decode as Decode
 import Set
 import TypedSvg exposing (line, path, svg)
@@ -35,6 +37,8 @@ type Source
     = DomainParse String
     | DomainDecode ErrorLocation
     | ParseError Decode.Error
+    | ExternalDomainDownload Http.Error
+    | GetElementPosition Dom.Error
 
 
 type ErrorLocation
@@ -111,6 +115,44 @@ viewError errorSource =
             , text " Original error: "
             , br [] []
             , text (Decode.errorToString err)
+            ]
+                |> wrapIntoBox
+                |> List.singleton
+
+        ExternalDomainDownload errValue ->
+            let
+                errorMessage =
+                    case errValue of
+                        Http.BadUrl value ->
+                            "Bad url is " ++ value
+
+                        Http.Timeout ->
+                            "Timeout"
+
+                        Http.NetworkError ->
+                            "Network error"
+
+                        Http.BadStatus value ->
+                            "Status is " ++ String.fromInt value
+
+                        Http.BadBody value ->
+                            "Bad boyd is " ++ value
+            in
+            [ closeButton (RemoveErrorBySource errorSource)
+            , text ("Not able to download domain value by link. " ++ errorMessage)
+            ]
+                |> wrapIntoBox
+                |> List.singleton
+
+        GetElementPosition errValue ->
+            let
+                errorMessage =
+                    case errValue of
+                        Dom.NotFound value ->
+                            "Not found. " ++ value
+            in
+            [ closeButton (RemoveErrorBySource errorSource)
+            , text ("Not able to get dom element position. " ++ errorMessage)
             ]
                 |> wrapIntoBox
                 |> List.singleton

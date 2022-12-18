@@ -3,14 +3,16 @@ module ViewEditor.EditorAction exposing (apply)
 import Dict exposing (Dict)
 import Domain.Domain exposing (Domain, View)
 import Domain.DomainEncoder exposing (rdbEncode)
+import Error.Error as Error
 import JsInterop exposing (updateMonacoValue)
-import ViewEditor.Editor exposing (Action(..), Msg)
 import UndoRedo.ViewUndoRedo exposing (UndoRedoMonacoValue, mapPresent, newRecord)
+import ViewEditor.Editor exposing (Action(..), Msg)
 
 
 type alias Params msg =
     { monacoValue : UndoRedoMonacoValue MonacoValue
     , cmd : Cmd msg
+    , errors : Error.Model
     }
 
 
@@ -20,13 +22,13 @@ type alias MonacoValue =
     }
 
 
-apply : Params Msg -> List Action -> ( UndoRedoMonacoValue MonacoValue, Cmd Msg )
+apply : Params Msg -> List Action -> Params Msg
 apply params actions =
-    List.foldl applyActions ( params.monacoValue, params.cmd ) actions
+    List.foldl applyActions params actions
 
 
-applyActions : Action -> ( UndoRedoMonacoValue MonacoValue, Cmd Msg ) -> ( UndoRedoMonacoValue MonacoValue, Cmd Msg )
-applyActions action ( monacoValue, cmd ) =
+applyActions : Action -> Params Msg -> Params Msg
+applyActions action { monacoValue, cmd, errors } =
     case action of
         UpdateViews newViews ->
             let
@@ -36,31 +38,43 @@ applyActions action ( monacoValue, cmd ) =
                 newValue =
                     { currentMonacoValue | views = newViews }
             in
-            ( newRecord newValue monacoValue
-            , Cmd.batch
-                [ cmd
-                , updateMonacoValue (rdbEncode newValue)
-                ]
-            )
+            { monacoValue = newRecord newValue monacoValue
+            , cmd =
+                Cmd.batch
+                    [ cmd
+                    , updateMonacoValue (rdbEncode newValue)
+                    ]
+            , errors = errors
+            }
 
         SaveEditorState ->
-            ( newRecord monacoValue.present monacoValue
-            , cmd
-            )
+            { monacoValue = newRecord monacoValue.present monacoValue
+            , cmd = cmd
+            , errors = errors
+            }
 
         ResetCurrentEditorState newViews ->
             let
                 update a =
                     { a | views = newViews }
             in
-            ( mapPresent update monacoValue
-            , cmd
-            )
+            { monacoValue = mapPresent update monacoValue
+            , cmd = cmd
+            , errors = errors
+            }
 
         UpdateMonacoValue ->
-            ( monacoValue
-            , Cmd.batch
-                [ cmd
-                , updateMonacoValue (rdbEncode monacoValue.present)
-                ]
-            )
+            { monacoValue = monacoValue
+            , cmd =
+                Cmd.batch
+                    [ cmd
+                    , updateMonacoValue (rdbEncode monacoValue.present)
+                    ]
+            , errors = errors
+            }
+
+        PushDomError errValue ->
+            { monacoValue = monacoValue
+            , cmd = cmd
+            , errors = Error.GetElementPosition errValue :: errors
+            }

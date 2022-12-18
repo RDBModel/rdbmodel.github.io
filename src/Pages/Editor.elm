@@ -93,14 +93,14 @@ type Msg
     | RequestValueToSave ()
     | FilePicker FilePicker.Msg
     | ViewUndoRedo ViewUndoRedo.Msg
-    | GotDomain (Result Http.Error String)
+    | GetDomainFromExternal (Result Http.Error String)
     | ErrorMsg Error.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        GotDomain (Ok val) ->
+        GetDomainFromExternal (Ok val) ->
             case D.fromString rdbDecoder val of
                 Ok ( domain, views ) ->
                     let
@@ -133,11 +133,8 @@ update msg model =
                                 Err decodeErr ->
                                     ( { model | errors = ParseError decodeErr |> List.singleton }, validationErrors errMsg )
 
-        GotDomain (Err _) ->
-            -- TODO
-            ( model
-            , Cmd.none
-            )
+        GetDomainFromExternal (Err errValue) ->
+            ( { model | errors = Error.ExternalDomainDownload errValue |> List.singleton }, Cmd.none )
 
         ReceiveMonacoElementPosition link (Ok _) ->
             ( model
@@ -145,18 +142,15 @@ update msg model =
                 Just l ->
                     Http.get
                         { url = l
-                        , expect = Http.expectString GotDomain
+                        , expect = Http.expectString GetDomainFromExternal
                         }
 
                 Nothing ->
                     Cmd.batch [ initMonacoResponse "", ViewEditor.getElementPosition |> Cmd.map ViewEditorMsg ]
             )
 
-        ReceiveMonacoElementPosition _ (Err _) ->
-            -- TODO
-            ( model
-            , Cmd.none
-            )
+        ReceiveMonacoElementPosition _ (Err errValue) ->
+            ( { model | errors = Error.GetElementPosition errValue |> List.singleton }, Cmd.none )
 
         PaneMsg paneMsg ->
             ( { model | pane = SplitPane.update paneMsg model.pane }
@@ -219,11 +213,15 @@ update msg model =
                 ( updated, cmd, actions ) =
                     ViewEditor.update model.session model.monacoValue.present subMsg model.viewEditor
 
-                ( newMonacoModel, updatedCmds ) =
-                    ViewEditorActions.apply { monacoValue = model.monacoValue, cmd = cmd } actions
+                updatedValues =
+                    ViewEditorActions.apply { monacoValue = model.monacoValue, cmd = cmd, errors = model.errors } actions
             in
-            ( { model | viewEditor = updated, monacoValue = newMonacoModel, toReload = False }
-            , updatedCmds |> Cmd.map ViewEditorMsg
+            ( { model
+            | viewEditor = updated
+            , monacoValue = updatedValues.monacoValue
+            , toReload = False
+            , errors = updatedValues.errors}
+            , updatedValues.cmd |> Cmd.map ViewEditorMsg
             )
 
         FilePicker subMsg ->

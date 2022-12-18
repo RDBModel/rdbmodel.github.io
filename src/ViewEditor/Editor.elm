@@ -152,6 +152,7 @@ type Action
     | SaveEditorState
     | ResetCurrentEditorState (Dict String View)
     | UpdateMonacoValue
+    | PushDomError Dom.Error
 
 
 type alias MonacoState =
@@ -190,9 +191,8 @@ update session { views, domain } msg model =
             , []
             )
 
-        ( _, ReceiveElementPosition (Err _) ) ->
-            -- TODO:
-            ( model, Cmd.none, [] )
+        ( _, ReceiveElementPosition (Err errValue) ) ->
+            ( model, Cmd.none, [ PushDomError errValue ] )
 
         ( Ready state, ContainerContextMenu subMsg ) ->
             let

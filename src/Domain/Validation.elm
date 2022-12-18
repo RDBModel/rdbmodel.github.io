@@ -55,9 +55,6 @@ validateDomain domain =
                 |> dict identity (list string)
                 |> encode 0
     in
-    -- unique keys at the same level and root element are ignored by decoder -- TODO
-    -- non-empty names
-    -- relation targets are existing elements
     if finalResult == "{}" then
         Ok domain
 
