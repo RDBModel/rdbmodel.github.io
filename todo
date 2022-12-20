@@ -6,8 +6,6 @@
 
 [ ] notify about unsaved text in editor before saving
 
-[ ] show errors
-
 [ ] remove Monaco from variable names
 
 [ ] change representation of positions of elements in view (x, y -> position: (x, y))
@@ -16,6 +14,7 @@
 
 
 ------
+[x] show errors
 [x] load yaml from url
 [x] add loading icon for editor
 [x] containerMenu component - actions

@@ -1,0 +1,120 @@
+domain:
+  name: Pastebin.com
+  description: Text storage site
+  actors:
+    client:
+      name: Client
+      description: Users are using internet (HTTPs) to connect
+      relations:
+        - calls - dns
+        - calls - cdn
+        - calls - load-balancer
+  systems:
+    dns:
+      name: Domain Name System
+      description: One of the industry-standard suite of protocols that comprise TCP/IP, and together the DNS Client and DNS Server provide computer name-to-IP address mapping name resolution services to computers and users
+      type: external
+    pastebin:
+      name: Pastebin
+      description: A type of online content-hosting service where users can store plain text (e.g. source code snippets for code review via Internet Relay Chat (IRC))
+      relations:
+        - uses - system-1
+      containers:
+        cdn:
+          name: Content delivery network
+          description: A network of interconnected servers that speeds up webpage loading for data-heavy applications
+          technology: AWS CDN
+          relations:
+            - read text - object-store
+        load-balancer:
+          name: Load Balancer
+          description: Distribute network traffic equally across a pool of resources that support an application
+          technology: AWS ALB
+          relations:
+            - forward - web-server
+        web-server:
+          name: PasteBin app
+          description: Allows to store plain text (support editing and versioning)
+          technology: AWS ECS
+          relations:
+            - save text - write-api
+            - read text - read-api
+          components:
+            web-server--app:
+              name: PasteBin service
+              description: Forward requests to proper API services
+              technology: ASP NET Core
+              relations:
+                - save text - write-api--app
+                - read text - read-api--app
+        write-api:
+          name: Write API
+          description: Generate a unique url, save pasted text
+          technology: AWS ECS
+          relations:
+            - save url and path - sql-db
+            - save text - object-store
+          components:
+            write-api--app:
+              name: Write API service
+              description: Generate a unique url, save pasted text
+              technology: ASP NET Core
+              relations:
+                - write created url and path - sql-db--main
+                - save pasted text - object-store--bucket
+        read-api:
+          name: Read API
+          description: Check provided link and return text
+          technology: AWS ECS
+          relations:
+            - read url - sql-db
+            - read saved text - object-store
+          components:
+            read-api--app:
+              name: Read API service
+              description: Check url and provide text
+              technology: ASP NET Core
+              relations:
+                - check url - sql-db--main
+                - read pasted text if url exists - object-store--bucket
+        sql-db:
+          name: Url database
+          description: Store map beyween url and path of text
+          technology: AWS Aurora
+          containers:
+            sql-db--main:
+              name: Main schema
+              description: Store url, expiration, creation time and path
+        object-store:
+          name: Object store
+          description: Store text
+          technology: AWS S3
+          containers:
+            object-store--bucket:
+              name: Main bucket
+              description: Store pasted texts
+        analytics:
+          name: Analytics
+          description: Collect statistics about saved texts
+          technology: AWS ECS
+          relations:
+            - get information from - object-store
+            - save analytics data - analytics-db
+          containers:
+            analytics--app:
+              name: Analytics service
+              description: Check storage and save stats
+              technology: ASP NET Core
+              relations:
+                - check storage - object-store--bucket
+                - save stats - analytics-db--main
+        analytics-db:
+          name: Analytics DB
+          description: Stats information
+          technology: AWS Aurora
+          containers:
+            analytics-db--main:
+              name: Main schema
+              description: Store stats about object store
+views:
+  []
