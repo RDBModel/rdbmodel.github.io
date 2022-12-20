@@ -42,8 +42,8 @@ ringDecoder =
     map4 Ring
         (field "name" string)
         (field "description" string)
-        (field "relations" (list relationDecoder))
-        (field "containers" (dict deliveryDecoder))
+        (field "relations" (list relationDecoder) |> maybe)
+        (field "containers" (dict deliveryDecoder) |> maybe)
 
 
 deliveryDecoder : Decoder Delivery
@@ -51,8 +51,8 @@ deliveryDecoder =
     map4 Delivery
         (field "name" string)
         (field "description" string)
-        (field "relations" (list relationDecoder))
-        (field "components" (dict blockDecoder))
+        (field "relations" (list relationDecoder) |> maybe)
+        (field "components" (dict blockDecoder) |> maybe)
 
 
 blockDecoder : Decoder Block
@@ -65,12 +65,12 @@ actorDecoder =
     basicDecoder Actor
 
 
-basicDecoder : (String -> String -> List Relation -> a) -> Decoder a
+basicDecoder : (String -> String -> Maybe (List Relation) -> a) -> Decoder a
 basicDecoder constructor =
     map3 constructor
         (field "name" string)
         (field "description" string)
-        (field "relations" (list relationDecoder))
+        (field "relations" (list relationDecoder) |> maybe)
 
 
 relationDecoder : Decoder Relation

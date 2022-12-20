@@ -17,8 +17,6 @@ domain:
     pastebin:
       name: Pastebin
       description: A type of online content-hosting service where users can store plain text (e.g. source code snippets for code review via Internet Relay Chat (IRC))
-      relations:
-        - uses - system-1
       containers:
         cdn:
           name: Content delivery network
@@ -81,7 +79,7 @@ domain:
           name: Url database
           description: Store map beyween url and path of text
           technology: AWS Aurora
-          containers:
+          components:
             sql-db--main:
               name: Main schema
               description: Store url, expiration, creation time and path
@@ -89,7 +87,7 @@ domain:
           name: Object store
           description: Store text
           technology: AWS S3
-          containers:
+          components:
             object-store--bucket:
               name: Main bucket
               description: Store pasted texts
@@ -100,7 +98,7 @@ domain:
           relations:
             - get information from - object-store
             - save analytics data - analytics-db
-          containers:
+          components:
             analytics--app:
               name: Analytics service
               description: Check storage and save stats
@@ -112,9 +110,9 @@ domain:
           name: Analytics DB
           description: Stats information
           technology: AWS Aurora
-          containers:
+          components:
             analytics-db--main:
               name: Main schema
               description: Store stats about object store
 views:
-  []
+  {}

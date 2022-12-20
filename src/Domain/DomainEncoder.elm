@@ -34,13 +34,20 @@ domainEncoder domain =
         ]
 
 
-basicEncoder : { a | name : String, description : String, relations : List Relation } -> Encoder
+basicEncoder : { a | name : String, description : String, relations : Maybe (List Relation) } -> Encoder
 basicEncoder item =
-    record
-        [ ( "name", string item.name )
-        , ( "description", string item.description )
-        , ( "relations", list relationEncoder item.relations )
-        ]
+    case item.relations of
+        Just r ->
+            record
+                [ ( "name", string item.name )
+                , ( "description", string item.description )
+                , ( "relations", list relationEncoder r )
+                ]
+        Nothing ->
+            record
+                [ ( "name", string item.name )
+                , ( "description", string item.description )
+                ]
 
 
 relationEncoder : Relation -> Encoder
@@ -55,22 +62,60 @@ relationToString ( target, description ) =
 
 ringEncoder : Ring -> Encoder
 ringEncoder ring =
-    record
-        [ ( "name", string ring.name )
-        , ( "description", string ring.description )
-        , ( "relations", list relationEncoder ring.relations )
-        , ( "containers", dict identity deliveryEncoder ring.delivery )
-        ]
+    case (ring.relations, ring.delivery) of
+        (Just relations, Just deliveries) ->
+            record
+                [ ( "name", string ring.name )
+                , ( "description", string ring.description )
+                , ( "relations", list relationEncoder relations )
+                , ( "containers", dict identity deliveryEncoder deliveries )
+                ]
+        (Nothing, Just deliveries) ->
+            record
+                [ ( "name", string ring.name )
+                , ( "description", string ring.description )
+                , ( "containers", dict identity deliveryEncoder deliveries )
+                ]
+        (Just relations, Nothing) ->
+            record
+                [ ( "name", string ring.name )
+                , ( "description", string ring.description )
+                , ( "relations", list relationEncoder relations )
+                ]
+        (Nothing, Nothing) ->
+            record
+                [ ( "name", string ring.name )
+                , ( "description", string ring.description )
+                ]
 
 
 deliveryEncoder : Delivery -> Encoder
 deliveryEncoder delivery =
-    record
-        [ ( "name", string delivery.name )
-        , ( "description", string delivery.description )
-        , ( "relations", list relationEncoder delivery.relations )
-        , ( "components", dict identity basicEncoder delivery.blocks )
-        ]
+    case (delivery.relations, delivery.blocks) of
+        (Just relations, Just blocks) ->
+            record
+                [ ( "name", string delivery.name )
+                , ( "description", string delivery.description )
+                , ( "relations", list relationEncoder relations )
+                , ( "components", dict identity basicEncoder blocks )
+                ]
+        (Nothing, Just blocks) ->
+            record
+                [ ( "name", string delivery.name )
+                , ( "description", string delivery.description )
+                , ( "components", dict identity basicEncoder blocks )
+                ]
+        (Just relations, Nothing) ->
+            record
+                [ ( "name", string delivery.name )
+                , ( "description", string delivery.description )
+                , ( "relations", list relationEncoder relations )
+                ]
+        (Nothing, Nothing) ->
+            record
+                [ ( "name", string delivery.name )
+                , ( "description", string delivery.description )
+                ]
 
 
 viewEncoder : View -> Encoder

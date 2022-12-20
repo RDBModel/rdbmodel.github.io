@@ -15,30 +15,30 @@ type alias Domain =
 type alias Actor =
     { name : String
     , description : String
-    , relations : List Relation
+    , relations : Maybe (List Relation)
     }
 
 
 type alias Ring =
     { name : String
     , description : String
-    , relations : List Relation
-    , delivery : Dict String Delivery
+    , relations : Maybe (List Relation)
+    , delivery : Maybe (Dict String Delivery)
     }
 
 
 type alias Delivery =
     { name : String
     , description : String
-    , relations : List Relation
-    , blocks : Dict String Block
+    , relations : Maybe (List Relation)
+    , blocks : Maybe (Dict String Block)
     }
 
 
 type alias Block =
     { name : String
     , description : String
-    , relations : List Relation
+    , relations : Maybe (List Relation)
     }
 
 
@@ -328,16 +328,16 @@ getElementsKeysAndNames : Domain -> List ( String, String )
 getElementsKeysAndNames domain =
     extractKeyAndName domain.actors
         ++ extractKeyAndName domain.rings
-        ++ (Dict.values domain.rings |> List.map .delivery |> List.concatMap extractKeyAndName)
-        ++ (Dict.values domain.rings |> List.map .delivery |> List.concatMap Dict.values |> List.map .blocks |> List.concatMap extractKeyAndName)
+        ++ (Dict.values domain.rings |> List.map .delivery |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap extractKeyAndName)
+        ++ (Dict.values domain.rings |> List.map .delivery |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap Dict.values |> List.map .blocks |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap extractKeyAndName)
 
 
 getElementsNamesAndDescriptions : Domain -> List ( String, String, String )
 getElementsNamesAndDescriptions domain =
     extractKeyAndNameAndDescription domain.actors
         ++ extractKeyAndNameAndDescription domain.rings
-        ++ (Dict.values domain.rings |> List.map .delivery |> List.concatMap extractKeyAndNameAndDescription)
-        ++ (Dict.values domain.rings |> List.map .delivery |> List.concatMap Dict.values |> List.map .blocks |> List.concatMap extractKeyAndNameAndDescription)
+        ++ (Dict.values domain.rings |> List.map .delivery |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap extractKeyAndNameAndDescription)
+        ++ (Dict.values domain.rings |> List.map .delivery |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap Dict.values |> List.map .blocks |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap extractKeyAndNameAndDescription)
 
 
 extractKeyAndName : Dict String { a | name : String } -> List ( String, String )
@@ -403,27 +403,30 @@ possibleRelationsToAdd ( domain, view ) =
                 |> Dict.map (\_ v -> v.relations |> Dict.keys)
 
         allPossibleRelationsForActors =
-            domain.actors |> Dict.map (\_ v -> v.relations)
+            domain.actors |> Dict.map (\_ v -> v.relations |> Maybe.withDefault [])
 
         allPossibleRelationsForRings =
-            domain.rings |> Dict.toList |> List.map (\( k, v ) -> ( k, v.relations )) |> Dict.fromList
+            domain.rings |> Dict.toList |> List.map (\( k, v ) -> ( k, v.relations |> Maybe.withDefault [] )) |> Dict.fromList
 
         allPossibleRelationsForDeliveries =
             domain.rings
                 |> Dict.values
                 |> List.map .delivery
+                |> List.map (Maybe.withDefault Dict.empty)
                 |> List.concatMap Dict.toList
-                |> List.map (\( k, v ) -> ( k, v.relations ))
+                |> List.map (\( k, v ) -> ( k, v.relations |> Maybe.withDefault [] ))
                 |> Dict.fromList
 
         allPossibleRelationsForBlocks =
             domain.rings
                 |> Dict.values
                 |> List.map .delivery
+                |> List.map (Maybe.withDefault Dict.empty)
                 |> List.concatMap Dict.values
                 |> List.map .blocks
+                |> List.map (Maybe.withDefault Dict.empty)
                 |> List.concatMap Dict.toList
-                |> List.map (\( k, v ) -> ( k, v.relations ))
+                |> List.map (\( k, v ) -> ( k, v.relations |> Maybe.withDefault [] ))
                 |> Dict.fromList
 
         allPossibleRelations =

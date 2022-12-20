@@ -11,7 +11,7 @@ validateDomain : Domain -> Result String Domain
 validateDomain domain =
     let
         elementKeysAndNames =
-            domain |> getElementsKeysAndNames
+            domain |> getElementsKeysAndNames |> Debug.log "elementKeysAndNames"
 
         elementKeys =
             elementKeysAndNames |> List.map Tuple.first
@@ -154,10 +154,10 @@ getUniqueElementsKeys =
 
 getRelations : Domain -> List ( String, Relation )
 getRelations domain =
-    (Dict.toList domain.actors |> List.map (\( k, actor ) -> actor.relations |> List.map (\x -> ( k, x ))) |> List.concat)
-        ++ (Dict.toList domain.rings |> List.map (\( k, ring ) -> ring.relations |> List.map (\x -> ( k, x ))) |> List.concat)
-        ++ (Dict.values domain.rings |> List.map .delivery |> List.concatMap Dict.toList |> List.map (\( k, delivery ) -> delivery.relations |> List.map (\x -> ( k, x ))) |> List.concat)
-        ++ (Dict.values domain.rings |> List.map .delivery |> List.concatMap Dict.values |> List.map .blocks |> List.concatMap Dict.toList |> List.map (\( k, block ) -> block.relations |> List.map (\x -> ( k, x ))) |> List.concat)
+    (Dict.toList domain.actors |> List.map (\( k, actor ) -> actor.relations |> Maybe.withDefault [] |> List.map (\x -> ( k, x ))) |> List.concat)
+        ++ (Dict.toList domain.rings |> List.map (\( k, ring ) -> ring.relations |> Maybe.withDefault [] |> List.map (\x -> ( k, x ))) |> List.concat)
+        ++ (Dict.values domain.rings |> List.map .delivery |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap Dict.toList |> List.map (\( k, delivery ) -> delivery.relations  |> Maybe.withDefault [] |> List.map (\x -> ( k, x ))) |> List.concat)
+        ++ (Dict.values domain.rings |> List.map .delivery |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap Dict.values |> List.map .blocks |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap Dict.toList |> List.map (\( k, block ) -> block.relations |> Maybe.withDefault [] |> List.map (\x -> ( k, x ))) |> List.concat)
 
 
 getUniqueRelations : Domain -> Set ( String, Relation )
