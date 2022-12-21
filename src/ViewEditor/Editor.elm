@@ -90,6 +90,7 @@ type alias ViewEditorState =
     { drag : Maybe Drag
     , viewNavigation : ViewNavigation.Model
     , viewControl : ViewControl.Model
+    , selectedView : String
     , addView : AddView.Model
     , svgElementPosition : Element
     , brush : Maybe Brush
@@ -176,7 +177,8 @@ update session { views, domain } msg model =
                 , svgElementPosition = element
                 , viewNavigation = ViewNavigation.init element
                 , addView = AddView.init
-                , viewControl = ViewControl.init selectedView
+                , viewControl = ViewControl.init
+                , selectedView = selectedView
                 , brush = Nothing
                 , selectedItems = []
                 , containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init
@@ -199,11 +201,8 @@ update session { views, domain } msg model =
                 ( updatedModel, cmd, actions ) =
                     ContextMenu.update subMsg state.containerMenu
 
-                selectedView =
-                    ViewControl.getSelectedView state.viewControl
-
                 updatedViews =
-                    MenuActions.apply selectedView views actions
+                    MenuActions.apply state.selectedView views actions
             in
             ( Ready { state | containerMenu = updatedModel }
             , cmd |> Cmd.map ContainerContextMenu
@@ -215,33 +214,31 @@ update session { views, domain } msg model =
                 ( updated, cmd, actions ) =
                     ViewControl.update subMsg state.viewControl
 
-                selectedView =
-                    ViewControl.getSelectedView state.viewControl
-
                 elementPosition =
                     ViewNavigation.getPositionForNewElement state.viewNavigation state.svgElementPosition
 
                 params =
                     { position = elementPosition
-                    , selectedView = selectedView
+                    , selectedView = state.selectedView
                     , key = session.key
                     }
 
-                ( newViews, cmds ) =
+                ( newViews, selectedView, cmds ) =
                     ViewControlActions.apply params views actions
 
                 ( updatedViewEditor, finalCmds, newActions ) =
                     if ViewControlActions.monacoValueModified actions then
                         let
                             getPossibleRelations =
-                                getCurrentView selectedView newViews
+                                getCurrentView state.selectedView newViews
                                     |> Maybe.map2 (\d v -> possibleRelationsToAdd ( d, v )) domain
                                     |> Maybe.withDefault Dict.empty
                         in
                         ( Ready
                             { state
-                                | containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init
-                                , viewControl = updated
+                            | containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init
+                            , viewControl = updated
+                            , selectedView = selectedView
                             }
                         , Cmd.batch
                             [ cmd |> Cmd.map ViewControl
@@ -253,7 +250,8 @@ update session { views, domain } msg model =
                     else
                         ( Ready
                             { state
-                                | viewControl = updated
+                            | viewControl = updated
+                            , selectedView = selectedView
                             }
                         , Cmd.batch
                             [ cmd |> Cmd.map ViewControl
@@ -272,9 +270,6 @@ update session { views, domain } msg model =
                 ( updated, cmd, actions ) =
                     AddView.update subMsg state.addView
 
-                selectedView =
-                    ViewControl.getSelectedView state.viewControl
-
                 ( newViews, cmds ) =
                     AddViewActions.apply views actions
 
@@ -282,7 +277,7 @@ update session { views, domain } msg model =
                     if AddViewActions.monacoValueModified actions then
                         let
                             getPossibleRelations =
-                                getCurrentView selectedView newViews
+                                getCurrentView state.selectedView newViews
                                     |> Maybe.map2 (\d v -> possibleRelationsToAdd ( d, v )) domain
                                     |> Maybe.withDefault Dict.empty
                         in
@@ -341,11 +336,8 @@ update session { views, domain } msg model =
                     selectedElementKeys
                         |> List.member viewElementKey
 
-                selectedView =
-                    ViewControl.getSelectedView state.viewControl
-
                 elementsOfCurrentView =
-                    getCurrentView selectedView views
+                    getCurrentView state.selectedView views
                         |> getViewElementsOfCurrentView
 
                 updatedSelectedItems =
@@ -384,11 +376,8 @@ update session { views, domain } msg model =
                     selectedPointKeys
                         |> List.member viewRelationPointKey
 
-                selectedView =
-                    ViewControl.getSelectedView state.viewControl
-
                 elementsOfCurrentView =
-                    getCurrentView selectedView views
+                    getCurrentView state.selectedView views
                         |> getViewElementsOfCurrentView
 
                 updatedSelectedItems =
@@ -418,13 +407,10 @@ update session { views, domain } msg model =
                 removePointAtIndex list =
                     List.take pointIndex list ++ List.drop (pointIndex + 1) list
 
-                selectedView =
-                    ViewControl.getSelectedView state.viewControl
-
                 updatedViews =
                     updatePointsInRelations relation removePointAtIndex
                         |> updateRelationsInElements viewElementKey
-                        |> updateElementsInViews selectedView views
+                        |> updateElementsInViews state.selectedView views
             in
             ( model
             , Cmd.none
@@ -433,19 +419,16 @@ update session { views, domain } msg model =
 
         ( Ready state, RemoveEdge viewRelationKey ) ->
             let
-                selectedView =
-                    ViewControl.getSelectedView state.viewControl
-
                 currentView =
-                    getCurrentView selectedView views
+                    getCurrentView state.selectedView views
 
                 updatedViews =
                     currentView
                         |> Maybe.map (removedEdge viewRelationKey)
-                        |> updateViewByKey selectedView views
+                        |> updateViewByKey state.selectedView views
 
                 getPossibleRelations =
-                    getCurrentView selectedView updatedViews
+                    getCurrentView state.selectedView updatedViews
                         |> Maybe.map2 (\d v -> possibleRelationsToAdd ( d, v )) domain
                         |> Maybe.withDefault Dict.empty
 
@@ -462,11 +445,8 @@ update session { views, domain } msg model =
                 spxy =
                     ViewNavigation.shiftPosition state.viewNavigation ( state.svgElementPosition.x, state.svgElementPosition.y ) xy
 
-                selectedView =
-                    ViewControl.getSelectedView state.viewControl
-
                 currentView =
-                    getCurrentView selectedView views
+                    getCurrentView state.selectedView views
 
                 sourceXY =
                     currentView
@@ -536,7 +516,7 @@ update session { views, domain } msg model =
                             updatedPoints
                                 |> updatePointsInRelations relation
                                 |> updateRelationsInElements viewElementKey
-                                |> updateElementsInViews selectedView views
+                                |> updateElementsInViews state.selectedView views
                     in
                     ( model
                     , Cmd.none
@@ -549,20 +529,16 @@ update session { views, domain } msg model =
 
         ( Ready state, MouseMove xy ) ->
             let
-                selectedViewKey =
-                    ViewControl.getSelectedView state.viewControl
-
-                selectedView =
-                    getCurrentView selectedViewKey views
-
+                selectedViewKey = getCurrentView state.selectedView views
                 updatedViewEditor =
-                    handleMouseMove xy state selectedView
+                    selectedViewKey
+                    |> handleMouseMove xy state
 
                 updatedViews =
                     case ( state.brush, state.drag ) of
                         ( Nothing, Just _ ) ->
                             updateElementAndPointPosition state.selectedItems xy state
-                                |> updateElementsInViews selectedViewKey views
+                                |> updateElementsInViews state.selectedView views
 
                         _ ->
                             views
@@ -886,13 +862,11 @@ svgView { views, domain } viewEditorState =
         rectNavigationEvents =
             ViewNavigation.gridRectEvents viewNavigation |> List.map (Html.Attributes.map ViewNavigation)
 
-        selectedView =
-            ViewControl.getSelectedView viewControl
 
         ( currentView, currentControl ) =
-            case ( getCurrentView selectedView views, domain ) of
+            case ( getCurrentView viewEditorState.selectedView views, domain ) of
                 ( Just v, Just d ) ->
-                    ( renderCurrentView ( v, d, selectedView ) viewEditorState, ViewControl.view views (getElementsKeysAndNames d) viewControl |> Html.map ViewControl )
+                    ( renderCurrentView ( v, d, viewEditorState.selectedView ) viewEditorState, ViewControl.view viewEditorState.selectedView views (getElementsKeysAndNames d) viewControl |> Html.map ViewControl )
 
                 _ ->
                     ( text "", text "" )

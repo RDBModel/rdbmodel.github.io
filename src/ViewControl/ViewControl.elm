@@ -1,4 +1,4 @@
-module ViewControl.ViewControl exposing (Action(..), Model, Msg, getSelectedView, init, update, view)
+module ViewControl.ViewControl exposing (Action(..), Model, Msg, init, update, view)
 
 import Dict exposing (Dict)
 import Domain.Domain exposing (View, getViewElements)
@@ -17,7 +17,8 @@ type alias SelectModel a =
 
 type alias Model =
     { selectView : SelectModel String
-    , selectedView : String
+    -- TODO: remove from this model
+
     , selectElement : SelectModel ( String, String )
     }
 
@@ -58,14 +59,14 @@ selectElement =
         )
 
 
-init : String -> Model
-init selectedView =
-    Model selectView selectedView selectElement
+init : Model
+init =
+    Model selectView selectElement
 
 
 type Action
     = AddElementToView ( String, String )
-    | ChangeView String
+    | ChangeView (Maybe String)
 
 
 type Msg
@@ -111,14 +112,9 @@ update msg model =
             )
 
         OnViewSelect maybeView ->
-            let
-                selected =
-                    maybeView
-                        |> Maybe.withDefault model.selectedView
-            in
-            ( { model | selectedView = selected }
+            ( model
             , Cmd.none
-            , [ ChangeView selected ]
+            , [ ChangeView maybeView ]
             )
 
         OnElementSelect maybeElement ->
@@ -128,11 +124,11 @@ update msg model =
             )
 
 
-view : Dict String View -> List ( String, String ) -> Model -> Html Msg
-view views elements model =
+view : String -> Dict String View -> List ( String, String ) -> Model -> Html Msg
+view selectedView views elements model =
     let
         viewElements =
-            Dict.get model.selectedView views |> getViewElements
+            Dict.get selectedView views |> getViewElements
     in
     div
         [ style "position" "absolute"
@@ -151,15 +147,10 @@ view views elements model =
             model.selectView.config
             model.selectView.state
             (Dict.keys views)
-            [ model.selectedView ]
+            [ selectedView ]
         , Select.view
             model.selectElement.config
             model.selectElement.state
             (elements |> List.filter (\( key, _ ) -> List.member key viewElements |> not))
             []
         ]
-
-
-getSelectedView : Model -> String
-getSelectedView model =
-    model.selectedView
