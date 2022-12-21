@@ -36,10 +36,11 @@ modifyViews params action ( views, currentView, cmd ) =
                     , v
                     , Cmd.batch [ cmd, Nav.pushUrl params.key ("/#/editor/" ++ v) ]
                     )
+
                 Nothing ->
                     ( views
                     , ""
-                    , Cmd.batch [ cmd, Nav.pushUrl params.key ("/#/editor/") ]
+                    , Cmd.batch [ cmd, Nav.pushUrl params.key "/#/editor/" ]
                     )
 
 

@@ -5,7 +5,6 @@ import Domain.Domain exposing (View, getViewElements)
 import Html exposing (Html, div)
 import Html.Attributes exposing (style, value)
 import Select
-
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 
 
@@ -17,8 +16,6 @@ type alias SelectModel a =
 
 type alias Model =
     { selectView : SelectModel String
-    -- TODO: remove from this model
-
     , selectElement : SelectModel ( String, String )
     }
 

@@ -2,6 +2,7 @@ module Pages.Editor exposing (Model, Msg, init, subscriptions, update, view)
 
 import Browser exposing (Document)
 import Browser.Dom as Dom
+import Browser.Navigation as Nav
 import Color
 import Dict exposing (Dict)
 import Domain.Domain exposing (Domain, View, ViewItemKey(..))
@@ -111,12 +112,14 @@ update msg model =
                             { model
                                 | errors = []
                                 , monacoValue = monacoModel |> getUndoRedoMonacoValue
+                                , toReload = False
                             }
                     in
                     ( newModel
                     , Cmd.batch
                         [ initMonacoResponse (rdbEncode monacoModel)
                         , ViewEditor.getElementPosition |> Cmd.map ViewEditorMsg
+                        , Nav.pushUrl model.session.key ("/#/editor/" ++ ViewEditor.getSelectedView model.viewEditor)
                         ]
                     )
 
@@ -217,10 +220,11 @@ update msg model =
                     ViewEditorActions.apply { monacoValue = model.monacoValue, cmd = cmd, errors = model.errors } actions
             in
             ( { model
-            | viewEditor = updated
-            , monacoValue = updatedValues.monacoValue
-            , toReload = False
-            , errors = updatedValues.errors}
+                | viewEditor = updated
+                , monacoValue = updatedValues.monacoValue
+                , toReload = False
+                , errors = updatedValues.errors
+              }
             , updatedValues.cmd |> Cmd.map ViewEditorMsg
             )
 

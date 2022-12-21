@@ -1,4 +1,4 @@
-module ViewEditor.Editor exposing (Action(..), Model, Msg, getElementPosition, init, isInitState, subscriptions, update, view)
+module ViewEditor.Editor exposing (Action(..), Model, Msg, getElementPosition, getSelectedView, init, isInitState, subscriptions, update, view)
 
 import Basics.Extra exposing (maxSafeInteger)
 import Browser.Dom as Dom
@@ -236,9 +236,9 @@ update session { views, domain } msg model =
                         in
                         ( Ready
                             { state
-                            | containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init
-                            , viewControl = updated
-                            , selectedView = selectedView
+                                | containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init
+                                , viewControl = updated
+                                , selectedView = selectedView
                             }
                         , Cmd.batch
                             [ cmd |> Cmd.map ViewControl
@@ -250,8 +250,8 @@ update session { views, domain } msg model =
                     else
                         ( Ready
                             { state
-                            | viewControl = updated
-                            , selectedView = selectedView
+                                | viewControl = updated
+                                , selectedView = selectedView
                             }
                         , Cmd.batch
                             [ cmd |> Cmd.map ViewControl
@@ -529,10 +529,12 @@ update session { views, domain } msg model =
 
         ( Ready state, MouseMove xy ) ->
             let
-                selectedViewKey = getCurrentView state.selectedView views
+                selectedViewKey =
+                    getCurrentView state.selectedView views
+
                 updatedViewEditor =
                     selectedViewKey
-                    |> handleMouseMove xy state
+                        |> handleMouseMove xy state
 
                 updatedViews =
                     case ( state.brush, state.drag ) of
@@ -862,7 +864,6 @@ svgView { views, domain } viewEditorState =
         rectNavigationEvents =
             ViewNavigation.gridRectEvents viewNavigation |> List.map (Html.Attributes.map ViewNavigation)
 
-
         ( currentView, currentControl ) =
             case ( getCurrentView viewEditorState.selectedView views, domain ) of
                 ( Just v, Just d ) ->
@@ -1111,3 +1112,13 @@ trimList count =
         >> List.reverse
         >> List.drop count
         >> List.reverse
+
+
+getSelectedView : Model -> String
+getSelectedView model =
+    case model of
+        Init v ->
+            v
+
+        Ready { selectedView } ->
+            selectedView
