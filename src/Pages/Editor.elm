@@ -1,4 +1,4 @@
-module Pages.Editor exposing (Model, Msg, init, subscriptions, update, view)
+module Pages.Editor exposing (Model, Msg, changeSelectedView, init, subscriptions, update, view)
 
 import Browser exposing (Document)
 import Browser.Dom as Dom
@@ -60,7 +60,6 @@ type alias Model =
     , monacoValue : UndoRedoMonacoValue MonacoValue
     , viewUndoRedo : ViewUndoRedo.Model
     , showOpenFileButton : Bool
-    , toReload : Bool
     , errors : Error.Model
     }
 
@@ -74,7 +73,6 @@ init session selectedView link =
         (getUndoRedoMonacoValue getMonacoValue)
         ViewUndoRedo.init
         False
-        True
         []
     , Task.attempt (ReceiveMonacoElementPosition link) (Dom.getElement "monaco")
     )
@@ -112,14 +110,13 @@ update msg model =
                             { model
                                 | errors = []
                                 , monacoValue = monacoModel |> getUndoRedoMonacoValue
-                                , toReload = False
                             }
                     in
                     ( newModel
                     , Cmd.batch
                         [ initMonacoResponse (rdbEncode monacoModel)
                         , ViewEditor.getElementPosition |> Cmd.map ViewEditorMsg
-                        , Nav.pushUrl model.session.key ("/#/editor/" ++ ViewEditor.getSelectedView model.viewEditor)
+                        , Nav.replaceUrl model.session.key ("/#/editor/" ++ ViewEditor.getSelectedView model.viewEditor)
                         ]
                     )
 
@@ -214,15 +211,14 @@ update msg model =
         ViewEditorMsg subMsg ->
             let
                 ( updated, cmd, actions ) =
-                    ViewEditor.update model.session model.monacoValue.present subMsg model.viewEditor
+                    ViewEditor.update model.monacoValue.present subMsg model.viewEditor
 
                 updatedValues =
-                    ViewEditorActions.apply { monacoValue = model.monacoValue, cmd = cmd, errors = model.errors } actions
+                    ViewEditorActions.apply model.session.key { monacoValue = model.monacoValue, cmd = cmd, errors = model.errors } actions
             in
             ( { model
                 | viewEditor = updated
                 , monacoValue = updatedValues.monacoValue
-                , toReload = False
                 , errors = updatedValues.errors
               }
             , updatedValues.cmd |> Cmd.map ViewEditorMsg
@@ -336,3 +332,8 @@ subscriptions model =
         , initMonacoRequest InitMonacoRequestReceived
         , requestValueToSave RequestValueToSave
         ]
+
+
+changeSelectedView : String -> Model -> Model
+changeSelectedView selectedView model =
+    { model | viewEditor = ViewEditor.changeSelectedView selectedView model.viewEditor }

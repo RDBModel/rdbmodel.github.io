@@ -57,11 +57,17 @@ update msg model =
             changeRouteTo (Route.fromUrl url) session
 
         ( ChangedUrl url, Editor editorModel ) ->
-            if editorModel.toReload then
-                changeRouteTo (Route.fromUrl url) editorModel.session
+            let
 
-            else
-                ( Editor { editorModel | toReload = True }, Cmd.none )
+                newRoute = Route.fromUrl url
+            in
+            case newRoute of
+                Just (Route.Editor selectedView _) ->
+                    ( Editor (Editor.changeSelectedView selectedView editorModel)
+                    , Cmd.none
+                    )
+                _ ->
+                    changeRouteTo newRoute editorModel.session
 
         ( EditorMsg subMsg, Editor subModel ) ->
             let

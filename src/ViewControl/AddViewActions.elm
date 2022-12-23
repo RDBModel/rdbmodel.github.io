@@ -13,17 +13,21 @@ type alias Params =
     }
 
 
-apply : Dict String View -> List Action -> ( Dict String View, Cmd msg )
-apply views actions =
-    List.foldl modifyViews ( views, Cmd.none ) actions
+apply : Dict String View -> String -> List Action -> ( Dict String View, Cmd msg, String )
+apply views currentSelectedView actions =
+    List.foldl modifyViews ( views, Cmd.none, currentSelectedView ) actions
 
 
-modifyViews : Action -> ( Dict String View, Cmd msg ) -> ( Dict String View, Cmd msg )
-modifyViews action ( views, cmd ) =
+modifyViews : Action -> ( Dict String View, Cmd msg, String ) -> ( Dict String View, Cmd msg, String )
+modifyViews action ( views, cmd, selectedView ) =
     case action of
         NewView viewName ->
             ( Dict.insert viewName { elements = Dict.empty } views
             , cmd
+            , if Dict.member selectedView views then
+                selectedView
+            else
+                viewName
             )
 
 

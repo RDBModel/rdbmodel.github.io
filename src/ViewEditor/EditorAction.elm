@@ -7,7 +7,7 @@ import Error.Error as Error
 import JsInterop exposing (updateMonacoValue)
 import UndoRedo.ViewUndoRedo exposing (UndoRedoMonacoValue, mapPresent, newRecord)
 import ViewEditor.Editor exposing (Action(..), Msg)
-
+import Browser.Navigation as Nav
 
 type alias Params msg =
     { monacoValue : UndoRedoMonacoValue MonacoValue
@@ -22,13 +22,13 @@ type alias MonacoValue =
     }
 
 
-apply : Params Msg -> List Action -> Params Msg
-apply params actions =
-    List.foldl applyActions params actions
+apply : Nav.Key -> Params Msg -> List Action -> Params Msg
+apply key params actions =
+    List.foldl ( applyActions key ) params actions
 
 
-applyActions : Action -> Params Msg -> Params Msg
-applyActions action { monacoValue, cmd, errors } =
+applyActions : Nav.Key -> Action -> Params Msg -> Params Msg
+applyActions key action { monacoValue, cmd, errors } =
     case action of
         UpdateViews newViews ->
             let
@@ -77,4 +77,13 @@ applyActions action { monacoValue, cmd, errors } =
             { monacoValue = monacoValue
             , cmd = cmd
             , errors = Error.GetElementPosition errValue :: errors
+            }
+
+        ChangeView view ->
+            { monacoValue = monacoValue
+            , cmd = Cmd.batch
+                [ cmd
+                , Nav.pushUrl key ("/#/editor/" ++ view)
+                ]
+            , errors = errors
             }

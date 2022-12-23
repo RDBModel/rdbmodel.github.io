@@ -1,4 +1,4 @@
-module ViewEditor.Editor exposing (Action(..), Model, Msg, getElementPosition, getSelectedView, init, isInitState, subscriptions, update, view)
+module ViewEditor.Editor exposing (Action(..), Model, Msg, changeSelectedView, getElementPosition, getSelectedView, init, isInitState, subscriptions, update, view)
 
 import Basics.Extra exposing (maxSafeInteger)
 import Browser.Dom as Dom
@@ -154,6 +154,7 @@ type Action
     | ResetCurrentEditorState (Dict String View)
     | UpdateMonacoValue
     | PushDomError Dom.Error
+    | ChangeView String
 
 
 type alias MonacoState =
@@ -162,8 +163,8 @@ type alias MonacoState =
     }
 
 
-update : Session -> MonacoState -> Msg -> Model -> ( Model, Cmd Msg, List Action )
-update session { views, domain } msg model =
+update : MonacoState -> Msg -> Model -> ( Model, Cmd Msg, List Action )
+update { views, domain } msg model =
     case ( model, msg ) of
         ( Init selectedView, ReceiveElementPosition (Ok { element }) ) ->
             let
@@ -220,10 +221,9 @@ update session { views, domain } msg model =
                 params =
                     { position = elementPosition
                     , selectedView = state.selectedView
-                    , key = session.key
                     }
 
-                ( newViews, selectedView, cmds ) =
+                ( newViews, selectedView ) =
                     ViewControlActions.apply params views actions
 
                 ( updatedViewEditor, finalCmds, newActions ) =
@@ -240,11 +240,8 @@ update session { views, domain } msg model =
                                 , viewControl = updated
                                 , selectedView = selectedView
                             }
-                        , Cmd.batch
-                            [ cmd |> Cmd.map ViewControl
-                            , cmds
-                            ]
-                        , UpdateViews newViews |> List.singleton
+                        , cmd |> Cmd.map ViewControl
+                        , [ UpdateViews newViews ]
                         )
 
                     else
@@ -253,11 +250,12 @@ update session { views, domain } msg model =
                                 | viewControl = updated
                                 , selectedView = selectedView
                             }
-                        , Cmd.batch
-                            [ cmd |> Cmd.map ViewControl
-                            , cmds
-                            ]
-                        , []
+                        , cmd |> Cmd.map ViewControl
+                        , if state.selectedView == selectedView then
+                            []
+
+                          else
+                            [ ChangeView selectedView ]
                         )
             in
             ( updatedViewEditor
@@ -270,8 +268,8 @@ update session { views, domain } msg model =
                 ( updated, cmd, actions ) =
                     AddView.update subMsg state.addView
 
-                ( newViews, cmds ) =
-                    AddViewActions.apply views actions
+                ( newViews, cmds, selectedView ) =
+                    AddViewActions.apply views state.selectedView actions
 
                 ( updatedViewEditor, finalCmds, newActions ) =
                     if AddViewActions.monacoValueModified actions then
@@ -285,12 +283,17 @@ update session { views, domain } msg model =
                             { state
                                 | containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init
                                 , addView = updated
+                                , selectedView = selectedView
                             }
                         , Cmd.batch
                             [ cmd |> Cmd.map AddView
                             , cmds
                             ]
-                        , UpdateViews newViews |> List.singleton
+                        , if selectedView == state.selectedView then
+                            [ UpdateViews newViews ]
+
+                          else
+                            [ UpdateViews newViews, ChangeView selectedView ]
                         )
 
                     else
@@ -302,7 +305,11 @@ update session { views, domain } msg model =
                             [ cmd |> Cmd.map AddView
                             , cmds
                             ]
-                        , []
+                        , if selectedView == state.selectedView then
+                            []
+
+                          else
+                            [ ChangeView selectedView ]
                         )
             in
             ( updatedViewEditor
@@ -1122,3 +1129,13 @@ getSelectedView model =
 
         Ready { selectedView } ->
             selectedView
+
+
+changeSelectedView : String -> Model -> Model
+changeSelectedView selectedView model =
+    case model of
+        Init _ ->
+            Init selectedView
+
+        Ready m ->
+            Ready { m | selectedView = selectedView }
