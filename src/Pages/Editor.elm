@@ -64,7 +64,7 @@ type alias Model =
     }
 
 
-init : Session -> String -> Maybe String -> ( Model, Cmd Msg )
+init : Session -> Maybe String -> Maybe String -> ( Model, Cmd Msg )
 init session selectedView link =
     ( Model
         session
@@ -116,7 +116,7 @@ update msg model =
                     , Cmd.batch
                         [ initMonacoResponse (rdbEncode monacoModel)
                         , ViewEditor.getElementPosition |> Cmd.map ViewEditorMsg
-                        , Nav.replaceUrl model.session.key ("/#/editor/" ++ ViewEditor.getSelectedView model.viewEditor)
+                        , Nav.replaceUrl model.session.key ("/#/editor/" ++ (ViewEditor.getSelectedView model.viewEditor |> Maybe.withDefault ""))
                         ]
                     )
 
@@ -181,11 +181,24 @@ update msg model =
                                     in
                                     newRecord updatedMonacoValue model.monacoValue
                             }
+
+                        currentSelectedView =
+                            ViewEditor.getSelectedView model.viewEditor
                     in
                     ( newModel
                     , Cmd.batch
                         [ ViewEditor.getElementPosition |> Cmd.map ViewEditorMsg
                         , validationErrors ""
+                        , case currentSelectedView of
+                            Just v ->
+                                if Dict.member v views then
+                                    Nav.replaceUrl model.session.key ("/#/editor/" ++ v)
+
+                                else
+                                    Nav.replaceUrl model.session.key "/#/editor/"
+
+                            Nothing ->
+                                Nav.replaceUrl model.session.key "/#/editor/"
                         ]
                     )
 
@@ -334,6 +347,6 @@ subscriptions model =
         ]
 
 
-changeSelectedView : String -> Model -> Model
+changeSelectedView : Maybe String -> Model -> Model
 changeSelectedView selectedView model =
     { model | viewEditor = ViewEditor.changeSelectedView selectedView model.viewEditor }

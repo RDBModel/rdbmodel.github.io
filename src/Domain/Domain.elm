@@ -200,9 +200,11 @@ getContainers ( domain, currentView ) =
             )
 
 
-updateElementsInViews : String -> Dict String View -> (Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement) -> Dict String View
+updateElementsInViews : Maybe String -> Dict String View -> (Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement) -> Dict String View
 updateElementsInViews selectedView views updateElements =
-    Dict.update selectedView (Maybe.map (\v -> { v | elements = updateElements v.elements })) views
+    selectedView
+        |> Maybe.map (\view -> Dict.update view (Maybe.map (\v -> { v | elements = updateElements v.elements })) views)
+        |> Maybe.withDefault views
 
 
 updateRelationsInElements : ViewElementKey -> (Dict Relation (List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint)) -> Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
@@ -230,9 +232,9 @@ getElementAndItsKeys =
     Maybe.map Dict.toList >> Maybe.withDefault []
 
 
-getCurrentView : String -> Dict String View -> Maybe View
+getCurrentView : Maybe String -> Dict String View -> Maybe View
 getCurrentView selectedView views =
-    Dict.get selectedView views
+    selectedView |> Maybe.andThen (\v -> Dict.get v views)
 
 
 getElement : ViewElementKey -> Maybe (Dict ViewElementKey ViewElement) -> Maybe ViewElement
@@ -387,9 +389,14 @@ deleteContainer containerId =
     Maybe.map (\v -> { v | elements = v |> withoutContainer |> cleanUpRelations })
 
 
-updateViewByKey : String -> Dict String View -> Maybe View -> Dict String View
+updateViewByKey : Maybe String -> Dict String View -> Maybe View -> Dict String View
 updateViewByKey key views maybeView =
-    Dict.update key (\_ -> maybeView) views
+    case key of
+        Just v ->
+            Dict.update v (\_ -> maybeView) views
+
+        Nothing ->
+            views
 
 
 possibleRelationsToAdd : ( Domain, View ) -> Dict String (List Relation)

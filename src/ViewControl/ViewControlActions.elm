@@ -8,16 +8,16 @@ import ViewControl.ViewControl exposing (Action(..))
 
 type alias Params =
     { position : ( Float, Float )
-    , selectedView : String
+    , selectedView : Maybe String
     }
 
 
-apply : Params -> Dict String View -> List Action -> ( Dict String View, String )
+apply : Params -> Dict String View -> List Action -> ( Dict String View, Maybe String )
 apply params views actions =
     List.foldl (modifyViews params) ( views, params.selectedView ) actions
 
 
-modifyViews : Params -> Action -> ( Dict String View, String ) -> ( Dict String View, String )
+modifyViews : Params -> Action -> ( Dict String View, Maybe String ) -> ( Dict String View, Maybe String )
 modifyViews params action ( views, currentView ) =
     case action of
         AddElementToView el ->
@@ -31,12 +31,12 @@ modifyViews params action ( views, currentView ) =
             case view of
                 Just v ->
                     ( views
-                    , v
+                    , Just v
                     )
 
                 Nothing ->
                     ( views
-                    , ""
+                    , Nothing
                     )
 
 

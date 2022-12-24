@@ -9,7 +9,7 @@ type Action
     | DeleteElement String
 
 
-apply : String -> Dict String View -> List Action -> Dict String View
+apply : Maybe String -> Dict String View -> List Action -> Dict String View
 apply selectedView views actions =
     actions
         |> List.foldl modifyViews (getCurrentView selectedView views)

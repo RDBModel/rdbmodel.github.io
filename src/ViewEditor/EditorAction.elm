@@ -1,5 +1,6 @@
 module ViewEditor.EditorAction exposing (apply)
 
+import Browser.Navigation as Nav
 import Dict exposing (Dict)
 import Domain.Domain exposing (Domain, View)
 import Domain.DomainEncoder exposing (rdbEncode)
@@ -7,7 +8,7 @@ import Error.Error as Error
 import JsInterop exposing (updateMonacoValue)
 import UndoRedo.ViewUndoRedo exposing (UndoRedoMonacoValue, mapPresent, newRecord)
 import ViewEditor.Editor exposing (Action(..), Msg)
-import Browser.Navigation as Nav
+
 
 type alias Params msg =
     { monacoValue : UndoRedoMonacoValue MonacoValue
@@ -24,7 +25,7 @@ type alias MonacoValue =
 
 apply : Nav.Key -> Params Msg -> List Action -> Params Msg
 apply key params actions =
-    List.foldl ( applyActions key ) params actions
+    List.foldl (applyActions key) params actions
 
 
 applyActions : Nav.Key -> Action -> Params Msg -> Params Msg
@@ -81,9 +82,10 @@ applyActions key action { monacoValue, cmd, errors } =
 
         ChangeView view ->
             { monacoValue = monacoValue
-            , cmd = Cmd.batch
-                [ cmd
-                , Nav.pushUrl key ("/#/editor/" ++ view)
-                ]
+            , cmd =
+                Cmd.batch
+                    [ cmd
+                    , Nav.pushUrl key ("/#/editor/" ++ (view |> Maybe.withDefault ""))
+                    ]
             , errors = errors
             }

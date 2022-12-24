@@ -8,26 +8,27 @@ import ViewControl.AddView exposing (Action(..))
 
 type alias Params =
     { position : ( Float, Float )
-    , selectedView : String
+    , selectedView : Maybe String
     , key : Nav.Key
     }
 
 
-apply : Dict String View -> String -> List Action -> ( Dict String View, Cmd msg, String )
+apply : Dict String View -> Maybe String -> List Action -> ( Dict String View, Cmd msg, Maybe String )
 apply views currentSelectedView actions =
     List.foldl modifyViews ( views, Cmd.none, currentSelectedView ) actions
 
 
-modifyViews : Action -> ( Dict String View, Cmd msg, String ) -> ( Dict String View, Cmd msg, String )
+modifyViews : Action -> ( Dict String View, Cmd msg, Maybe String ) -> ( Dict String View, Cmd msg, Maybe String )
 modifyViews action ( views, cmd, selectedView ) =
     case action of
         NewView viewName ->
             ( Dict.insert viewName { elements = Dict.empty } views
             , cmd
-            , if Dict.member selectedView views then
+            , if selectedView |> Maybe.map (\v -> Dict.member v views) |> Maybe.withDefault False then
                 selectedView
-            else
-                viewName
+
+              else
+                Just viewName
             )
 
 

@@ -72,7 +72,7 @@ import ViewControl.ViewControlActions as ViewControlActions
 
 
 type Model
-    = Init String
+    = Init (Maybe String)
     | Ready ViewEditorState
 
 
@@ -90,7 +90,7 @@ type alias ViewEditorState =
     { drag : Maybe Drag
     , viewNavigation : ViewNavigation.Model
     , viewControl : ViewControl.Model
-    , selectedView : String
+    , selectedView : Maybe String
     , addView : AddView.Model
     , svgElementPosition : Element
     , brush : Maybe Brush
@@ -125,7 +125,7 @@ type alias Element =
     }
 
 
-init : String -> Model
+init : Maybe String -> Model
 init selectedView =
     Init selectedView
 
@@ -154,7 +154,7 @@ type Action
     | ResetCurrentEditorState (Dict String View)
     | UpdateMonacoValue
     | PushDomError Dom.Error
-    | ChangeView String
+    | ChangeView (Maybe String)
 
 
 type alias MonacoState =
@@ -874,7 +874,7 @@ svgView { views, domain } viewEditorState =
         ( currentView, currentControl ) =
             case ( getCurrentView viewEditorState.selectedView views, domain ) of
                 ( Just v, Just d ) ->
-                    ( renderCurrentView ( v, d, viewEditorState.selectedView ) viewEditorState, ViewControl.view viewEditorState.selectedView views (getElementsKeysAndNames d) viewControl |> Html.map ViewControl )
+                    ( renderCurrentView ( v, d ) viewEditorState, ViewControl.view viewEditorState.selectedView views (getElementsKeysAndNames d) viewControl |> Html.map ViewControl )
 
                 _ ->
                     ( text "", text "" )
@@ -944,8 +944,8 @@ floatRemainderBy divisor n =
     n - toFloat (truncate (n / divisor)) * divisor
 
 
-renderCurrentView : ( View, Domain, String ) -> ViewEditorState -> Svg Msg
-renderCurrentView ( v, domain, selectedView ) model =
+renderCurrentView : ( View, Domain ) -> ViewEditorState -> Svg Msg
+renderCurrentView ( v, domain ) model =
     let
         { selectedItems, viewNavigation } =
             model
@@ -1121,7 +1121,7 @@ trimList count =
         >> List.reverse
 
 
-getSelectedView : Model -> String
+getSelectedView : Model -> Maybe String
 getSelectedView model =
     case model of
         Init v ->
@@ -1131,7 +1131,7 @@ getSelectedView model =
             selectedView
 
 
-changeSelectedView : String -> Model -> Model
+changeSelectedView : Maybe String -> Model -> Model
 changeSelectedView selectedView model =
     case model of
         Init _ ->

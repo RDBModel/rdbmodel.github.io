@@ -121,11 +121,13 @@ update msg model =
             )
 
 
-view : String -> Dict String View -> List ( String, String ) -> Model -> Html Msg
+view : Maybe String -> Dict String View -> List ( String, String ) -> Model -> Html Msg
 view selectedView views elements model =
     let
         viewElements =
-            Dict.get selectedView views |> getViewElements
+            selectedView
+                |> Maybe.map (\v -> Dict.get v views |> getViewElements)
+                |> Maybe.withDefault []
     in
     div
         [ style "position" "absolute"
@@ -144,7 +146,7 @@ view selectedView views elements model =
             model.selectView.config
             model.selectView.state
             (Dict.keys views)
-            [ selectedView ]
+            (selectedView |> Maybe.map List.singleton |> Maybe.withDefault [])
         , Select.view
             model.selectElement.config
             model.selectElement.state
