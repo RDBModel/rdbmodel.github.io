@@ -23,7 +23,7 @@
 	// Comment out to connect as root instead. In that case you may need to change the mounts
 	// configuration too. More info: https://aka.ms/vscode-remote/containers/non-root.
 	"remoteUser": "node",
-	
+
 	// Keeping the elm dependency cache mounted in a volume is both a small performance benefit
 	// when having rebuilt your container. It also solves a problem with the Elm Language Server.
 	// The Elm Language Server uses the dependency cache stored at ~/.elm.
@@ -39,5 +39,7 @@
 	// Adding this volume will preserve the elm cache between rebuilds though, fixing this issue
 	"mounts": [
 		"source=vscode-devcontainer-elm-dependency-cache,target=/home/node/.elm,type=volume"
-	]
+	],
+
+	"postCreateCommand": "npm install & npm run dev"
 }
