@@ -18,9 +18,10 @@
 
 [ ] add save to local storage button
 
-[ ] change open/save icons
 
 ------
+[x] change open/save icons
+
 [x] saved current model in local storage
 [x] show errors
 [x] load yaml from url
