@@ -9,7 +9,7 @@ window.MonacoEnvironment = {
 }
 
 const app = Elm.Main.init({
-  node: document.getElementById("root"),
+  node: document.getElementById('root'),
   flags: window.showOpenFilePicker !== undefined
 })
 
@@ -20,7 +20,7 @@ function initMonaco(initialValue) {
   if (editor != null) {
     editor.dispose()
   }
-  editor = monaco.editor.create(document.getElementById("monaco"), {
+  editor = monaco.editor.create(document.getElementById('monaco'), {
     // theme: 'vs-dark',
     value: modifyYamlValue(initialValue),
     language: 'yaml',
@@ -44,7 +44,7 @@ function initMonaco(initialValue) {
   )
 
   // remove editor focus if we clicked outside of it
-  document.getElementById("main-graph").addEventListener('click', (ev) => {
+  document.getElementById('main-graph').addEventListener('click', (ev) => {
     if (editor.hasWidgetFocus()) {
       document.activeElement.blur()
     }
@@ -72,6 +72,8 @@ app.ports.validationErrors.subscribe((message) => {
     newDecorators
   )
 })
+app.ports.saveToLocalStorage.subscribe((value) => saveToLocalStorage(value))
+app.ports.getFromLocalStorage.subscribe(() => getFromLocalStorage())
 // delay monaco initialization (via Elm) test
 // TODO: remove?
 // app.ports.initMonacoRequest.send(null)
@@ -221,15 +223,15 @@ function readFileAsync(file) {
 function modifyYamlValue(value) {
   // temp fix - https://github.com/MaybeJustJames/yaml/issues/28
   return value
-    .replace(/relations:\n\s+\n/g, "relations: []\n")
-    .replace(/relations:\n\s+$/, "relations: []\n")
-    .replace(/containers:\n\s+\n/g, "containers: {}\n")
-    .replace(/containers:\n\s+$/, "containers: {}\n")
-    .replace(/elements:\n\s+\n/, "elements: {}\n")
-    .replace(/elements:\n\s+$/, "elements: {}\n")
-    .replace(/:\n\s+\n/g, ": []\n")
-    .replace(/:\n\s+$/, ": []\n")
-    .replace(/-\n\s+x:/g, "- x:")
+    .replace(/relations:\n\s+\n/g, 'relations: []\n')
+    .replace(/relations:\n\s+$/, 'relations: []\n')
+    .replace(/containers:\n\s+\n/g, 'containers: {}\n')
+    .replace(/containers:\n\s+$/, 'containers: {}\n')
+    .replace(/elements:\n\s+\n/, 'elements: {}\n')
+    .replace(/elements:\n\s+$/, 'elements: {}\n')
+    .replace(/:\n\s+\n/g, ': []\n')
+    .replace(/:\n\s+$/, ': []\n')
+    .replace(/-\n\s+x:/g, '- x:')
 }
 
 async function showFileSaveDialog(value) {
@@ -241,9 +243,20 @@ async function showFileSaveDialog(value) {
   }]});
 
   const blob = new Blob([modifyYamlValue(value)], {
-    type: "text/plain",
+    type: 'text/plain',
   });
 
   await writableStream.write(blob)
   await writableStream.close()
+}
+
+const localStorageKey = 'rdb-model-current-domain'
+
+function saveToLocalStorage(value) {
+  localStorage.setItem(localStorageKey, value)
+}
+
+function getFromLocalStorage() {
+  const value = localStorage.getItem(localStorageKey)
+  app.ports.receivedFromLocalStorage.send(value)
 }

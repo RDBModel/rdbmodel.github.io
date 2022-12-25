@@ -1,4 +1,4 @@
-module ViewEditor.Editor exposing (Action(..), Model, Msg, changeSelectedView, getElementPosition, getSelectedView, init, isInitState, subscriptions, update, view)
+module ViewEditor.Editor exposing (Action(..), Model, Msg, changeSelectedView, getSvgElementPosition, getSelectedView, init, isInitState, subscriptions, update, view)
 
 import Basics.Extra exposing (maxSafeInteger)
 import Browser.Dom as Dom
@@ -328,7 +328,7 @@ update { views, domain } msg model =
             )
 
         ( _, Resize ) ->
-            ( model, getElementPosition, [] )
+            ( model, getSvgElementPosition, [] )
 
         ( Ready state, DragViewElementStart viewElementKey xy ) ->
             let
@@ -590,8 +590,8 @@ update { views, domain } msg model =
             ( model, Cmd.none, [] )
 
 
-getElementPosition : Cmd Msg
-getElementPosition =
+getSvgElementPosition : Cmd Msg
+getSvgElementPosition =
     Task.attempt ReceiveElementPosition (Dom.getElement elementId)
 
 

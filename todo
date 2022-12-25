@@ -14,7 +14,14 @@
 
 [ ] examples https://github.com/donnemartin/system-design-primer
 
+[ ] switch to a new view after creation
+
+[ ] add save to local storage button
+
+[ ] change open/save icons
+
 ------
+[x] saved current model in local storage
 [x] show errors
 [x] load yaml from url
 [x] add loading icon for editor
