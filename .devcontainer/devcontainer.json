@@ -41,5 +41,6 @@
 		"source=vscode-devcontainer-elm-dependency-cache,target=/home/node/.elm,type=volume"
 	],
 
-	"postCreateCommand": "npm install; npm run dev"
+	"postCreateCommand": "npm install",
+	"postStartCommand": "npm run dev"
 }
