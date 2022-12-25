@@ -11,7 +11,7 @@ validateDomain : Domain -> Result String Domain
 validateDomain domain =
     let
         elementKeysAndNames =
-            domain |> getElementsKeysAndNames |> Debug.log "elementKeysAndNames"
+            domain |> getElementsKeysAndNames
 
         elementKeys =
             elementKeysAndNames |> List.map Tuple.first
