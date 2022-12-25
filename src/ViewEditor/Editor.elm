@@ -1,4 +1,4 @@
-module ViewEditor.Editor exposing (Action(..), Model, Msg, changeSelectedView, getSvgElementPosition, getSelectedView, init, isInitState, subscriptions, update, view)
+module ViewEditor.Editor exposing (Action(..), Model, Msg, changeSelectedView, getSelectedView, getSvgElementPosition, init, isInitState, subscriptions, update, view)
 
 import Basics.Extra exposing (maxSafeInteger)
 import Browser.Dom as Dom
@@ -268,8 +268,8 @@ update { views, domain } msg model =
                 ( updated, cmd, actions ) =
                     AddView.update subMsg state.addView
 
-                ( newViews, cmds, selectedView ) =
-                    AddViewActions.apply views state.selectedView actions
+                ( newViews, cmds, newViewId ) =
+                    AddViewActions.apply views actions
 
                 ( updatedViewEditor, finalCmds, newActions ) =
                     if AddViewActions.monacoValueModified actions then
@@ -283,17 +283,13 @@ update { views, domain } msg model =
                             { state
                                 | containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init
                                 , addView = updated
-                                , selectedView = selectedView
+                                , selectedView = Just newViewId
                             }
                         , Cmd.batch
                             [ cmd |> Cmd.map AddView
                             , cmds
                             ]
-                        , if selectedView == state.selectedView then
-                            [ UpdateViews newViews ]
-
-                          else
-                            [ UpdateViews newViews, ChangeView selectedView ]
+                        , [ UpdateViews newViews, ChangeView (Just newViewId) ]
                         )
 
                     else
@@ -305,11 +301,7 @@ update { views, domain } msg model =
                             [ cmd |> Cmd.map AddView
                             , cmds
                             ]
-                        , if selectedView == state.selectedView then
-                            []
-
-                          else
-                            [ ChangeView selectedView ]
+                        , []
                         )
             in
             ( updatedViewEditor

@@ -14,12 +14,10 @@
 
 [ ] examples https://github.com/donnemartin/system-design-primer
 
-[ ] switch to a new view after creation
-
-[ ] add save to local storage button
-
 
 ------
+[x] switch to a new view after creation
+[x] add save to local storage button
 [x] change open/save icons
 
 [x] saved current model in local storage
