@@ -41,3 +41,6 @@ port getFromLocalStorage : () -> Cmd msg
 
 
 port receivedFromLocalStorage : (Maybe String -> msg) -> Sub msg
+
+
+port tryToSaveCurrentEditorValue : () -> Cmd msg

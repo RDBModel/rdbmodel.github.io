@@ -27,6 +27,7 @@ import JsInterop
         , validationErrors
         )
 import Json.Decode as JsonDecoder
+import SaveDomain.SaveDomain as SaveDomain
 import Session exposing (Session)
 import SplitPanel.SplitPane as SplitPane exposing (Orientation(..), State, ViewConfig, createViewConfig)
 import Task
@@ -96,6 +97,7 @@ type Msg
     | GetDomainFromExternal (Result Http.Error String)
     | ErrorMsg Error.Msg
     | ReceivedFromLocalStorage (Maybe String)
+    | ClickSaveDomain
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -309,6 +311,11 @@ update msg model =
                         ]
                     )
 
+        ClickSaveDomain ->
+            ( model
+            , saveToLocalStorage (rdbEncode model.monacoValue.present)
+            )
+
 
 view : Model -> Document Msg
 view model =
@@ -324,6 +331,15 @@ view model =
                 (div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
                     [ ViewEditor.view monacoValue.present viewEditor |> Html.map ViewEditorMsg
                     , ViewUndoRedo.view |> Html.map ViewUndoRedo
+                    , div
+                        [ style "position" "absolute"
+                        , style "top" "5px"
+                        , style "right" "5px"
+                        , style "font-size" "16px"
+                        , style "user-select" "none"
+                        , style "display" "flex"
+                        ]
+                        [ SaveDomain.view ClickSaveDomain ]
                     ]
                 )
                 (monacoViewPart model.session.isFileSystemSupported (ViewEditor.isInitState model.viewEditor))

@@ -4,7 +4,8 @@ import Color
 import Html exposing (Html, button, div)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
-import JsInterop exposing (openFileOpenDialog, openSaveFileDialog)
+import JsInterop exposing (openFileOpenDialog, openSaveFileDialog, tryToSaveCurrentEditorValue)
+import SaveDomain.SaveDomain as SaveDomain
 import TypedSvg exposing (circle, path, polyline, svg)
 import TypedSvg.Attributes
     exposing
@@ -28,6 +29,7 @@ import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), Stroke
 type Msg
     = OpenFile
     | SaveFile
+    | SaveToLocalStorage
 
 
 update : Msg -> Cmd Msg
@@ -38,6 +40,9 @@ update msg =
 
         SaveFile ->
             openSaveFileDialog ()
+
+        SaveToLocalStorage ->
+            tryToSaveCurrentEditorValue ()
 
 
 view : Html Msg
@@ -101,10 +106,6 @@ view =
                 , path [ d "M12 11v6" ] []
                 , path [ d "M9.5 13.5l2.5 -2.5l2.5 2.5" ] []
                 ]
--- [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
---                 , path [ d "M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" ] []
---                 , circle [ cx (Px 12), cy (Px 14), r (Px 2) ] []
---                 , polyline [ points [ ( 14, 4 ), ( 14, 8 ), ( 8, 8 ), ( 8, 4 ) ] ] []
---                 ]
             ]
+        , SaveDomain.view SaveToLocalStorage
         ]

@@ -63,6 +63,7 @@ app.ports.openSaveFileDialog.subscribe(() => app.ports.requestValueToSave.send(n
 app.ports.saveValueToFile.subscribe(async (value) => await showFileSaveDialog(value))
 
 app.ports.initMonacoResponse.subscribe((message) => initMonaco(message))
+app.ports.tryToSaveCurrentEditorValue.subscribe(() => app.ports.monacoEditorSavedValue.send(editor.getValue()))
 app.ports.updateMonacoValue.subscribe((message) => updateMonacoValue(message))
 app.ports.validationErrors.subscribe((message) => {
   const newDecorators = []
