@@ -12,7 +12,9 @@ module Elements exposing
     )
 
 import Color
-import Domain.Domain exposing (Vertex, Edge)
+import Domain.Domain exposing (Edge, Vertex)
+import Html exposing (div)
+import Html.Attributes exposing (style)
 import Path exposing (Path)
 import Shape exposing (linearCurve)
 import SubPath exposing (arcLength, arcLengthParameterized)
@@ -23,7 +25,6 @@ import TypedSvg.Attributes as Attrs
         , cx
         , cy
         , d
-        , dominantBaseline
         , fill
         , fillOpacity
         , height
@@ -33,13 +34,12 @@ import TypedSvg.Attributes as Attrs
         , stroke
         , strokeOpacity
         , strokeWidth
-        , textAnchor
         , transform
         , width
         , x
         , y
         )
-import TypedSvg.Core exposing (Attribute, Svg, text)
+import TypedSvg.Core exposing (Attribute, Svg, foreignObject, text)
 import TypedSvg.Types
     exposing
         ( AnchorAlignment(..)
@@ -47,6 +47,7 @@ import TypedSvg.Types
         , Cursor(..)
         , DominantBaseline(..)
         , Length(..)
+        , LengthAdjust(..)
         , Opacity(..)
         , Paint(..)
         , Transform(..)
@@ -94,13 +95,6 @@ renderContainerInternal selected { key, name, description, xy } events =
         ( xCenter, yCenter ) =
             xy
 
-        updatedName a =
-            if String.length name > 15 then
-                String.slice 0 15 a
-
-            else
-                a
-
         tooltip =
             key ++ "\n" ++ description
     in
@@ -122,16 +116,22 @@ renderContainerInternal selected { key, name, description, xy } events =
             , Attrs.strokeWidth <| Px 1
             ]
             [ title [] [ text tooltip ] ]
-        , text_
-            [ x <| Px <| xCenter
-            , y <| Px <| yCenter
+        , foreignObject
+            [ x <| Px <| xCenter - containerWidth / 2
+            , y <| Px <| yCenter - containerHeight / 2
             , width <| Px containerWidth
             , height <| Px containerHeight
-            , dominantBaseline DominantBaselineMiddle
-            , textAnchor AnchorMiddle
             , cursor CursorDefault
             ]
-            [ text <| updatedName name, title [] [ text tooltip ] ]
+            [ div
+                [ style "display" "flex"
+                , style "justify-content" "center"
+                , style "align-items" "center"
+                , style "height" "100%"
+                ]
+                [ div [ style "margin" "auto" ] [ text name ] ]
+            , title [] [ text tooltip ]
+            ]
         ]
 
 
