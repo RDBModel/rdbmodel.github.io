@@ -22,6 +22,7 @@ import TypedSvg.Attributes
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import UndoList exposing (UndoList)
 import UndoRedo.ViewUndoRedoActions exposing (Action(..))
+import Html.Attributes exposing (title)
 
 type alias Model =
     { ctrlIsDown : Bool
@@ -96,6 +97,7 @@ view =
             , style "min-height" "24px"
             , style "min-width" "24px"
             , style "padding" "0"
+            , title "Undo last change"
             , onClick Undo
             ]
             [ svg
@@ -119,6 +121,7 @@ view =
             , style "min-height" "24px"
             , style "min-width" "24px"
             , style "padding" "0"
+            , title "Redo last change"
             , onClick Redo
             ]
             [ svg

@@ -20,6 +20,7 @@ import TypedSvg.Attributes
         , width
         )
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
+import Html.Attributes exposing (title)
 
 
 type Msg
@@ -57,6 +58,7 @@ view =
             , style "min-height" "24px"
             , style "min-width" "24px"
             , style "padding" "0"
+            , title "Load domain from file system"
             , onClick <| OpenFile
             ]
             [ svg
@@ -83,6 +85,7 @@ view =
             , style "min-height" "24px"
             , style "min-width" "24px"
             , style "padding" "0"
+            , title "Save domain to file system"
             , onClick <| SaveFile
             ]
             [ svg
