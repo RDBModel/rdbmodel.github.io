@@ -583,12 +583,7 @@ update { views, domain } msg model =
 
 getSvgElementPosition : Cmd Msg
 getSvgElementPosition =
-    Task.attempt ReceiveElementPosition (Dom.getElement elementId)
-
-
-elementId : String
-elementId =
-    "main-graph"
+    Task.attempt ReceiveElementPosition (Dom.getElement "main-graph")
 
 
 getSelectedElementKeysAndDeltas : List SelectedItem -> List ( ViewElementKey, Maybe ( Float, Float ) )
@@ -839,14 +834,13 @@ view domain model =
         graphics =
             case model of
                 Init _ ->
-                    [ text "" ]
+                    [ emptySvg [] ]
 
                 Ready state ->
                     svgView domain state
     in
     div
-        [ id elementId
-        , Html.Attributes.style "width" "100%"
+        [ Html.Attributes.style "width" "100%"
         , Html.Attributes.style "height" "100%"
         , Html.Attributes.style "position" "relative"
         ]
@@ -887,12 +881,7 @@ svgView { views, domain } viewEditorState =
             ViewNavigation.getTranslate viewNavigation
                 |> (\t -> ( floatRemainderBy transform100 t.x, floatRemainderBy transform100 t.y ))
     in
-    [ svg
-        [ id elementId
-        , Attrs.width <| Percent 100
-        , Attrs.height <| Percent 100
-        , Mouse.onContextMenu (\_ -> NoOp)
-        ]
+    [ emptySvg
         [ defs []
             [ innerGrid transform10
             , grid getXY transform100
@@ -911,6 +900,14 @@ svgView { views, domain } viewEditorState =
     , ContextMenu.view viewEditorState.containerMenu |> Html.map ContainerContextMenu
     ]
 
+emptySvg : List (Svg Msg) -> Html Msg
+emptySvg =
+    svg
+        [ id "main-graph"
+        , Attrs.width <| Percent 100
+        , Attrs.height <| Percent 100
+        , Mouse.onContextMenu (\_ -> NoOp)
+        ]
 
 mouseDownMain : (( Float, Float ) -> Msg) -> Attribute Msg
 mouseDownMain msg =
