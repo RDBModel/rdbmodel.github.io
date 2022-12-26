@@ -21,6 +21,7 @@ import TypedSvg.Attributes
         )
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import Html.Attributes exposing (title)
+import Html.Attributes exposing (type_)
 
 
 type Msg
@@ -59,6 +60,7 @@ view =
             , style "min-width" "24px"
             , style "padding" "0"
             , title "Load domain from file system"
+            , type_ "button"
             , onClick <| OpenFile
             ]
             [ svg
@@ -86,6 +88,7 @@ view =
             , style "min-width" "24px"
             , style "padding" "0"
             , title "Save domain to file system"
+            , type_ "button"
             , onClick <| SaveFile
             ]
             [ svg

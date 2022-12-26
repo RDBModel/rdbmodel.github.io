@@ -25,6 +25,7 @@ import TypedSvg.Attributes
         )
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import Html.Attributes exposing (title)
+import Html.Attributes exposing (type_)
 
 
 type alias Model =
@@ -100,6 +101,7 @@ view model =
             , style "max-width" "26px"
             , style "padding" "0"
             , title "Create new view for domain"
+            , type_ "button"
             , onClick AddView
             ]
             [ svg

@@ -23,6 +23,7 @@ import TypedSvg.Attributes
         )
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import Html.Attributes exposing (title)
+import Html.Attributes exposing (type_)
 
 
 view : msg -> Html msg
@@ -34,6 +35,7 @@ view event =
         , style "min-width" "24px"
         , style "padding" "0"
         , title "Save domain to local storage"
+        , type_ "button"
         , onClick <| event
         ]
         [ svg

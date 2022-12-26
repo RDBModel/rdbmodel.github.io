@@ -45,6 +45,7 @@ import TypedSvg.Attributes
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import Zoom exposing (OnZoom, Zoom)
 import Html.Attributes exposing (title)
+import Html.Attributes exposing (type_)
 
 
 type alias Model =
@@ -139,6 +140,7 @@ view model =
             , style "min-width" "24px"
             , style "padding" "0"
             , title "Zoom in"
+            , type_ "button"
             , onClick <| DoZoom In
             ]
             [ svg
@@ -168,6 +170,7 @@ view model =
             , style "min-width" "24px"
             , style "padding" "0"
             , title "Zoom out"
+            , type_ "button"
             , onClick <| DoZoom Out
             ]
             [ svg
@@ -196,6 +199,7 @@ view model =
             , style "min-width" "24px"
             , style "padding" "0"
             , title "Set edit view mode"
+            , type_ "button"
             , onClick <| SetCtrlIsDown False
             ]
             [ svg
@@ -223,6 +227,7 @@ view model =
             , style "min-width" "24px"
             , style "padding" "0"
             , title "Set navigate view mode"
+            , type_ "button"
             , onClick <| SetCtrlIsDown True
             ]
             [ svg
