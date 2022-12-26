@@ -1,10 +1,9 @@
 module SaveDomain.SaveDomain exposing (..)
 
 import Color
-import Html exposing (Html, button, div)
+import Html exposing (Html, button)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
-import JsInterop exposing (openFileOpenDialog, openSaveFileDialog)
 import TypedSvg exposing (circle, path, polyline, svg)
 import TypedSvg.Attributes
     exposing

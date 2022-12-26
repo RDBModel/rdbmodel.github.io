@@ -1,6 +1,5 @@
 module ViewControl.AddViewActions exposing (..)
 
-import Browser.Navigation as Nav
 import Dict exposing (Dict)
 import Domain.Domain exposing (View)
 import ViewControl.AddView exposing (Action(..))

@@ -58,7 +58,6 @@ import Html.Attributes
 import Html.Events.Extra.Mouse as Mouse exposing (Event)
 import Json.Decode as Decode
 import Navigation.ViewNavigation as ViewNavigation
-import Session exposing (Session)
 import SplitPanel.SplitPane exposing (Orientation(..))
 import Task
 import TypedSvg exposing (defs, g, svg)

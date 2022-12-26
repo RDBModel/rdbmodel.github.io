@@ -1,6 +1,5 @@
 module ViewControl.ViewControlActions exposing (apply, monacoValueModified)
 
-import Browser.Navigation as Nav
 import Dict exposing (Dict)
 import Domain.Domain exposing (View, addElementToView, getCurrentView, updateViewByKey)
 import ViewControl.ViewControl exposing (Action(..))

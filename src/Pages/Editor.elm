@@ -5,7 +5,7 @@ import Browser.Dom as Dom
 import Browser.Navigation as Nav
 import Color
 import Dict exposing (Dict)
-import Domain.Domain exposing (Domain, View, ViewItemKey(..))
+import Domain.Domain exposing (ViewItemKey(..))
 import Domain.DomainDecoder exposing (rdbDecoder)
 import Domain.DomainEncoder exposing (rdbEncode)
 import Domain.Validation exposing (errorDomainDecoder)

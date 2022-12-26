@@ -6,16 +6,12 @@ import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
 import JsInterop exposing (openFileOpenDialog, openSaveFileDialog, tryToSaveCurrentEditorValue)
 import SaveDomain.SaveDomain as SaveDomain
-import TypedSvg exposing (circle, path, polyline, svg)
+import TypedSvg exposing (path, svg)
 import TypedSvg.Attributes
     exposing
-        ( cx
-        , cy
-        , d
+        ( d
         , fill
         , height
-        , points
-        , r
         , stroke
         , strokeLinecap
         , strokeLinejoin
