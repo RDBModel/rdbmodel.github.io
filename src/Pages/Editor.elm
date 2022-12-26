@@ -160,31 +160,44 @@ update msg model =
             case D.fromString rdbDecoder cleaned of
                 Ok ( domain, views ) ->
                     let
+                        currentSelectedView =
+                            ViewEditor.getSelectedView model.viewEditor
+
+                        updatedSelectedView =
+                            case currentSelectedView of
+                                Just v ->
+                                    if Dict.member v views then
+                                        Just v
+                                    else
+                                        Dict.keys views |> List.head
+                                Nothing ->
+                                    Dict.keys views |> List.head
+                        newMonacoValue =
+                            let
+                                currentMonacoValue =
+                                    model.monacoValue.present
+
+                                updatedMonacoValue =
+                                    { currentMonacoValue
+                                        | domain = Just domain
+                                        , views = views
+                                    }
+                            in
+                            newRecord updatedMonacoValue model.monacoValue
                         newModel =
                             { model
                                 | errors = []
-                                , monacoValue =
-                                    let
-                                        currentMonacoValue =
-                                            model.monacoValue.present
-
-                                        updatedMonacoValue =
-                                            { currentMonacoValue
-                                                | domain = Just domain
-                                                , views = views
-                                            }
-                                    in
-                                    newRecord updatedMonacoValue model.monacoValue
+                                , monacoValue = newMonacoValue
+                                , viewEditor = ViewEditor.recreateContextMenu newMonacoValue.present updatedSelectedView model.viewEditor
                             }
 
-                        currentSelectedView =
-                            ViewEditor.getSelectedView model.viewEditor
+
                     in
                     ( newModel
                     , Cmd.batch
                         [ ViewEditor.getSvgElementPosition |> Cmd.map ViewEditorMsg
                         , validationErrors ""
-                        , case currentSelectedView of
+                        , case updatedSelectedView of
                             Just v ->
                                 if Dict.member v views then
                                     Nav.replaceUrl model.session.key ("/#/editor/" ++ v)

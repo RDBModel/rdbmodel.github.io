@@ -1,4 +1,4 @@
-module ViewEditor.Editor exposing (Action(..), Model, Msg, changeSelectedView, getSelectedView, getSvgElementPosition, init, isInitState, subscriptions, update, view)
+module ViewEditor.Editor exposing (Action(..), Model, Msg, recreateContextMenu, changeSelectedView, getSelectedView, getSvgElementPosition, init, isInitState, subscriptions, update, view)
 
 import Basics.Extra exposing (maxSafeInteger)
 import Browser.Dom as Dom
@@ -68,6 +68,7 @@ import ViewControl.AddView as AddView
 import ViewControl.AddViewActions as AddViewActions
 import ViewControl.ViewControl as ViewControl
 import ViewControl.ViewControlActions as ViewControlActions
+import UndoRedo.ViewUndoRedoActions exposing (MonacoValue)
 
 
 type Model
@@ -1127,3 +1128,16 @@ changeSelectedView selectedView model =
 
         Ready m ->
             Ready { m | selectedView = selectedView }
+
+recreateContextMenu : MonacoValue -> Maybe String -> Model -> Model
+recreateContextMenu { views, domain } selectedView model =
+    let
+        getPossibleRelations =
+            getCurrentView selectedView views
+                |> Maybe.map2 (\d v -> possibleRelationsToAdd ( d, v )) domain
+                |> Maybe.withDefault Dict.empty
+    in
+    case model of
+        Init _ -> model
+        Ready state ->
+            Ready { state | containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init }

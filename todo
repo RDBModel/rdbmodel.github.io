@@ -16,7 +16,7 @@
 
 [ ] check mobile
 
-
+[ ] adjust view element positions in UI
 ------
 [x] switch to a new view after creation
 [x] add save to local storage button
