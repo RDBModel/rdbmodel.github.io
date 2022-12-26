@@ -46,16 +46,11 @@ indexMain =
 
 header : Element msg
 header =
-    row [ centerX, height <| px 50, blockPadding, spacing 20 ]
+    row [ centerX, height <| px 50, spacing 20 ]
         [ el [ Font.size 32 ] <| text "RDB modeling"
         , el [ defaultFontSize, Font.light ] <| text "...a way to simplify your C4 model"
         , link [ Color.blue |> mapColor |> Font.color, alignRight, Font.size 22 ] { label = text "[Source]", url = "https://github.com/RDBModel/rdbmodel.github.io" }
         ]
-
-
-blockPadding : Element.Attribute msg
-blockPadding =
-    padding 10
 
 
 mapColor : Color.Color -> Element.Color
@@ -65,7 +60,7 @@ mapColor =
 
 editorLink : Element msg
 editorLink =
-    el [ centerX, height <| px 120, blockPadding ] editorButton
+    el [ centerX, height <| px 120, paddingXY 0 15 ] editorButton
 
 
 editorButton : Element msg
@@ -79,13 +74,10 @@ editorButton =
 
 footer : Element msg
 footer =
-    row [ centerX ]
+    row [ centerX, paddingXY 0 15 ]
         [ paragraph []
             [ text "created by "
             , link [ Color.blue |> mapColor |> Font.color ] { label = text "Yauhen Pyl", url = "https://www.linkedin.com/in/yauhenpyl/" }
-            ]
-        , paragraph []
-            [ link [ Color.blue |> mapColor |> Font.color ] { label = text "Thanks to MaybeJustJames", url = "https://github.com/MaybeJustJames/yaml" }
             ]
         , paragraph [ alignRight, width shrink ]
             [ text "written in ❤️ "

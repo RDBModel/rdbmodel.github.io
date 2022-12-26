@@ -11,7 +11,7 @@ import Domain.DomainEncoder exposing (rdbEncode)
 import Domain.Validation exposing (errorDomainDecoder)
 import Error.Error as Error exposing (Source(..))
 import FilePicker
-import Html exposing (Html, a, div, text)
+import Html exposing (Html, div, text)
 import Html.Attributes exposing (style)
 import Http
 import JsInterop
@@ -126,17 +126,7 @@ update msg model =
                     )
 
                 Err err ->
-                    case err of
-                        D.Parsing errMsg ->
-                            ( { model | errors = DomainParse errMsg |> List.singleton }, validationErrors errMsg )
-
-                        D.Decoding errMsg ->
-                            case JsonDecoder.decodeString errorDomainDecoder errMsg of
-                                Ok parsedErrors ->
-                                    ( { model | errors = parsedErrors |> List.singleton }, validationErrors errMsg )
-
-                                Err decodeErr ->
-                                    ( { model | errors = ParseError decodeErr |> List.singleton }, validationErrors errMsg )
+                    showError err model
 
         GetDomainFromExternal (Err errValue) ->
             ( { model | errors = Error.ExternalDomainDownload errValue |> List.singleton }, Cmd.none )
@@ -209,17 +199,7 @@ update msg model =
                     )
 
                 Err err ->
-                    case err of
-                        D.Parsing errMsg ->
-                            ( { model | errors = DomainParse errMsg |> List.singleton }, validationErrors errMsg )
-
-                        D.Decoding errMsg ->
-                            case JsonDecoder.decodeString errorDomainDecoder errMsg of
-                                Ok parsedErrors ->
-                                    ( { model | errors = parsedErrors |> List.singleton }, validationErrors errMsg )
-
-                                Err decodeErr ->
-                                    ( { model | errors = ParseError decodeErr |> List.singleton }, validationErrors errMsg )
+                    showError err model
 
         InitMonacoRequestReceived _ ->
             ( model, initMonacoResponse "" )
@@ -291,17 +271,7 @@ update msg model =
                             )
 
                         Err err ->
-                            case err of
-                                D.Parsing errMsg ->
-                                    ( { model | errors = DomainParse errMsg |> List.singleton }, validationErrors errMsg )
-
-                                D.Decoding errMsg ->
-                                    case JsonDecoder.decodeString errorDomainDecoder errMsg of
-                                        Ok parsedErrors ->
-                                            ( { model | errors = parsedErrors |> List.singleton }, validationErrors errMsg )
-
-                                        Err decodeErr ->
-                                            ( { model | errors = ParseError decodeErr |> List.singleton }, validationErrors errMsg )
+                            showError err model
 
                 Nothing ->
                     ( model
@@ -315,6 +285,21 @@ update msg model =
             ( model
             , saveToLocalStorage (rdbEncode model.monacoValue.present)
             )
+
+
+showError : D.Error -> Model -> ( Model, Cmd Msg )
+showError err model =
+    case err of
+        D.Parsing errMsg ->
+            ( { model | errors = DomainParse errMsg |> List.singleton }, validationErrors errMsg )
+
+        D.Decoding errMsg ->
+            case JsonDecoder.decodeString errorDomainDecoder errMsg of
+                Ok parsedErrors ->
+                    ( { model | errors = parsedErrors |> List.singleton }, validationErrors errMsg )
+
+                Err decodeErr ->
+                    ( { model | errors = ParseError decodeErr |> List.singleton }, validationErrors errMsg )
 
 
 view : Model -> Document Msg
