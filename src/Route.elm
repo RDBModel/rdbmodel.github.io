@@ -46,4 +46,4 @@ parseFragment value =
 
 editorRoute : String
 editorRoute =
-    "#/editor/view-1?link=https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/pastebin.yaml"
+    "#/editor/main?link=https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/pastebin.yaml"

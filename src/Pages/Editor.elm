@@ -107,6 +107,17 @@ update msg model =
             case D.fromString rdbDecoder val of
                 Ok ( domain, views ) ->
                     let
+                        currentSelectedView =
+                            ViewEditor.getSelectedView model.viewEditor
+                        updatedSelectedView =
+                            case currentSelectedView of
+                                Just v ->
+                                    if Dict.member v views then
+                                        Just v
+                                    else
+                                        Dict.keys views |> List.head
+                                Nothing ->
+                                    Dict.keys views |> List.head
                         monacoModel =
                             MonacoValue views (Just domain)
 
@@ -120,8 +131,17 @@ update msg model =
                     , Cmd.batch
                         [ initMonacoResponse (rdbEncode monacoModel)
                         , saveToLocalStorage val
+                        , case updatedSelectedView of
+                            Just v ->
+                                if Dict.member v views then
+                                    Nav.replaceUrl model.session.key ("/#/editor/" ++ v)
+
+                                else
+                                    Nav.replaceUrl model.session.key "/#/editor/"
+
+                            Nothing ->
+                                Nav.replaceUrl model.session.key "/#/editor/"
                         , ViewEditor.getSvgElementPosition |> Cmd.map ViewEditorMsg
-                        , Nav.replaceUrl model.session.key ("/#/editor/" ++ (ViewEditor.getSelectedView model.viewEditor |> Maybe.withDefault ""))
                         ]
                     )
 
