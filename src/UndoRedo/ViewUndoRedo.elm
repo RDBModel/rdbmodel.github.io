@@ -1,9 +1,8 @@
 module UndoRedo.ViewUndoRedo exposing (Model, Msg, UndoRedoMonacoValue, getUndoRedoMonacoValue, init, mapPresent, newRecord, subscriptions, update, view)
 
 import Browser.Events as Events
-import Color
 import Html exposing (Html, button, div)
-import Html.Attributes exposing (style)
+import Html.Attributes exposing (disabled, style, title, type_)
 import Html.Events exposing (onClick)
 import Json.Decode as Decode
 import TypedSvg exposing (path, svg)
@@ -22,8 +21,7 @@ import TypedSvg.Attributes
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import UndoList exposing (UndoList)
 import UndoRedo.ViewUndoRedoActions exposing (Action(..))
-import Html.Attributes exposing (title)
-import Html.Attributes exposing (type_)
+
 
 type alias Model =
     { ctrlIsDown : Bool
@@ -77,8 +75,8 @@ update targetValue msg model =
             ( model, targetValue, [] )
 
 
-view : Html Msg
-view =
+view : UndoRedoMonacoValue a -> Html Msg
+view undoRedo =
     div
         [ style "position" "absolute"
         , style "width" "50px"
@@ -93,13 +91,12 @@ view =
         --, Mouse.onContextMenu (\_ -> NoOp)
         ]
         [ button
-            [ style "background-color" "white"
-            , style "border" "1px solid rgba(204, 204, 204, .6)"
-            , style "min-height" "24px"
+            [ style "min-height" "24px"
             , style "min-width" "24px"
             , style "padding" "0"
             , title "Undo last change"
             , type_ "button"
+            , disabled (UndoList.hasPast undoRedo |> not)
             , onClick Undo
             ]
             [ svg
@@ -108,7 +105,6 @@ view =
                 , height <| Px 24
                 , viewBox 0 0 24 24
                 , strokeWidth <| Px 1
-                , stroke (Paint Color.black)
                 , fill PaintNone
                 , strokeLinecap StrokeLinecapRound
                 , strokeLinejoin StrokeLinejoinRound
@@ -118,13 +114,12 @@ view =
                 ]
             ]
         , button
-            [ style "background-color" "white"
-            , style "border" "1px solid rgba(204, 204, 204, .6)"
-            , style "min-height" "24px"
+            [ style "min-height" "24px"
             , style "min-width" "24px"
             , style "padding" "0"
             , title "Redo last change"
             , type_ "button"
+            , disabled (UndoList.hasFuture undoRedo |> not)
             , onClick Redo
             ]
             [ svg
@@ -133,7 +128,6 @@ view =
                 , height <| Px 24
                 , viewBox 0 0 24 24
                 , strokeWidth <| Px 1
-                , stroke (Paint Color.black)
                 , fill PaintNone
                 , strokeLinecap StrokeLinecapRound
                 , strokeLinejoin StrokeLinejoinRound

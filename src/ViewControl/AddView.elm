@@ -95,9 +95,7 @@ view model =
         --, Mouse.onContextMenu (\_ -> NoOp)
         ]
         [ button
-            [ style "background-color" "white"
-            , style "border" "1px solid rgba(204, 204, 204, .6)"
-            , style "min-height" "24px"
+            [ style "min-height" "24px"
             , style "max-width" "26px"
             , style "padding" "0"
             , title "Create new view for domain"

@@ -29,9 +29,7 @@ import Html.Attributes exposing (type_)
 view : msg -> Html msg
 view event =
     button
-        [ style "background-color" "white"
-        , style "border" "1px solid rgba(204, 204, 204, .6)"
-        , style "min-height" "24px"
+        [ style "min-height" "24px"
         , style "min-width" "24px"
         , style "padding" "0"
         , title "Save domain to local storage"

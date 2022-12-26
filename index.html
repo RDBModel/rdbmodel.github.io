@@ -134,6 +134,26 @@
             .elm-select:focus-within .elm-select-input-underline:after {
               width: 50%;
             }
+
+            button {
+              background-color: white;
+              border: 1px solid rgba(204, 204, 204, 0.6);
+            }
+
+            button > svg {
+              stroke: rgb(0, 0, 0);
+            }
+
+            button:disabled,
+            button[disabled]{
+              border: 1px solid #999999;
+              background-color: #cccccc;
+              color: #666666;
+            }
+
+            button:disabled > svg, button[disabled] > svg {
+              stroke: white;
+            }
           </style>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="description" content="Author: Yauhen Pyl, Category: Software Design, Software Architecture, Modeling, C4 Model, Elm-lang">

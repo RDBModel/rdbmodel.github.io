@@ -117,10 +117,10 @@ view model =
     let
         ( backgroundColorForMoveButton, backgroundColorForDefaultButton ) =
             if model.ctrlIsDown then
-                ( "#d3d3d3", "white" )
+                ( "#cccccc", "white" )
 
             else
-                ( "white", "#d3d3d3" )
+                ( "white", "#cccccc" )
     in
     div
         [ style "position" "absolute"
@@ -134,9 +134,7 @@ view model =
         --, Mouse.onContextMenu (\_ -> NoOp)
         ]
         [ button
-            [ style "background-color" "white"
-            , style "border" "1px solid rgba(204, 204, 204, .6)"
-            , style "min-height" "24px"
+            [ style "min-height" "24px"
             , style "min-width" "24px"
             , style "padding" "0"
             , title "Zoom in"
@@ -149,7 +147,6 @@ view model =
                 , height <| Px 24
                 , viewBox 0 0 24 24
                 , strokeWidth <| Px 1
-                , stroke (Paint Color.black)
                 , fill PaintNone
                 , strokeLinecap StrokeLinecapRound
                 , strokeLinejoin StrokeLinejoinRound
@@ -162,10 +159,8 @@ view model =
                 ]
             ]
         , button
-            [ style "background-color" "white"
-            , style "border-width" "0 1px 1px 1px"
+            [ style "border-width" "0 1px 1px 1px"
             , style "border-style" "solid"
-            , style "border-color" "rgba(204, 204, 204, .6)"
             , style "min-height" "24px"
             , style "min-width" "24px"
             , style "padding" "0"
@@ -179,7 +174,6 @@ view model =
                 , height <| Px 24
                 , viewBox 0 0 24 24
                 , strokeWidth <| Px 1
-                , stroke (Paint Color.black)
                 , fill PaintNone
                 , strokeLinecap StrokeLinecapRound
                 , strokeLinejoin StrokeLinejoinRound
@@ -194,7 +188,6 @@ view model =
             [ style "background-color" backgroundColorForDefaultButton
             , style "border-width" "0 1px 1px 1px"
             , style "border-style" "solid"
-            , style "border-color" "rgba(204, 204, 204, .6)"
             , style "min-height" "24px"
             , style "min-width" "24px"
             , style "padding" "0"
@@ -208,7 +201,6 @@ view model =
                 , height <| Px 24
                 , viewBox 0 0 24 24
                 , strokeWidth <| Px 1
-                , stroke (Paint Color.black)
                 , fill PaintNone
                 , strokeLinecap StrokeLinecapRound
                 , strokeLinejoin StrokeLinejoinRound
@@ -222,7 +214,6 @@ view model =
             [ style "background-color" backgroundColorForMoveButton
             , style "border-width" "0 1px 1px 1px"
             , style "border-style" "solid"
-            , style "border-color" "rgba(204, 204, 204, .6)"
             , style "min-height" "24px"
             , style "min-width" "24px"
             , style "padding" "0"
@@ -236,7 +227,6 @@ view model =
                 , height <| Px 24
                 , viewBox 0 0 24 24
                 , strokeWidth <| Px 1
-                , stroke (Paint Color.black)
                 , fill PaintNone
                 , strokeLinecap StrokeLinecapRound
                 , strokeLinejoin StrokeLinejoinRound

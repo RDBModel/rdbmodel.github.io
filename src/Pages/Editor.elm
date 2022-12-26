@@ -353,7 +353,7 @@ view model =
                 viewConfig
                 (div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
                     [ ViewEditor.view monacoValue.present viewEditor |> Html.map ViewEditorMsg
-                    , ViewUndoRedo.view |> Html.map ViewUndoRedo
+                    , ViewUndoRedo.view model.monacoValue |> Html.map ViewUndoRedo
                     , div
                         [ style "position" "absolute"
                         , style "top" "5px"
