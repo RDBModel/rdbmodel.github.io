@@ -14,7 +14,6 @@ import Element
         , height
         , image
         , link
-        , padding
         , paddingXY
         , paragraph
         , px

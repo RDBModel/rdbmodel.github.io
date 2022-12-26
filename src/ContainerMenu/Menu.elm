@@ -1,7 +1,6 @@
-module ContainerMenu.Menu exposing (Model, Msg, init, update, updateContainerId, view)
+module ContainerMenu.Menu exposing (Model, Msg, init, update, updateContainerKeyAndRelations, view)
 
 import ContainerMenu.MenuActions exposing (Action(..))
-import Dict exposing (Dict)
 import Domain.Domain exposing (Relation, ViewRelationKey)
 import Domain.DomainEncoder exposing (relationToString)
 import Html exposing (Html, button, div, text)
@@ -44,20 +43,15 @@ initSelect =
 
 
 type alias Model =
-    { containerId : String
-    , selectRelation : SelectModel ViewRelationKey
-    , possibleRelations : Dict String (List Relation)
+    { selectRelation : SelectModel ViewRelationKey
+    , containerPossileRelations : List Relation
+    , containerKey : String
     }
 
 
-updateContainerId : String -> Model -> Model
-updateContainerId containerId model =
-    { model | containerId = containerId }
-
-
-init : Dict String (List Relation) -> Model
-init possibleRelations =
-    Model "" initSelect possibleRelations
+init : Model
+init =
+    Model initSelect [] ""
 
 
 type Msg
@@ -66,11 +60,19 @@ type Msg
     | DeleteAnElement
 
 
+updateContainerKeyAndRelations : String -> List Relation -> Model -> Model
+updateContainerKeyAndRelations containerKey relations model =
+    { model
+        | containerPossileRelations = relations
+        , containerKey = containerKey
+    }
+
+
 update : Msg -> Model -> ( Model, Cmd Msg, List Action )
 update msg model =
     case msg of
         OnRelationSelect (Just ( containerId, relation )) ->
-            ( { model | possibleRelations = Dict.update containerId (Maybe.map (List.filter (\i -> i /= relation))) model.possibleRelations }
+            ( { model | containerPossileRelations = List.filter (\i -> i /= relation) model.containerPossileRelations }
             , Cmd.none
             , SelectRelation ( containerId, relation ) |> List.singleton
             )
@@ -92,7 +94,7 @@ update msg model =
             )
 
         DeleteAnElement ->
-            ( model, Cmd.none, DeleteElement model.containerId |> List.singleton )
+            ( model, Cmd.none, DeleteElement model.containerKey |> List.singleton )
 
         _ ->
             ( model, Cmd.none, [] )
@@ -115,9 +117,8 @@ view model =
         , Select.view
             model.selectRelation.config
             model.selectRelation.state
-            (Dict.get model.containerId model.possibleRelations
-                |> Maybe.withDefault []
-                |> List.map (\x -> ( model.containerId, x ))
+            (model.containerPossileRelations
+                |> List.map (\x -> ( model.containerKey, x ))
             )
             []
         ]

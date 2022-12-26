@@ -109,15 +109,19 @@ update msg model =
                     let
                         currentSelectedView =
                             ViewEditor.getSelectedView model.viewEditor
+
                         updatedSelectedView =
                             case currentSelectedView of
                                 Just v ->
                                     if Dict.member v views then
                                         Just v
+
                                     else
                                         Dict.keys views |> List.head
+
                                 Nothing ->
                                     Dict.keys views |> List.head
+
                         monacoModel =
                             MonacoValue views (Just domain)
 
@@ -188,10 +192,13 @@ update msg model =
                                 Just v ->
                                     if Dict.member v views then
                                         Just v
+
                                     else
                                         Dict.keys views |> List.head
+
                                 Nothing ->
                                     Dict.keys views |> List.head
+
                         newMonacoValue =
                             let
                                 currentMonacoValue =
@@ -204,14 +211,12 @@ update msg model =
                                     }
                             in
                             newRecord updatedMonacoValue model.monacoValue
+
                         newModel =
                             { model
                                 | errors = []
                                 , monacoValue = newMonacoValue
-                                , viewEditor = ViewEditor.recreateContextMenu newMonacoValue.present updatedSelectedView model.viewEditor
                             }
-
-
                     in
                     ( newModel
                     , Cmd.batch
@@ -243,7 +248,7 @@ update msg model =
         ViewEditorMsg subMsg ->
             let
                 ( updated, cmd, actions ) =
-                    ViewEditor.update model.monacoValue.present subMsg model.viewEditor
+                    ViewEditor.update model.monacoValue.present.views subMsg model.viewEditor
 
                 updatedValues =
                     ViewEditorActions.apply model.session.key { monacoValue = model.monacoValue, cmd = cmd, errors = model.errors } actions

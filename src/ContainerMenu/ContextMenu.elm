@@ -3,6 +3,7 @@ module ContainerMenu.ContextMenu exposing (Model, Msg, attach, init, subscriptio
 import Browser.Events as Events
 import ContainerMenu.Menu as ContainerMenu
 import ContainerMenu.MenuActions exposing (Action)
+import Domain.Domain exposing (Relation)
 import Html exposing (Attribute, Html, div, text)
 import Html.Attributes exposing (style)
 import Html.Events.Extra.Mouse as Mouse
@@ -22,7 +23,7 @@ init subModel =
 
 
 type Msg
-    = ShowMenu String ( Float, Float )
+    = ShowMenu String (List Relation) ( Float, Float )
     | EnterMenu
     | LeaveMenu
     | HideMenu
@@ -32,10 +33,10 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg, List Action )
 update msg model =
     case msg of
-        ShowMenu containerId pos ->
+        ShowMenu containerKey possibleRelations pos ->
             ( { model
                 | menuState = Just { position = pos, hover = True }
-                , context = ContainerMenu.updateContainerId containerId model.context
+                , context = ContainerMenu.updateContainerKeyAndRelations containerKey possibleRelations model.context
               }
             , Cmd.none
             , []
@@ -104,9 +105,9 @@ view model =
             text ""
 
 
-attach : String -> Attribute Msg
-attach containerId =
-    Mouse.onContextMenu (\event -> ShowMenu containerId event.clientPos)
+attach : String -> Maybe (List Relation) -> Attribute Msg
+attach containerKey containerRelations =
+    Mouse.onContextMenu (\event -> ShowMenu containerKey (containerRelations |> Maybe.withDefault []) event.clientPos)
 
 
 subscriptions : Model -> Sub Msg

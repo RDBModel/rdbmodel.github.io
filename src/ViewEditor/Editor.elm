@@ -1,4 +1,4 @@
-module ViewEditor.Editor exposing (Action(..), Model, Msg, recreateContextMenu, changeSelectedView, getSelectedView, getSvgElementPosition, init, isInitState, subscriptions, update, view)
+module ViewEditor.Editor exposing (Action(..), Model, Msg, changeSelectedView, getSelectedView, getSvgElementPosition, init, isInitState, subscriptions, update, view)
 
 import Basics.Extra exposing (maxSafeInteger)
 import Browser.Dom as Dom
@@ -68,7 +68,6 @@ import ViewControl.AddView as AddView
 import ViewControl.AddViewActions as AddViewActions
 import ViewControl.ViewControl as ViewControl
 import ViewControl.ViewControlActions as ViewControlActions
-import UndoRedo.ViewUndoRedoActions exposing (MonacoValue)
 
 
 type Model
@@ -163,16 +162,10 @@ type alias MonacoState =
     }
 
 
-update : MonacoState -> Msg -> Model -> ( Model, Cmd Msg, List Action )
-update { views, domain } msg model =
+update : Dict String View  -> Msg -> Model -> ( Model, Cmd Msg, List Action )
+update views msg model =
     case ( model, msg ) of
         ( Init selectedView, ReceiveElementPosition (Ok { element }) ) ->
-            let
-                getPossibleRelations =
-                    getCurrentView selectedView views
-                        |> Maybe.map2 (\d v -> possibleRelationsToAdd ( d, v )) domain
-                        |> Maybe.withDefault Dict.empty
-            in
             ( Ready
                 { drag = Nothing
                 , svgElementPosition = element
@@ -182,7 +175,7 @@ update { views, domain } msg model =
                 , selectedView = selectedView
                 , brush = Nothing
                 , selectedItems = []
-                , containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init
+                , containerMenu = ContainerMenu.Menu.init |> ContextMenu.init
                 }
             , Cmd.none
             , []
@@ -228,16 +221,9 @@ update { views, domain } msg model =
 
                 ( updatedViewEditor, finalCmds, newActions ) =
                     if ViewControlActions.monacoValueModified actions then
-                        let
-                            getPossibleRelations =
-                                getCurrentView state.selectedView newViews
-                                    |> Maybe.map2 (\d v -> possibleRelationsToAdd ( d, v )) domain
-                                    |> Maybe.withDefault Dict.empty
-                        in
                         ( Ready
                             { state
-                                | containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init
-                                , viewControl = updated
+                                | viewControl = updated
                                 , selectedView = selectedView
                             }
                         , cmd |> Cmd.map ViewControl
@@ -273,16 +259,9 @@ update { views, domain } msg model =
 
                 ( updatedViewEditor, finalCmds, newActions ) =
                     if AddViewActions.monacoValueModified actions then
-                        let
-                            getPossibleRelations =
-                                getCurrentView state.selectedView newViews
-                                    |> Maybe.map2 (\d v -> possibleRelationsToAdd ( d, v )) domain
-                                    |> Maybe.withDefault Dict.empty
-                        in
                         ( Ready
                             { state
-                                | containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init
-                                , addView = updated
+                                | addView = updated
                                 , selectedView = Just newViewId
                             }
                         , Cmd.batch
@@ -425,16 +404,8 @@ update { views, domain } msg model =
                     currentView
                         |> Maybe.map (removedEdge viewRelationKey)
                         |> updateViewByKey state.selectedView views
-
-                getPossibleRelations =
-                    getCurrentView state.selectedView updatedViews
-                        |> Maybe.map2 (\d v -> possibleRelationsToAdd ( d, v )) domain
-                        |> Maybe.withDefault Dict.empty
-
-                updatedViewEditor =
-                    Ready { state | containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init }
             in
-            ( updatedViewEditor
+            ( model
             , Cmd.none
             , [ UpdateViews updatedViews ]
             )
@@ -901,6 +872,7 @@ svgView { views, domain } viewEditorState =
     , ContextMenu.view viewEditorState.containerMenu |> Html.map ContainerContextMenu
     ]
 
+
 emptySvg : List (Svg Msg) -> Html Msg
 emptySvg =
     svg
@@ -909,6 +881,7 @@ emptySvg =
         , Attrs.height <| Percent 100
         , Mouse.onContextMenu (\_ -> NoOp)
         ]
+
 
 mouseDownMain : (( Float, Float ) -> Msg) -> Attribute Msg
 mouseDownMain msg =
@@ -938,13 +911,16 @@ renderCurrentView ( v, domain ) model =
     let
         { selectedItems, viewNavigation } =
             model
+
+        getPossibleRelations =
+            possibleRelationsToAdd ( domain, v )
     in
     g []
         [ getEdges ( domain, v )
             |> List.map (drawEdge viewNavigation selectedItems)
             |> g [ class [ "links" ] ]
         , getContainers ( domain, v )
-            |> List.map (drawContainer viewNavigation selectedItems)
+            |> List.map (drawContainer viewNavigation selectedItems getPossibleRelations)
             |> g [ class [ "nodes" ] ]
         ]
 
@@ -1035,8 +1011,8 @@ onMouseDownPoint ( viewRelationElementKey, relation ) index =
         |> List.singleton
 
 
-drawContainer : ViewNavigation.Model -> List SelectedItem -> Vertex -> Svg Msg
-drawContainer viewNavigation selectedItems container =
+drawContainer : ViewNavigation.Model -> List SelectedItem -> Dict String (List Domain.Domain.Relation) -> Vertex -> Svg Msg
+drawContainer viewNavigation selectedItems possibleContainersRelations container =
     let
         mouseDownAttr =
             if ViewNavigation.panMode viewNavigation then
@@ -1057,8 +1033,8 @@ drawContainer viewNavigation selectedItems container =
                 renderContainer
 
         contextMenuAttr =
-            container.key
-                |> ContextMenu.attach
+            Dict.get container.key possibleContainersRelations
+                |> ContextMenu.attach container.key
                 |> Html.Attributes.map ContainerContextMenu
                 |> List.singleton
     in
@@ -1128,16 +1104,3 @@ changeSelectedView selectedView model =
 
         Ready m ->
             Ready { m | selectedView = selectedView }
-
-recreateContextMenu : MonacoValue -> Maybe String -> Model -> Model
-recreateContextMenu { views, domain } selectedView model =
-    let
-        getPossibleRelations =
-            getCurrentView selectedView views
-                |> Maybe.map2 (\d v -> possibleRelationsToAdd ( d, v )) domain
-                |> Maybe.withDefault Dict.empty
-    in
-    case model of
-        Init _ -> model
-        Ready state ->
-            Ready { state | containerMenu = ContainerMenu.Menu.init getPossibleRelations |> ContextMenu.init }
