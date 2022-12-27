@@ -18,7 +18,7 @@ import Html.Attributes exposing (style)
 import Path exposing (Path)
 import Shape exposing (linearCurve)
 import SubPath exposing (arcLength, arcLengthParameterized)
-import TypedSvg exposing (circle, g, marker, pattern, rect, text_, title)
+import TypedSvg exposing (circle, g, marker, pattern, rect, title)
 import TypedSvg.Attributes as Attrs
     exposing
         ( cursor

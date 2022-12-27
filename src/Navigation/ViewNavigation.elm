@@ -16,7 +16,6 @@ module Navigation.ViewNavigation exposing
     )
 
 import Browser.Events as Events
-import Color
 import Html exposing (Attribute, Html, button, div)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
