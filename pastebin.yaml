@@ -10,6 +10,7 @@ domain:
         - calls - dns
         - calls - cdn
         - calls - load-balancer
+        - calls - pastebin
   systems:
     dns:
       name: Domain Name System
@@ -161,3 +162,17 @@ views:
             - x: 125
               y: 525
           save url and path - sql-db: []
+  top-level:
+    elements:
+      client:
+        x: 250
+        y: 75
+        relations:
+          calls - dns: []
+          calls - pastebin: []
+      dns:
+        x: 350
+        y: 175
+      pastebin:
+        x: 150
+        y: 175
