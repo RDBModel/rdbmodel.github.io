@@ -2,21 +2,21 @@ import YAML, { YAMLMap, YAMLSeq, LineCounter } from 'yaml'
 import * as monaco from 'monaco-editor'
 import { Elm } from './src/Main.elm'
 import { setDiagnosticsOptions } from 'monaco-yaml'
-import YamlWorker from 'monaco-yaml/yaml.worker?worker';
-import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
+// import YamlWorker from 'monaco-yaml/yaml.worker?worker';
+// import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 
-window.MonacoEnvironment = {
-  getWorkerUrl: function (moduleId, label) {
-    switch (label) {
-      case 'editorWorkerService':
-        return new EditorWorker();
-      case 'yaml':
-        return new YamlWorker();
-      default:
-        throw new Error(`Unknown label ${label}`);
-    }
-  },
-}
+// window.MonacoEnvironment = {
+//   getWorkerUrl: function (moduleId, label) {
+//     switch (label) {
+//       case 'editorWorkerService':
+//         return new EditorWorker();
+//       case 'yaml':
+//         return new YamlWorker();
+//       default:
+//         throw new Error(`Unknown label ${label}`);
+//     }
+//   },
+// }
 
 const app = Elm.Main.init({
   node: document.getElementById('root'),
