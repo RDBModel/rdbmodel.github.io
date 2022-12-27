@@ -1,0 +1,13 @@
+# Welcome to the RDB Model Web Application!
+
+This application allows you to create and visualize software architecture using a simplified version of the C4 model. With our intuitive interface, you can easily create and edit existing yaml files that represent the domain of your application using the C4 model. It's important to note that while there is only one C4 model or domain, you can create multiple views of this model to better understand and communicate the relationships within your software system.
+
+This application allows you to create and visualize software architecture using a simplified version of the C4 model. With our intuitive interface, you can easily create and edit existing yaml files that represent the domain of your application using the C4 model. It's important to note that while there is only one C4 model or domain, you can create multiple views of this model to better understand and communicate the relationships within your software system.
+
+Using our graphical interface, you can create and edit views of your model by selecting a sub-model. These views allow you to see the connections between actors, systems, containers, and their components, making it easy to understand the relationships within your software system. You can also layout the elements and edges of your view using our interface, allowing you to easily arrange and present your software architecture in a clear and visually appealing way. Our interface also enables you to zoom, scroll, and navigate through the selected view, allowing you to easily explore and understand your software architecture in greater detail.
+
+The RDB Model Web Application also helps you during the editing process by highlighting any inconsistencies in the model and views using error messages. This ensures that your software architecture is clear and consistent, making it easier to understand and communicate to others.
+
+The C4 model is a powerful tool for understanding and communicating the structure of your software system, and is typically used to represent the domain of the application. Our application supports the four main types of entities in the C4 model: actors, systems, containers, and components. Systems in the C4 model usually represent applications or services that bring value to the end users, while containers are units that can usually be deployed independently. Components, on the other hand, are buildable packages that are usually represented as artifacts in the file system.
+
+Whether you're a seasoned software architect or just starting out, our application makes it easy to design and understand your software architecture. Start creating your C4 model with the RDB Model Web Application today!

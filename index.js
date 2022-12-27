@@ -44,9 +44,11 @@ function initMonaco(initialValue) {
   )
 
   // remove editor focus if we clicked outside of it
-  document.getElementById('main-graph').addEventListener('click', (ev) => {
+  document.querySelector('div.pane-first-view').addEventListener('click', (ev) => {
     if (editor.hasWidgetFocus()) {
+      // TODO cover clicks on button
       document.activeElement.blur()
+      app.ports.monacoEditorSavedValue.send(editor.getValue())
     }
     if (ev.target.className !== 'elm-select-input') {
       document.querySelectorAll('.elm-select-input').forEach(el => el.blur())
