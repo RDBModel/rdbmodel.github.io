@@ -24,12 +24,16 @@ const app = Elm.Main.init({
 })
 
 let editor
+let model
 let decorations = []
 
 function initMonaco(initialValue) {
   if (editor != null) {
+    model.dispose()
     editor.dispose()
   }
+
+  const modelUri = monaco.Uri.parse('a://b/foo.yaml');
 
   setDiagnosticsOptions({
     enableSchemaRequest: true,
@@ -37,13 +41,60 @@ function initMonaco(initialValue) {
     completion: true,
     validate: true,
     format: true,
-    schemas: [],
+    schemas: [{
+      uri: 'http://rdb.model/rdb-schema.json',
+      fileMatch: [String(modelUri)],
+      schema: {
+        type: 'object',
+        "$schema": "http://json-schema.org/draft-04/schema",
+        properties: {
+          domain: {
+            type: 'object',
+            properties: {
+              name: {
+                type: 'string',
+                title: 'Global name of the domain'
+              },
+              description: {
+                type: 'string',
+                title: 'Main description'
+              },
+              actors: {
+                type: 'object',
+                patternProperties: {
+                  ".*": {
+                    name: {
+                      type: 'string',
+                      title: 'Actor name'
+                    },
+                    description: {
+                      type: 'string',
+                      title: 'Actor description'
+                    },
+                    relations: {
+                      type: 'array',
+                      items: {
+                        type: 'string'
+                      }
+                    },
+                  }
+                }
+              }
+            }
+          },
+          views: {
+            type: 'object',
+          },
+        },
+      }
+    }],
   });
+  model = monaco.editor.createModel(modifyYamlValue(initialValue), 'yaml', modelUri)
   editor = monaco.editor.create(document.getElementById('monaco'), {
     // theme: 'vs-dark',
     automaticLayout: true,
-    //model: monaco.editor.createModel(modifyYamlValue(initialValue), 'yaml', modelUri),
-    value: modifyYamlValue(initialValue),
+    model: model,
+    //value: modifyYamlValue(initialValue),
     language: 'yaml',
     wordWrap: 'off',
     automaticLayout: true,
