@@ -2,12 +2,6 @@ import YAML, { YAMLMap, YAMLSeq, LineCounter } from 'yaml'
 import * as monaco from 'monaco-editor'
 import { Elm } from './src/Main.elm'
 
-window.MonacoEnvironment = {
-  getWorkerUrl: function (_moduleId, label) {
-    return EditorWorker
-  },
-}
-
 const app = Elm.Main.init({
   node: document.getElementById('root'),
   flags: window.showOpenFilePicker !== undefined
