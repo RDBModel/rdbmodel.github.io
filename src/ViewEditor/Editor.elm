@@ -291,7 +291,7 @@ update views msg model =
         ( Ready state, SelectItemsStart xy ) ->
             let
                 shiftedXY =
-                    ViewNavigation.shiftPosition state.viewNavigation ( 0, 0 ) xy
+                    ViewNavigation.shiftPosition state.viewNavigation ( state.svgElementPosition.x, state.svgElementPosition.y ) xy
             in
             ( Ready { state | brush = Just <| Brush shiftedXY shiftedXY }
             , Cmd.none
@@ -657,7 +657,7 @@ handleMouseMove xy ({ drag, brush } as state) currentView =
         Just b ->
             let
                 shiftedXY =
-                    ViewNavigation.shiftPosition state.viewNavigation ( 0, 0 ) xy
+                    ViewNavigation.shiftPosition state.viewNavigation ( state.svgElementPosition.x, state.svgElementPosition.y ) xy
 
                 updatedBrush =
                     { b | end = shiftedXY }
