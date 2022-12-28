@@ -325,7 +325,7 @@ getPositionForNewElement model svgElement =
             Zoom.asRecord model.zoom
 
         ( initY, initX ) =
-            ( (svgElement.height - svgElement.y) / 2, (svgElement.width - svgElement.x) / 2 )
+            ( svgElement.height / 2, svgElement.width / 2 )
     in
     ( initX - record.scale * record.translate.x, initY - record.scale * record.translate.y )
 

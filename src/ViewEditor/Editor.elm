@@ -162,7 +162,7 @@ type alias MonacoState =
     }
 
 
-update : Dict String View  -> Msg -> Model -> ( Model, Cmd Msg, List Action )
+update : Dict String View -> Msg -> Model -> ( Model, Cmd Msg, List Action )
 update views msg model =
     case ( model, msg ) of
         ( Init selectedView, ReceiveElementPosition (Ok { element }) ) ->
@@ -220,29 +220,21 @@ update views msg model =
                     ViewControlActions.apply params views actions
 
                 ( updatedViewEditor, finalCmds, newActions ) =
-                    if ViewControlActions.monacoValueModified actions then
-                        ( Ready
-                            { state
-                                | viewControl = updated
-                                , selectedView = selectedView
-                            }
-                        , cmd |> Cmd.map ViewControl
-                        , [ UpdateViews newViews ]
-                        )
+                    ( Ready
+                        { state
+                            | viewControl = updated
+                            , selectedView = selectedView
+                        }
+                    , cmd |> Cmd.map ViewControl
+                    , if ViewControlActions.monacoValueModified actions then
+                        [ UpdateViews newViews ]
 
-                    else
-                        ( Ready
-                            { state
-                                | viewControl = updated
-                                , selectedView = selectedView
-                            }
-                        , cmd |> Cmd.map ViewControl
-                        , if state.selectedView == selectedView then
-                            []
+                      else if state.selectedView == selectedView then
+                        []
 
-                          else
-                            [ ChangeView selectedView ]
-                        )
+                      else
+                        [ ChangeView selectedView ]
+                    )
             in
             ( updatedViewEditor
             , finalCmds
@@ -291,7 +283,7 @@ update views msg model =
         ( Ready state, SelectItemsStart xy ) ->
             let
                 shiftedXY =
-                    ViewNavigation.shiftPosition state.viewNavigation ( 0, 0 ) xy
+                    ViewNavigation.shiftPosition state.viewNavigation ( state.svgElementPosition.x, state.svgElementPosition.y ) xy
             in
             ( Ready { state | brush = Just <| Brush shiftedXY shiftedXY }
             , Cmd.none
@@ -657,7 +649,7 @@ handleMouseMove xy ({ drag, brush } as state) currentView =
         Just b ->
             let
                 shiftedXY =
-                    ViewNavigation.shiftPosition state.viewNavigation ( 0, 0 ) xy
+                    ViewNavigation.shiftPosition state.viewNavigation ( state.svgElementPosition.x, state.svgElementPosition.y ) xy
 
                 updatedBrush =
                     { b | end = shiftedXY }
