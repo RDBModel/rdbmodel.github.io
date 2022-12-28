@@ -351,7 +351,7 @@ view model =
         [ div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
             [ SplitPane.view
                 viewConfig
-                (monacoViewPart model.session.isFileSystemSupported (ViewEditor.isInitState model.viewEditor))
+
                 (div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
                     [ ViewEditor.view monacoValue.present viewEditor |> Html.map ViewEditorMsg
                     , ViewUndoRedo.view model.monacoValue |> Html.map ViewUndoRedo
@@ -366,6 +366,7 @@ view model =
                         [ SaveDomain.view ClickSaveDomain ]
                     ]
                 )
+                (monacoViewPart model.session.isFileSystemSupported (ViewEditor.isInitState model.viewEditor))
                 pane
             , div [ style "position" "fixed", style "bottom" "0", style "left" "0", style "font-size" "9px" ] [ text "v0.0.1" ]
             , Error.view model.errors |> Html.map ErrorMsg

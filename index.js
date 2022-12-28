@@ -1,6 +1,7 @@
 import YAML, { YAMLMap, YAMLSeq, LineCounter } from 'yaml'
 import * as monaco from 'monaco-editor'
 import { Elm } from './src/Main.elm'
+import { setDiagnosticsOptions } from 'monaco-yaml'
 
 const app = Elm.Main.init({
   node: document.getElementById('root'),
@@ -8,15 +9,158 @@ const app = Elm.Main.init({
 })
 
 let editor
+let model
 let decorations = []
 
 function initMonaco(initialValue) {
   if (editor != null) {
+    model.dispose()
     editor.dispose()
   }
+
+  const modelUri = monaco.Uri.parse('a://b/foo.yaml');
+
+  setDiagnosticsOptions({
+    enableSchemaRequest: true,
+    hover: true,
+    completion: true,
+    validate: true,
+    format: true,
+
+    schemas: [{
+      uri: 'http://rdb.model/rdb-schema.json',
+      fileMatch: [String(modelUri)],
+      schema: {
+        type: 'object',
+        properties: {
+          domain: {
+            type: 'object',
+            properties: {
+              name: {
+                type: 'string',
+                title: 'Global name of the domain'
+              },
+              description: {
+                type: 'string',
+                title: 'Main description'
+              },
+              actors: {
+                type: 'object',
+                title: 'Actors',
+                patternProperties: {
+                  '[a-z-]+': {
+                    type: 'object',
+                    properties: {
+                      name: {
+                        type: 'string',
+                        title: 'Actor name'
+                      },
+                      description: {
+                        type: 'string',
+                        title: 'Actor description'
+                      },
+                      relations: {
+                        type: 'array',
+                        title: 'Actor relations',
+                        items: {
+                          type: 'string'
+                        }
+                      }
+                    },
+                    required: ['name', 'description']
+                  }
+                }
+              },
+              systems: {
+                type: 'object',
+                title: 'All systems',
+                patternProperties: {
+                  '[a-z-]+': {
+                    type: 'object',
+                    properties: {
+                      name: {
+                        type: 'string',
+                        title: 'System name'
+                      },
+                      description: {
+                        type: 'string',
+                        title: 'System description'
+                      },
+                      containers: {
+                        type: 'object',
+                        title: 'Containers',
+                        patternProperties: {
+                          '[a-z-]+': {
+                            type: 'object',
+                            properties: {
+                              name: {
+                                type: 'string',
+                                title: 'Container name'
+                              },
+                              description: {
+                                type: 'string',
+                                title: 'Container description'
+                              },
+                              relations: {
+                                type: 'array',
+                                title: 'Container relations',
+                                items: {
+                                  type: 'string'
+                                }
+                              },
+                              components: {
+                                type: 'object',
+                                title: 'Component',
+                                patternProperties: {
+                                  '[a-z-]+': {
+                                    type: 'object',
+                                    properties: {
+                                      name: {
+                                        type: 'string',
+                                        title: 'Component name'
+                                      },
+                                      description: {
+                                        type: 'string',
+                                        title: 'Component description'
+                                      },
+                                      relations: {
+                                        type: 'array',
+                                        title: 'Component relations',
+                                        items: {
+                                          type: 'string'
+                                        }
+                                      }
+                                    },
+                                    required: ['name', 'description']
+                                  }
+                                },
+                              }
+                            },
+                            required: ['name', 'description']
+                          }
+                        }
+                      }
+                    },
+                    required: ['name', 'description']
+                  }
+                }
+              }
+            },
+            required: ['name', 'description', 'actors']
+          },
+          views: {
+            type: 'object',
+          },
+        },
+      }
+    }],
+  });
+  model = monaco.editor.createModel(modifyYamlValue(initialValue), 'yaml', modelUri)
   editor = monaco.editor.create(document.getElementById('monaco'), {
     // theme: 'vs-dark',
-    value: modifyYamlValue(initialValue),
+    automaticLayout: true,
+    model: model,
+    //value: modifyYamlValue(initialValue),
     language: 'yaml',
     wordWrap: 'off',
     automaticLayout: true,
