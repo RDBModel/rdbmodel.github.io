@@ -11,14 +11,14 @@
         },
         "description": {
           "type": "string",
-          "title": "Short domain description"
+          "title": "Purpose of this yaml file"
         },
         "actors": {
           "type": "object",
-          "title": "Actors",
-          "description": "A person, system, or device that interacts with a software system in some way",
           "patternProperties": {
             "[a-z-]+": {
+              "title": "Actor",
+              "description": "A person, system, or device that interacts with a software system in some way",
               "type": "object",
               "properties": {
                 "name": {
@@ -29,7 +29,7 @@
                 },
                 "relations": {
                   "type": "array",
-                  "title": "Actor's relations",
+                  "title": "Relations to other actors/systems/containers/components",
                   "items": {
                     "type": "string"
                   }
@@ -41,11 +41,11 @@
         },
         "systems": {
           "type": "object",
-          "title": "Software systems within domain",
-          "description": "Applications or services that bring value to the end users",
           "patternProperties": {
             "[a-z-]+": {
               "type": "object",
+              "title": "Software system within domain",
+              "description": "Application or service that bring value to the end users",
               "properties": {
                 "name": {
                   "type": "string"
@@ -55,11 +55,11 @@
                 },
                 "containers": {
                   "type": "object",
-                  "title": "Containers",
-                  "description": "Units of a system that can usually be deployed independently",
                   "patternProperties": {
                     "[a-z-]+": {
                       "type": "object",
+                      "title": "Container",
+                      "description": "Unit of a system that can usually be deployed independently",
                       "properties": {
                         "name": {
                           "type": "string"
@@ -69,17 +69,17 @@
                         },
                         "relations": {
                           "type": "array",
-                          "title": "Container relations",
+                          "description": "Relations to other actors/systems/containers/components",
                           "items": {
                             "type": "string"
                           }
                         },
                         "components": {
                           "type": "object",
-                          "title": "Component",
-                          "description": "Buildable packages that are usually represented as artifacts in the file system",
                           "patternProperties": {
                             "[a-z-]+": {
+                              "title": "Component",
+                              "description": "Buildable package that are usually represented as artifact in the file system",
                               "type": "object",
                               "properties": {
                                 "name": {
@@ -90,7 +90,7 @@
                                 },
                                 "relations": {
                                   "type": "array",
-                                  "title": "Component relations",
+                                  "description": "Relations to other actors/systems/containers/components",
                                   "items": {
                                     "type": "string"
                                   }
@@ -103,6 +103,13 @@
                       },
                       "required": ["name", "description"]
                     }
+                  }
+                },
+                "relations": {
+                  "type": "array",
+                  "description": "Relations to other actors/systems/containers/components",
+                  "items": {
+                    "type": "string"
                   }
                 }
               },
