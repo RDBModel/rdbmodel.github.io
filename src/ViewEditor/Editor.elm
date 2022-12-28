@@ -162,7 +162,7 @@ type alias MonacoState =
     }
 
 
-update : Dict String View  -> Msg -> Model -> ( Model, Cmd Msg, List Action )
+update : Dict String View -> Msg -> Model -> ( Model, Cmd Msg, List Action )
 update views msg model =
     case ( model, msg ) of
         ( Init selectedView, ReceiveElementPosition (Ok { element }) ) ->
@@ -220,29 +220,21 @@ update views msg model =
                     ViewControlActions.apply params views actions
 
                 ( updatedViewEditor, finalCmds, newActions ) =
-                    if ViewControlActions.monacoValueModified actions then
-                        ( Ready
-                            { state
-                                | viewControl = updated
-                                , selectedView = selectedView
-                            }
-                        , cmd |> Cmd.map ViewControl
-                        , [ UpdateViews newViews ]
-                        )
+                    ( Ready
+                        { state
+                            | viewControl = updated
+                            , selectedView = selectedView
+                        }
+                    , cmd |> Cmd.map ViewControl
+                    , if ViewControlActions.monacoValueModified actions then
+                        [ UpdateViews newViews ]
 
-                    else
-                        ( Ready
-                            { state
-                                | viewControl = updated
-                                , selectedView = selectedView
-                            }
-                        , cmd |> Cmd.map ViewControl
-                        , if state.selectedView == selectedView then
-                            []
+                      else if state.selectedView == selectedView then
+                        []
 
-                          else
-                            [ ChangeView selectedView ]
-                        )
+                      else
+                        [ ChangeView selectedView ]
+                    )
             in
             ( updatedViewEditor
             , finalCmds
