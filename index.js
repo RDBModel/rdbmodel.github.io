@@ -18,7 +18,7 @@ function initMonaco(initialValue) {
     editor.dispose()
   }
 
-  const modelUri = monaco.Uri.parse('a://b/foo.yaml');
+  const modelUri = monaco.Uri.parse('internal.yaml');
 
   setDiagnosticsOptions({
     enableSchemaRequest: true,
@@ -26,7 +26,6 @@ function initMonaco(initialValue) {
     completion: true,
     validate: true,
     format: true,
-
     schemas: [{
       uri: 'https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/schema.json',
       fileMatch: [String(modelUri)],

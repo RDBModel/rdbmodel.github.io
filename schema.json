@@ -35,7 +35,8 @@
                   }
                 }
               },
-              "required": ["name", "description"]
+              "required": ["name", "description"],
+              "additionalProperties": false
             }
           }
         },
@@ -96,7 +97,8 @@
                                   }
                                 }
                               },
-                              "required": ["name", "description"]
+                              "required": ["name", "description"],
+                              "additionalProperties": false
                             }
                           }
                         }
@@ -113,12 +115,14 @@
                   }
                 }
               },
-              "required": ["name", "description"]
+              "required": ["name", "description"],
+              "additionalProperties": false
             }
           }
         }
       },
-      "required": ["name", "description", "actors", "systems"]
+      "required": ["name", "description", "actors", "systems"],
+      "additionalProperties": false
     },
     "views": {
       "type": "object",
@@ -153,19 +157,23 @@
                                 "type": "number"
                               }
                             },
-                            "required": ["x", "y"]
+                            "required": ["x", "y"],
+                            "additionalProperties": false
                           }
                         }
                       }
                     }
                   },
-                  "required": ["x", "y"]
+                  "required": ["x", "y"],
+                  "additionalProperties": false
                 }
               }
             }
-          }
+          },
+          "additionalProperties": false
         }
       }
-    }
+    },
+    "additionalProperties": false
   }
 }
