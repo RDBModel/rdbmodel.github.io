@@ -3,34 +3,33 @@
   "properties": {
     "domain": {
       "type": "object",
+      "description": "The specific area of expertise or subject matter that a software system is designed to support",
       "properties": {
         "name": {
           "type": "string",
-          "title": "Global name of the domain",
-          "description": "Description"
+          "title": "High-level domain name"
         },
         "description": {
           "type": "string",
-          "title": "Main description"
+          "title": "Short domain description"
         },
         "actors": {
           "type": "object",
           "title": "Actors",
+          "description": "A person, system, or device that interacts with a software system in some way",
           "patternProperties": {
             "[a-z-]+": {
               "type": "object",
               "properties": {
                 "name": {
-                  "type": "string",
-                  "title": "Actor name"
+                  "type": "string"
                 },
                 "description": {
-                  "type": "string",
-                  "title": "Actor description"
+                  "type": "string"
                 },
                 "relations": {
                   "type": "array",
-                  "title": "Actor relations",
+                  "title": "Actor's relations",
                   "items": {
                     "type": "string"
                   }
@@ -42,33 +41,31 @@
         },
         "systems": {
           "type": "object",
-          "title": "All systems",
+          "title": "Software systems within domain",
+          "description": "Applications or services that bring value to the end users",
           "patternProperties": {
             "[a-z-]+": {
               "type": "object",
               "properties": {
                 "name": {
-                  "type": "string",
-                  "title": "System name"
+                  "type": "string"
                 },
                 "description": {
-                  "type": "string",
-                  "title": "System description"
+                  "type": "string"
                 },
                 "containers": {
                   "type": "object",
                   "title": "Containers",
+                  "description": "Units of a system that can usually be deployed independently",
                   "patternProperties": {
                     "[a-z-]+": {
                       "type": "object",
                       "properties": {
                         "name": {
-                          "type": "string",
-                          "title": "Container name"
+                          "type": "string"
                         },
                         "description": {
-                          "type": "string",
-                          "title": "Container description"
+                          "type": "string"
                         },
                         "relations": {
                           "type": "array",
@@ -80,17 +77,16 @@
                         "components": {
                           "type": "object",
                           "title": "Component",
+                          "description": "Buildable packages that are usually represented as artifacts in the file system",
                           "patternProperties": {
                             "[a-z-]+": {
                               "type": "object",
                               "properties": {
                                 "name": {
-                                  "type": "string",
-                                  "title": "Component name"
+                                  "type": "string"
                                 },
                                 "description": {
-                                  "type": "string",
-                                  "title": "Component description"
+                                  "type": "string"
                                 },
                                 "relations": {
                                   "type": "array",
@@ -115,10 +111,54 @@
           }
         }
       },
-      "required": ["name", "description", "actors"]
+      "required": ["name", "description", "actors", "systems"]
     },
     "views": {
-      "type": "object"
+      "type": "object",
+      "patternProperties": {
+        "[a-z-]+": {
+          "type": "object",
+          "properties": {
+            "elements": {
+              "type": "object",
+              "patternProperties": {
+                "[a-z-]+": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "number"
+                    },
+                    "y": {
+                      "type": "number"
+                    },
+                    "relations": {
+                      "type": "object",
+                      "patternProperties": {
+                        "[a-z-\\d\\s]+": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "x": {
+                                "type": "number"
+                              },
+                              "y": {
+                                "type": "number"
+                              }
+                            },
+                            "required": ["x", "y"]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "required": ["x", "y"]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
