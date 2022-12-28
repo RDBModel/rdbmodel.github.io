@@ -6,7 +6,8 @@
       "properties": {
         "name": {
           "type": "string",
-          "title": "Global name of the domain"
+          "title": "Global name of the domain",
+          "description": "Description"
         },
         "description": {
           "type": "string",
