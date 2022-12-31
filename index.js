@@ -246,6 +246,7 @@ function modifyYamlValue(value) {
     .replace(/containers:\n\s+$/, 'containers: {}\n')
     .replace(/elements:\n\s+\n/, 'elements: {}\n')
     .replace(/elements:\n\s+$/, 'elements: {}\n')
+    .replace(/views:\n\s+$/, 'views: {}\n')
     .replace(/:\n\s+\n/g, ': []\n')
     .replace(/:\n\s+$/, ': []\n')
     .replace(/-\n\s+x:/g, '- x:')
