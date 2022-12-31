@@ -29,7 +29,8 @@ import Element.Background as Background
 import Element.Border exposing (rounded)
 import Element.Font as Font exposing (justify)
 import Html exposing (Html)
-import Route exposing (editorRoute)
+import Route exposing (editorLinkPastebin)
+import Route exposing (editorLinkInit)
 
 
 view : Html msg
@@ -66,9 +67,10 @@ editorButton : Element msg
 editorButton =
     el [ centerX, centerY ] <|
         link [ Color.lightBlue |> mapColor |> Background.color, rounded 5 ]
-            { url = "/" ++ editorRoute
+            { url = "/" ++ editorLinkInit
             , label = el [ paddingXY 150 20, defaultFontSize ] <| text "See the demo ☀️"
             }
+
 
 
 footer : Element msg

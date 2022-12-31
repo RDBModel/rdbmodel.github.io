@@ -1,0 +1,10 @@
+domain:
+  name: My domain
+  actors:
+    actor-1:
+      name: Actor
+      relations:
+        - uses - system-1
+  systems:
+    system-1:
+      name: System 1
