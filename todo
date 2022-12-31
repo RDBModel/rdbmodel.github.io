@@ -18,8 +18,8 @@
 
 [ ] adjust view element positions in UI
 
-[ ] allow only specific yaml https://github.com/remcohaszing/monaco-yaml
 ------
+[x] allow only specific yaml https://github.com/remcohaszing/monaco-yaml
 [x] switch to a new view after creation
 [x] add save to local storage button
 [x] change open/save icons
