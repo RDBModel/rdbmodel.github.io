@@ -14,8 +14,15 @@ rdbDecoder =
     in
     map2 Tuple.pair
         domain
-        viewsDecoder
+        (viewsDecoder |> andThen emptyDict)
         |> andThen (validateViews >> fromResult)
+
+
+emptyDict : Maybe (Dict String View) -> Decoder (Dict String View)
+emptyDict value =
+    case value of
+        Just v -> succeed v
+        Nothing -> succeed (Dict.empty)
 
 
 domainDecoder : Decoder Domain
@@ -23,9 +30,9 @@ domainDecoder =
     field "domain" internalDomainDecoder
 
 
-viewsDecoder : Decoder (Dict String View)
+viewsDecoder : Decoder (Maybe (Dict String View))
 viewsDecoder =
-    field "views" internalViewsDecoder
+    field "views" internalViewsDecoder |> maybe
 
 
 internalDomainDecoder : Decoder Domain
