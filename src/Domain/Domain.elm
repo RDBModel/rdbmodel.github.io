@@ -6,7 +6,7 @@ import Scale exposing (domain)
 
 type alias Domain =
     { name : String
-    , description : String
+    , description : Maybe String
     , actors : Dict String Actor
     , rings : Dict String Ring
     }
@@ -14,14 +14,14 @@ type alias Domain =
 
 type alias Actor =
     { name : String
-    , description : String
+    , description : Maybe String
     , relations : Maybe (List Relation)
     }
 
 
 type alias Ring =
     { name : String
-    , description : String
+    , description : Maybe String
     , relations : Maybe (List Relation)
     , delivery : Maybe (Dict String Delivery)
     }
@@ -29,7 +29,7 @@ type alias Ring =
 
 type alias Delivery =
     { name : String
-    , description : String
+    , description : Maybe String
     , relations : Maybe (List Relation)
     , blocks : Maybe (Dict String Block)
     }
@@ -37,7 +37,7 @@ type alias Delivery =
 
 type alias Block =
     { name : String
-    , description : String
+    , description : Maybe String
     , relations : Maybe (List Relation)
     }
 
@@ -71,7 +71,7 @@ type alias ViewRelationPoint =
 type alias Vertex =
     { name : String
     , key : String
-    , description : String
+    , description : Maybe String
     , xy : ( Float, Float )
     }
 
@@ -313,7 +313,7 @@ getViewRelationKeyFromViewRelationPointKey ( viewElementKey, relation, viewRelat
     ( viewElementKey, relation )
 
 
-getNameAndDescriptionByKey : ViewElementKey -> List ( String, String, String ) -> Maybe ( String, String )
+getNameAndDescriptionByKey : ViewElementKey -> List ( String, String, Maybe String ) -> Maybe ( String, Maybe String )
 getNameAndDescriptionByKey viewElementKey =
     List.filterMap
         (\( k, name, description ) ->
@@ -334,7 +334,7 @@ getElementsKeysAndNames domain =
         ++ (Dict.values domain.rings |> List.map .delivery |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap Dict.values |> List.map .blocks |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap extractKeyAndName)
 
 
-getElementsNamesAndDescriptions : Domain -> List ( String, String, String )
+getElementsNamesAndDescriptions : Domain -> List ( String, String, Maybe String )
 getElementsNamesAndDescriptions domain =
     extractKeyAndNameAndDescription domain.actors
         ++ extractKeyAndNameAndDescription domain.rings
@@ -347,7 +347,7 @@ extractKeyAndName =
     Dict.map (\k v -> ( k, v.name )) >> Dict.values
 
 
-extractKeyAndNameAndDescription : Dict String { a | name : String, description : String } -> List ( String, String, String )
+extractKeyAndNameAndDescription : Dict String { a | name : String, description : Maybe String } -> List ( String, String, Maybe String )
 extractKeyAndNameAndDescription =
     Dict.map (\k v -> ( k, v.name, v.description )) >> Dict.values
 

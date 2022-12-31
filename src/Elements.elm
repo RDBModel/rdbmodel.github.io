@@ -96,7 +96,12 @@ renderContainerInternal selected { key, name, description, xy } events =
             xy
 
         tooltip =
-            key ++ "\n" ++ description
+            case description of
+                Just d ->
+                    key ++ "\n" ++ d
+
+                Nothing ->
+                    key
     in
     g events
         [ rect

@@ -17,7 +17,6 @@
           "type": "object",
           "patternProperties": {
             "[a-z-]+": {
-              "title": "Actor",
               "description": "A person, system, or device that interacts with a software system in some way",
               "type": "object",
               "properties": {
@@ -35,7 +34,7 @@
                   }
                 }
               },
-              "required": ["name", "description"],
+              "required": ["name"],
               "additionalProperties": false
             }
           }
@@ -45,8 +44,7 @@
           "patternProperties": {
             "[a-z-]+": {
               "type": "object",
-              "title": "Software system within domain",
-              "description": "Application or service that bring value to the end users",
+              "description": "Application or service that brings value to the end users",
               "properties": {
                 "name": {
                   "type": "string"
@@ -59,7 +57,6 @@
                   "patternProperties": {
                     "[a-z-]+": {
                       "type": "object",
-                      "title": "Container",
                       "description": "Unit of a system that can usually be deployed independently",
                       "properties": {
                         "name": {
@@ -79,7 +76,6 @@
                           "type": "object",
                           "patternProperties": {
                             "[a-z-]+": {
-                              "title": "Component",
                               "description": "Buildable package that are usually represented as artifact in the file system",
                               "type": "object",
                               "properties": {
@@ -97,13 +93,13 @@
                                   }
                                 }
                               },
-                              "required": ["name", "description"],
+                              "required": ["name"],
                               "additionalProperties": false
                             }
                           }
                         }
                       },
-                      "required": ["name", "description"]
+                      "required": ["name"]
                     }
                   }
                 },
@@ -115,13 +111,13 @@
                   }
                 }
               },
-              "required": ["name", "description"],
+              "required": ["name"],
               "additionalProperties": false
             }
           }
         }
       },
-      "required": ["name", "description", "actors", "systems"],
+      "required": ["name", "actors", "systems"],
       "additionalProperties": false
     },
     "views": {

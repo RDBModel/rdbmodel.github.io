@@ -21,8 +21,11 @@ rdbDecoder =
 emptyDict : Maybe (Dict String View) -> Decoder (Dict String View)
 emptyDict value =
     case value of
-        Just v -> succeed v
-        Nothing -> succeed (Dict.empty)
+        Just v ->
+            succeed v
+
+        Nothing ->
+            succeed Dict.empty
 
 
 domainDecoder : Decoder Domain
@@ -39,7 +42,7 @@ internalDomainDecoder : Decoder Domain
 internalDomainDecoder =
     map4 Domain
         (field "name" string)
-        (field "description" string)
+        (field "description" string |> maybe)
         (field "actors" (dict actorDecoder))
         (field "systems" (dict ringDecoder))
 
@@ -48,7 +51,7 @@ ringDecoder : Decoder Ring
 ringDecoder =
     map4 Ring
         (field "name" string)
-        (field "description" string)
+        (field "description" string |> maybe)
         (field "relations" (list relationDecoder) |> maybe)
         (field "containers" (dict deliveryDecoder) |> maybe)
 
@@ -57,7 +60,7 @@ deliveryDecoder : Decoder Delivery
 deliveryDecoder =
     map4 Delivery
         (field "name" string)
-        (field "description" string)
+        (field "description" string |> maybe)
         (field "relations" (list relationDecoder) |> maybe)
         (field "components" (dict blockDecoder) |> maybe)
 
@@ -72,11 +75,11 @@ actorDecoder =
     basicDecoder Actor
 
 
-basicDecoder : (String -> String -> Maybe (List Relation) -> a) -> Decoder a
+basicDecoder : (String -> Maybe String -> Maybe (List Relation) -> a) -> Decoder a
 basicDecoder constructor =
     map3 constructor
         (field "name" string)
-        (field "description" string)
+        (field "description" string |> maybe)
         (field "relations" (list relationDecoder) |> maybe)
 
 
