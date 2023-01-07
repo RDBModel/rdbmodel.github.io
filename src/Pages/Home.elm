@@ -60,15 +60,18 @@ mapColor =
 
 editorLink : Element msg
 editorLink =
-    el [ centerX, height <| px 120, paddingXY 0 15 ] editorButton
+    row [ spacing 10 ]
+        [ el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ("See the demo ☀️", editorLinkPastebin))
+        , el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ("Or start new 🎉", editorLinkInit))
+        ]
 
 
-editorButton : Element msg
-editorButton =
+editorButton : (String, String) -> Element msg
+editorButton (txt, lnk) =
     el [ centerX, centerY ] <|
         link [ Color.lightBlue |> mapColor |> Background.color, rounded 5 ]
-            { url = "/" ++ editorLinkInit
-            , label = el [ paddingXY 150 20, defaultFontSize ] <| text "See the demo ☀️"
+            { url = "/" ++ lnk
+            , label = el [ paddingXY 50 20, defaultFontSize ] <| text txt
             }
 
 
