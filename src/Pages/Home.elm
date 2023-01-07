@@ -62,7 +62,7 @@ editorLink : Element msg
 editorLink =
     row [ spacing 10 ]
         [ el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ("See the demo ☀️", editorLinkPastebin))
-        , el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ("Or start new 🎉", editorLinkInit))
+        , el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ("Or start new 🚀", editorLinkInit))
         ]
 
 
