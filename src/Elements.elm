@@ -136,10 +136,10 @@ renderContainerInternal selected { key, name, description, xy } events =
                 ]
                 [ div
                     [ style "margin" "auto"
-                    , style "padding" "2px"
+                    , style "padding" "1px"
                     , style "text-align" "center"
                     , style "max-height" "100%"
-                    , style "font-size" "1vmin"
+                    , style "font-size" "14px"
                     ] [ text name ] ]
             , title [] [ text tooltip ]
             ]
