@@ -13,6 +13,9 @@ port requestValueToSave : (() -> msg) -> Sub msg
 port onWheel : (() -> msg) -> Sub msg
 
 
+port focusContainer : (String -> msg) -> Sub msg
+
+
 port initMonacoResponse : String -> Cmd msg
 
 
@@ -44,3 +47,6 @@ port receivedFromLocalStorage : (Maybe String -> msg) -> Sub msg
 
 
 port tryToSaveCurrentEditorValue : () -> Cmd msg
+
+
+port shareElementsAtCurrentView : List String -> Cmd msg

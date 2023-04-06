@@ -11,6 +11,7 @@ const app = Elm.Main.init({
 let editor
 let model
 let decorations = []
+let currentElements = []
 
 function initMonaco(initialValue) {
   if (editor != null) {
@@ -57,6 +58,15 @@ function initMonaco(initialValue) {
     }
   )
 
+  editor.onMouseDown(function (e) {
+    const position = e.target.position;
+    const lineContent = editor.getModel().getLineContent(position.lineNumber);
+    const foundElement = currentElements.find(el => lineContent.trim() === el + ':')
+    if (foundElement) {
+        app.ports.focusContainer.send(foundElement)
+    }
+  });
+
   // remove editor focus if we clicked outside of it
   document.getElementById('main-graph').parentNode.parentNode.addEventListener('click', (ev) => {
     if (editor.hasWidgetFocus()) {
@@ -91,6 +101,7 @@ app.ports.validationErrors.subscribe((message) => {
 })
 app.ports.saveToLocalStorage.subscribe((value) => saveToLocalStorage(value))
 app.ports.getFromLocalStorage.subscribe(() => getFromLocalStorage())
+app.ports.shareElementsAtCurrentView.subscribe((message) => currentElements = message)
 // delay monaco initialization (via Elm) test
 // TODO: remove?
 // app.ports.initMonacoRequest.send(null)

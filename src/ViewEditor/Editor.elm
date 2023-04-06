@@ -29,6 +29,7 @@ import Domain.Domain
         , getPoint
         , getRelationPoints
         , getViewElementKeysByCondition
+        , getViewElements
         , getViewElementsOfCurrentView
         , getViewPointKeysByCondition
         , getViewRelationKeyFromEdge
@@ -56,6 +57,7 @@ import Elements
 import Html exposing (Html, a, div, text)
 import Html.Attributes
 import Html.Events.Extra.Mouse as Mouse exposing (Event)
+import JsInterop exposing (focusContainer, shareElementsAtCurrentView)
 import Json.Decode as Decode
 import Navigation.ViewNavigation as ViewNavigation
 import SplitPanel.SplitPane exposing (Orientation(..))
@@ -144,6 +146,7 @@ type Msg
     | ViewControl ViewControl.Msg
     | AddView AddView.Msg
     | ContainerContextMenu ContextMenu.Msg
+    | FocusContainer String
     | NoOp
 
 
@@ -166,6 +169,11 @@ update : Dict String View -> Msg -> Model -> ( Model, Cmd Msg, List Action )
 update views msg model =
     case ( model, msg ) of
         ( Init selectedView, ReceiveElementPosition (Ok { element }) ) ->
+            let
+                elementsKeysOfCurrentView =
+                    getCurrentView selectedView views
+                        |> getViewElements
+            in
             ( Ready
                 { drag = Nothing
                 , svgElementPosition = element
@@ -177,7 +185,7 @@ update views msg model =
                 , selectedItems = []
                 , containerMenu = ContainerMenu.Menu.init |> ContextMenu.init
                 }
-            , Cmd.none
+            , shareElementsAtCurrentView elementsKeysOfCurrentView |> Cmd.map ViewControl
             , []
             )
 
@@ -219,13 +227,21 @@ update views msg model =
                 ( newViews, selectedView ) =
                     ViewControlActions.apply params views actions
 
+                elementsKeysOfCurrentView =
+                    getCurrentView selectedView views
+                        |> getViewElements
+
                 ( updatedViewEditor, finalCmds, newActions ) =
                     ( Ready
                         { state
                             | viewControl = updated
                             , selectedView = selectedView
                         }
-                    , cmd |> Cmd.map ViewControl
+                    , if ViewControlActions.monacoValueModified actions || state.selectedView == selectedView then
+                        cmd |> Cmd.map ViewControl
+
+                      else
+                        Cmd.batch [ cmd, shareElementsAtCurrentView elementsKeysOfCurrentView ] |> Cmd.map ViewControl
                     , if ViewControlActions.monacoValueModified actions then
                         [ UpdateViews newViews ]
 
@@ -540,6 +556,21 @@ update views msg model =
             , cmd |> Cmd.map ViewNavigation
             , []
             )
+
+        ( Ready state, FocusContainer containerKey ) ->
+            let
+                navigationModel =
+                    getCurrentView state.selectedView views
+                        |> getViewElementsOfCurrentView
+                        |> Maybe.andThen (Dict.get containerKey)
+                        |> Maybe.map (\el -> ViewNavigation.centralize ( el.x, el.y ) state.svgElementPosition state.viewNavigation)
+            in
+            case navigationModel of
+                Just m ->
+                    ( Ready { state | viewNavigation = m }, Cmd.none, [] )
+
+                Nothing ->
+                    ( model, Cmd.none, [] )
 
         _ ->
             ( model, Cmd.none, [] )
@@ -1065,6 +1096,7 @@ subscriptions model =
                     [ readySubscriptions state
                     , ContextMenu.subscriptions state.containerMenu |> Sub.map ContainerContextMenu
                     , AddView.subscriptions |> Sub.map AddView
+                    , focusContainer FocusContainer
                     ]
         , Events.onResize (\_ _ -> Resize)
         ]

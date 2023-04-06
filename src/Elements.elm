@@ -119,6 +119,7 @@ renderContainerInternal selected { key, name, description, xy } events =
                     else
                         Color.black
             , Attrs.strokeWidth <| Px 1
+            , id key
             ]
             [ title [] [ text tooltip ] ]
         , foreignObject

@@ -1,6 +1,7 @@
 module Navigation.ViewNavigation exposing
     ( Model
     , Msg
+    , centralize
     , getPositionForNewElement
     , getScale
     , getTranslate
@@ -17,7 +18,7 @@ module Navigation.ViewNavigation exposing
 
 import Browser.Events as Events
 import Html exposing (Attribute, Html, button, div)
-import Html.Attributes exposing (style)
+import Html.Attributes exposing (style, title, type_)
 import Html.Events exposing (onClick)
 import JsInterop exposing (zoomMsgReceived)
 import Json.Decode as Decode
@@ -43,8 +44,6 @@ import TypedSvg.Attributes
         )
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import Zoom exposing (OnZoom, Zoom)
-import Html.Attributes exposing (title)
-import Html.Attributes exposing (type_)
 
 
 type alias Model =
@@ -333,3 +332,18 @@ getPositionForNewElement model svgElement =
 panMode : Model -> Bool
 panMode model =
     model.ctrlIsDown
+
+
+centralize : ( Float, Float ) -> { height : Float, width : Float, x : Float, y : Float } -> Model -> Model
+centralize ( x, y ) svgElement model =
+    let
+        current =
+            Zoom.asRecord model.zoom
+
+        ( initY, initX ) =
+            ( svgElement.height/2, svgElement.width/2 )
+
+        newZoom =
+            Zoom.setTransform Zoom.instantly { scale = current.scale, translate = { x = initX - x * current.scale, y = initY - y * current.scale } } model.zoom
+    in
+    { model | zoom = newZoom }
