@@ -367,7 +367,7 @@ view model =
                     ]
                 )
                 pane
-            , div [ style "position" "fixed", style "bottom" "0", style "left" "0", style "font-size" "9px" ] [ text "v0.1.2" ]
+            , div [ style "position" "fixed", style "bottom" "0", style "left" "0", style "font-size" "9px" ] [ text <| "v" ++ model.session.version ]
             , Error.view model.errors |> Html.map ErrorMsg
             ]
         ]

@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "patch": "npm version patch && cross-var replace -s \"@VERSION@\" $npm_package_version index.js"
   },
   "devDependencies": {
+    "cross-var": "^1.1.0",
     "elm": "^0.19.1-5",
     "vite": "^4.4.7",
     "vite-plugin-elm": "^2.8.0",

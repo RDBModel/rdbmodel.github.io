@@ -3,9 +3,11 @@ import * as monaco from 'monaco-editor'
 import { Elm } from './src/Main.elm'
 import { setDiagnosticsOptions } from 'monaco-yaml'
 
+const version = '@VERSION@'
+
 const app = Elm.Main.init({
   node: document.getElementById('root'),
-  flags: window.showOpenFilePicker !== undefined
+  flags: [window.showOpenFilePicker !== undefined, version]
 })
 
 let editor

@@ -10,7 +10,7 @@ import Session exposing (Session)
 import Url exposing (Url)
 
 
-main : Program Bool Model Msg
+main : Program (Bool, String) Model Msg
 main =
     Browser.application
         { init = init
@@ -22,9 +22,9 @@ main =
         }
 
 
-init : Bool -> Url -> Nav.Key -> ( Model, Cmd Msg )
-init isFileSystemSupported url navKey =
-    changeRouteTo (Route.fromUrl url) (Session isFileSystemSupported navKey)
+init : (Bool, String) -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init (isFileSystemSupported, version) url navKey =
+    changeRouteTo (Route.fromUrl url) (Session isFileSystemSupported version navKey)
 
 
 type Model
