@@ -7,11 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "patch": "npm version patch && replace -s \"@VERSION@\" $npm_package_version index.js"
+    "patch": "npm version patch"
   },
   "devDependencies": {
     "elm": "^0.19.1-5",
-    "replace": "^1.2.2",
     "vite": "^4.4.7",
     "vite-plugin-elm": "^2.8.0",
     "vite-plugin-monaco-editor": "^1.1.0"
