@@ -21,6 +21,10 @@
     return to;
   };
   var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
     isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
     mod
   ));
@@ -109,6 +113,7 @@
         return dir + sep2 + base;
       }
       var posix2 = {
+        // path.resolve([from ...], to)
         resolve: function resolve3() {
           var resolvedPath = "";
           var resolvedAbsolute = false;
@@ -362,7 +367,9 @@
               preDotState = -1;
             }
           }
-          if (startDot === -1 || end === -1 || preDotState === 0 || preDotState === 1 && startDot === end - 1 && startDot === startPart + 1) {
+          if (startDot === -1 || end === -1 || // We saw a non-dot character immediately before the dot
+          preDotState === 0 || // The (right-most) trimmed path component is exactly '..'
+          preDotState === 1 && startDot === end - 1 && startDot === startPart + 1) {
             return "";
           }
           return path5.slice(startDot, end);
@@ -415,7 +422,9 @@
               preDotState = -1;
             }
           }
-          if (startDot === -1 || end === -1 || preDotState === 0 || preDotState === 1 && startDot === end - 1 && startDot === startPart + 1) {
+          if (startDot === -1 || end === -1 || // We saw a non-dot character immediately before the dot
+          preDotState === 0 || // The (right-most) trimmed path component is exactly '..'
+          preDotState === 1 && startDot === end - 1 && startDot === startPart + 1) {
             if (end !== -1) {
               if (startPart === 0 && isAbsolute2)
                 ret.base = ret.name = path5.slice(1, end);
@@ -16650,6 +16659,7 @@ ${p.commentBefore}` : u;
       this.unexpectedErrorHandler(e);
       this.emit(e);
     }
+    // For external errors, we don't want the listeners to be called
     onUnexpectedExternalError(e) {
       this.unexpectedErrorHandler(e);
     }
@@ -16688,22 +16698,28 @@ ${p.commentBefore}` : u;
       this.name = this.message;
     }
   };
-  var ErrorNoTelemetry = class extends Error {
+  var ErrorNoTelemetry = class _ErrorNoTelemetry extends Error {
     constructor(msg) {
       super(msg);
-      this.name = "ErrorNoTelemetry";
+      this.name = "CodeExpectedError";
     }
     static fromError(err) {
-      if (err instanceof ErrorNoTelemetry) {
+      if (err instanceof _ErrorNoTelemetry) {
         return err;
       }
-      const result = new ErrorNoTelemetry();
+      const result = new _ErrorNoTelemetry();
       result.message = err.message;
       result.stack = err.stack;
       return result;
     }
     static isErrorNoTelemetry(err) {
-      return err.name === "ErrorNoTelemetry";
+      return err.name === "CodeExpectedError";
+    }
+  };
+  var BugIndicatingError = class _BugIndicatingError extends Error {
+    constructor(message) {
+      super(message || "An unexpected bug occurred.");
+      Object.setPrototypeOf(this, _BugIndicatingError.prototype);
     }
   };
 
@@ -16738,6 +16754,14 @@ ${p.commentBefore}` : u;
       yield element;
     }
     Iterable2.single = single;
+    function wrap(iterableOrElement) {
+      if (is(iterableOrElement)) {
+        return iterableOrElement;
+      } else {
+        return single(iterableOrElement);
+      }
+    }
+    Iterable2.wrap = wrap;
     function from(iterable) {
       return iterable || _empty2;
     }
@@ -16791,14 +16815,6 @@ ${p.commentBefore}` : u;
       }
     }
     Iterable2.concat = concat;
-    function* concatNested(iterables) {
-      for (const iterable of iterables) {
-        for (const element of iterable) {
-          yield element;
-        }
-      }
-    }
-    Iterable2.concatNested = concatNested;
     function reduce(iterable, reducer, initialValue) {
       let value = initialValue;
       for (const element of iterable) {
@@ -16807,13 +16823,6 @@ ${p.commentBefore}` : u;
       return value;
     }
     Iterable2.reduce = reduce;
-    function forEach(iterable, fn) {
-      let index = 0;
-      for (const element of iterable) {
-        fn(element, index++);
-      }
-    }
-    Iterable2.forEach = forEach;
     function* slice(arr, from2, to = arr.length) {
       if (from2 < 0) {
         from2 += arr.length;
@@ -16846,26 +16855,6 @@ ${p.commentBefore}` : u;
       } }];
     }
     Iterable2.consume = consume;
-    function collect(iterable) {
-      return consume(iterable)[0];
-    }
-    Iterable2.collect = collect;
-    function equals3(a2, b, comparator = (at, bt) => at === bt) {
-      const ai = a2[Symbol.iterator]();
-      const bi = b[Symbol.iterator]();
-      while (true) {
-        const an = ai.next();
-        const bn = bi.next();
-        if (an.done !== bn.done) {
-          return false;
-        } else if (an.done) {
-          return true;
-        } else if (!comparator(an.value, bn.value)) {
-          return false;
-        }
-      }
-    }
-    Iterable2.equals = equals3;
   })(Iterable || (Iterable = {}));
 
   // node_modules/monaco-editor/esm/vs/base/common/lifecycle.js
@@ -16923,12 +16912,6 @@ ${p.commentBefore}` : u;
       disposableTracker.setParent(child, parent);
     }
   }
-  var MultiDisposeError = class extends Error {
-    constructor(errors) {
-      super(`Encountered errors while disposing of store. Errors: [${errors.join(", ")}]`);
-      this.errors = errors;
-    }
-  };
   function dispose(arg) {
     if (Iterable.is(arg)) {
       const errors = [];
@@ -16944,7 +16927,7 @@ ${p.commentBefore}` : u;
       if (errors.length === 1) {
         throw errors[0];
       } else if (errors.length > 1) {
-        throw new MultiDisposeError(errors);
+        throw new AggregateError(errors, "Encountered errors while disposing of store");
       }
       return Array.isArray(arg) ? [] : arg;
     } else if (arg) {
@@ -16966,12 +16949,17 @@ ${p.commentBefore}` : u;
     });
     return self2;
   }
-  var DisposableStore = class {
+  var DisposableStore = class _DisposableStore {
     constructor() {
       this._toDispose = /* @__PURE__ */ new Set();
       this._isDisposed = false;
       trackDisposable(this);
     }
+    /**
+     * Dispose of all registered disposables and mark this object as disposed.
+     *
+     * Any future disposables added to this object will be disposed of on `add`.
+     */
     dispose() {
       if (this._isDisposed) {
         return;
@@ -16980,16 +16968,28 @@ ${p.commentBefore}` : u;
       this._isDisposed = true;
       this.clear();
     }
+    /**
+     * @return `true` if this object has been disposed of.
+     */
     get isDisposed() {
       return this._isDisposed;
     }
+    /**
+     * Dispose of all registered disposables but do not mark this object as disposed.
+     */
     clear() {
+      if (this._toDispose.size === 0) {
+        return;
+      }
       try {
-        dispose(this._toDispose.values());
+        dispose(this._toDispose);
       } finally {
         this._toDispose.clear();
       }
     }
+    /**
+     * Add a new {@link IDisposable disposable} to the collection.
+     */
     add(o) {
       if (!o) {
         return o;
@@ -16999,7 +16999,7 @@ ${p.commentBefore}` : u;
       }
       setParentOfDisposable(o, this);
       if (this._isDisposed) {
-        if (!DisposableStore.DISABLE_DISPOSED_WARNING) {
+        if (!_DisposableStore.DISABLE_DISPOSED_WARNING) {
           console.warn(new Error("Trying to add a disposable to a DisposableStore that has already been disposed of. The added object will be leaked!").stack);
         }
       } else {
@@ -17019,6 +17019,9 @@ ${p.commentBefore}` : u;
       markAsDisposed(this);
       this._store.dispose();
     }
+    /**
+     * Adds `o` to the collection of disposables managed by this object.
+     */
     _register(o) {
       if (o === this) {
         throw new Error("Cannot register a disposable on itself!");
@@ -17028,36 +17031,67 @@ ${p.commentBefore}` : u;
   };
   Disposable.None = Object.freeze({ dispose() {
   } });
-  var SafeDisposable = class {
+  var DisposableMap = class {
     constructor() {
-      this.dispose = () => {
-      };
-      this.unset = () => {
-      };
-      this.isset = () => false;
+      this._store = /* @__PURE__ */ new Map();
+      this._isDisposed = false;
       trackDisposable(this);
     }
-    set(fn) {
-      let callback = fn;
-      this.unset = () => callback = void 0;
-      this.isset = () => callback !== void 0;
-      this.dispose = () => {
-        if (callback) {
-          callback();
-          callback = void 0;
-          markAsDisposed(this);
-        }
-      };
-      return this;
+    /**
+     * Disposes of all stored values and mark this object as disposed.
+     *
+     * Trying to use this object after it has been disposed of is an error.
+     */
+    dispose() {
+      markAsDisposed(this);
+      this._isDisposed = true;
+      this.clearAndDisposeAll();
+    }
+    /**
+     * Disposes of all stored values and clear the map, but DO NOT mark this object as disposed.
+     */
+    clearAndDisposeAll() {
+      if (!this._store.size) {
+        return;
+      }
+      try {
+        dispose(this._store.values());
+      } finally {
+        this._store.clear();
+      }
+    }
+    get(key) {
+      return this._store.get(key);
+    }
+    set(key, value, skipDisposeOnOverwrite = false) {
+      var _a3;
+      if (this._isDisposed) {
+        console.warn(new Error("Trying to add a disposable to a DisposableMap that has already been disposed of. The added object will be leaked!").stack);
+      }
+      if (!skipDisposeOnOverwrite) {
+        (_a3 = this._store.get(key)) === null || _a3 === void 0 ? void 0 : _a3.dispose();
+      }
+      this._store.set(key, value);
+    }
+    /**
+     * Delete the value stored for `key` from this map and also dispose of it.
+     */
+    deleteAndDispose(key) {
+      var _a3;
+      (_a3 = this._store.get(key)) === null || _a3 === void 0 ? void 0 : _a3.dispose();
+      this._store.delete(key);
+    }
+    [Symbol.iterator]() {
+      return this._store[Symbol.iterator]();
     }
   };
 
   // node_modules/monaco-editor/esm/vs/base/common/linkedList.js
-  var Node = class {
+  var Node = class _Node {
     constructor(element) {
       this.element = element;
-      this.next = Node.Undefined;
-      this.prev = Node.Undefined;
+      this.next = _Node.Undefined;
+      this.prev = _Node.Undefined;
     }
   };
   Node.Undefined = new Node(void 0);
@@ -17160,154 +17194,16 @@ ${p.commentBefore}` : u;
     }
   };
 
-  // node_modules/monaco-editor/esm/vs/nls.js
-  var isPseudo = typeof document !== "undefined" && document.location && document.location.hash.indexOf("pseudo=true") >= 0;
-  function _format(message, args) {
-    let result;
-    if (args.length === 0) {
-      result = message;
-    } else {
-      result = message.replace(/\{(\d+)\}/g, (match, rest) => {
-        const index = rest[0];
-        const arg = args[index];
-        let result2 = match;
-        if (typeof arg === "string") {
-          result2 = arg;
-        } else if (typeof arg === "number" || typeof arg === "boolean" || arg === void 0 || arg === null) {
-          result2 = String(arg);
-        }
-        return result2;
-      });
-    }
-    if (isPseudo) {
-      result = "\uFF3B" + result.replace(/[aouei]/g, "$&$&") + "\uFF3D";
-    }
-    return result;
-  }
-  function localize(data, message, ...args) {
-    return _format(message, args);
-  }
-  function getConfiguredDefaultLocale(_) {
-    return void 0;
-  }
-
-  // node_modules/monaco-editor/esm/vs/base/common/platform.js
-  var _a;
-  var LANGUAGE_DEFAULT = "en";
-  var _isWindows = false;
-  var _isMacintosh = false;
-  var _isLinux = false;
-  var _isLinuxSnap = false;
-  var _isNative = false;
-  var _isWeb = false;
-  var _isElectron = false;
-  var _isIOS = false;
-  var _isCI = false;
-  var _locale = void 0;
-  var _language = LANGUAGE_DEFAULT;
-  var _translationsConfigFile = void 0;
-  var _userAgent = void 0;
-  var globals = typeof self === "object" ? self : typeof global === "object" ? global : {};
-  var nodeProcess = void 0;
-  if (typeof globals.vscode !== "undefined" && typeof globals.vscode.process !== "undefined") {
-    nodeProcess = globals.vscode.process;
-  } else if (typeof process !== "undefined") {
-    nodeProcess = process;
-  }
-  var isElectronProcess = typeof ((_a = nodeProcess === null || nodeProcess === void 0 ? void 0 : nodeProcess.versions) === null || _a === void 0 ? void 0 : _a.electron) === "string";
-  var isElectronRenderer = isElectronProcess && (nodeProcess === null || nodeProcess === void 0 ? void 0 : nodeProcess.type) === "renderer";
-  if (typeof navigator === "object" && !isElectronRenderer) {
-    _userAgent = navigator.userAgent;
-    _isWindows = _userAgent.indexOf("Windows") >= 0;
-    _isMacintosh = _userAgent.indexOf("Macintosh") >= 0;
-    _isIOS = (_userAgent.indexOf("Macintosh") >= 0 || _userAgent.indexOf("iPad") >= 0 || _userAgent.indexOf("iPhone") >= 0) && !!navigator.maxTouchPoints && navigator.maxTouchPoints > 0;
-    _isLinux = _userAgent.indexOf("Linux") >= 0;
-    _isWeb = true;
-    const configuredLocale = getConfiguredDefaultLocale(
-      localize({ key: "ensureLoaderPluginIsLoaded", comment: ["{Locked}"] }, "_")
-    );
-    _locale = configuredLocale || LANGUAGE_DEFAULT;
-    _language = _locale;
-  } else if (typeof nodeProcess === "object") {
-    _isWindows = nodeProcess.platform === "win32";
-    _isMacintosh = nodeProcess.platform === "darwin";
-    _isLinux = nodeProcess.platform === "linux";
-    _isLinuxSnap = _isLinux && !!nodeProcess.env["SNAP"] && !!nodeProcess.env["SNAP_REVISION"];
-    _isElectron = isElectronProcess;
-    _isCI = !!nodeProcess.env["CI"] || !!nodeProcess.env["BUILD_ARTIFACTSTAGINGDIRECTORY"];
-    _locale = LANGUAGE_DEFAULT;
-    _language = LANGUAGE_DEFAULT;
-    const rawNlsConfig = nodeProcess.env["VSCODE_NLS_CONFIG"];
-    if (rawNlsConfig) {
-      try {
-        const nlsConfig = JSON.parse(rawNlsConfig);
-        const resolved = nlsConfig.availableLanguages["*"];
-        _locale = nlsConfig.locale;
-        _language = resolved ? resolved : LANGUAGE_DEFAULT;
-        _translationsConfigFile = nlsConfig._translationsConfigFile;
-      } catch (e) {
-      }
-    }
-    _isNative = true;
-  } else {
-    console.error("Unable to resolve platform.");
-  }
-  var _platform = 0;
-  if (_isMacintosh) {
-    _platform = 1;
-  } else if (_isWindows) {
-    _platform = 3;
-  } else if (_isLinux) {
-    _platform = 2;
-  }
-  var isWindows = _isWindows;
-  var isMacintosh = _isMacintosh;
-  var isWebWorker = _isWeb && typeof globals.importScripts === "function";
-  var userAgent = _userAgent;
-  var setTimeout0IsFaster = typeof globals.postMessage === "function" && !globals.importScripts;
-  var setTimeout0 = (() => {
-    if (setTimeout0IsFaster) {
-      const pending = [];
-      globals.addEventListener("message", (e) => {
-        if (e.data && e.data.vscodeScheduleAsyncWork) {
-          for (let i = 0, len = pending.length; i < len; i++) {
-            const candidate = pending[i];
-            if (candidate.id === e.data.vscodeScheduleAsyncWork) {
-              pending.splice(i, 1);
-              candidate.callback();
-              return;
-            }
-          }
-        }
-      });
-      let lastId = 0;
-      return (callback) => {
-        const myId = ++lastId;
-        pending.push({
-          id: myId,
-          callback
-        });
-        globals.postMessage({ vscodeScheduleAsyncWork: myId }, "*");
-      };
-    }
-    return (callback) => setTimeout(callback);
-  })();
-  var isChrome = !!(userAgent && userAgent.indexOf("Chrome") >= 0);
-  var isFirefox = !!(userAgent && userAgent.indexOf("Firefox") >= 0);
-  var isSafari = !!(!isChrome && (userAgent && userAgent.indexOf("Safari") >= 0));
-  var isEdge = !!(userAgent && userAgent.indexOf("Edg/") >= 0);
-  var isAndroid = !!(userAgent && userAgent.indexOf("Android") >= 0);
-
   // node_modules/monaco-editor/esm/vs/base/common/stopwatch.js
-  var hasPerformanceNow = globals.performance && typeof globals.performance.now === "function";
-  var StopWatch = class {
+  var hasPerformanceNow = globalThis.performance && typeof globalThis.performance.now === "function";
+  var StopWatch = class _StopWatch {
+    static create(highResolution) {
+      return new _StopWatch(highResolution);
+    }
     constructor(highResolution) {
-      this._highResolution = hasPerformanceNow && highResolution;
+      this._now = hasPerformanceNow && highResolution === false ? Date.now : globalThis.performance.now.bind(globalThis.performance);
       this._startTime = this._now();
       this._stopTime = -1;
-    }
-    static create(highResolution = true) {
-      return new StopWatch(highResolution);
     }
     stop() {
       this._stopTime = this._now();
@@ -17317,9 +17213,6 @@ ${p.commentBefore}` : u;
         return this._stopTime - this._startTime;
       }
       return this._now() - this._startTime;
-    }
-    _now() {
-      return this._highResolution ? globals.performance.now() : Date.now();
     }
   };
 
@@ -17331,10 +17224,10 @@ ${p.commentBefore}` : u;
     Event2.None = () => Disposable.None;
     function _addLeakageTraceLogic(options) {
       if (_enableSnapshotPotentialLeakWarning) {
-        const { onListenerDidAdd: origListenerDidAdd } = options;
+        const { onDidAddListener: origListenerDidAdd } = options;
         const stack = Stacktrace.create();
         let count = 0;
-        options.onListenerDidAdd = () => {
+        options.onDidAddListener = () => {
           if (++count === 2) {
             console.warn("snapshotted emitter LIKELY used public and SHOULD HAVE BEEN created with DisposableStore. snapshotted here");
             stack.print();
@@ -17343,6 +17236,10 @@ ${p.commentBefore}` : u;
         };
       }
     }
+    function defer(event, disposable) {
+      return debounce(event, () => void 0, 0, void 0, true, void 0, disposable);
+    }
+    Event2.defer = defer;
     function once3(event) {
       return (listener, thisArgs = null, disposables) => {
         let didFire = false;
@@ -17398,10 +17295,10 @@ ${p.commentBefore}` : u;
     function snapshot(event, disposable) {
       let listener;
       const options = {
-        onFirstListenerAdd() {
+        onWillAddFirstListener() {
           listener = event(emitter.fire, emitter);
         },
-        onLastListenerRemove() {
+        onDidRemoveLastListener() {
           listener === null || listener === void 0 ? void 0 : listener.dispose();
         }
       };
@@ -17412,14 +17309,15 @@ ${p.commentBefore}` : u;
       disposable === null || disposable === void 0 ? void 0 : disposable.add(emitter);
       return emitter.event;
     }
-    function debounce(event, merge, delay = 100, leading = false, leakWarningThreshold, disposable) {
+    function debounce(event, merge, delay = 100, leading = false, flushOnListenerRemove = false, leakWarningThreshold, disposable) {
       let subscription;
       let output = void 0;
       let handle = void 0;
       let numDebouncedCalls = 0;
+      let doFire;
       const options = {
         leakWarningThreshold,
-        onFirstListenerAdd() {
+        onWillAddFirstListener() {
           subscription = event((cur) => {
             numDebouncedCalls++;
             output = merge(output, cur);
@@ -17427,8 +17325,7 @@ ${p.commentBefore}` : u;
               emitter.fire(output);
               output = void 0;
             }
-            clearTimeout(handle);
-            handle = setTimeout(() => {
+            doFire = () => {
               const _output = output;
               output = void 0;
               handle = void 0;
@@ -17436,10 +17333,25 @@ ${p.commentBefore}` : u;
                 emitter.fire(_output);
               }
               numDebouncedCalls = 0;
-            }, delay);
+            };
+            if (typeof delay === "number") {
+              clearTimeout(handle);
+              handle = setTimeout(doFire, delay);
+            } else {
+              if (handle === void 0) {
+                handle = 0;
+                queueMicrotask(doFire);
+              }
+            }
           });
         },
-        onLastListenerRemove() {
+        onWillRemoveListener() {
+          if (flushOnListenerRemove && numDebouncedCalls > 0) {
+            doFire === null || doFire === void 0 ? void 0 : doFire();
+          }
+        },
+        onDidRemoveLastListener() {
+          doFire = void 0;
           subscription.dispose();
         }
       };
@@ -17451,6 +17363,16 @@ ${p.commentBefore}` : u;
       return emitter.event;
     }
     Event2.debounce = debounce;
+    function accumulate(event, delay = 0, disposable) {
+      return Event2.debounce(event, (last, e) => {
+        if (!last) {
+          return [e];
+        }
+        last.push(e);
+        return last;
+      }, delay, void 0, true, void 0, disposable);
+    }
+    Event2.accumulate = accumulate;
     function latch(event, equals3 = (a2, b) => a2 === b, disposable) {
       let firstCall = true;
       let cache;
@@ -17483,12 +17405,12 @@ ${p.commentBefore}` : u;
         buffer2 = null;
       };
       const emitter = new Emitter({
-        onFirstListenerAdd() {
+        onWillAddFirstListener() {
           if (!listener) {
             listener = event((e) => emitter.fire(e));
           }
         },
-        onFirstListenerDidAdd() {
+        onDidAddFirstListener() {
           if (buffer2) {
             if (flushAfterTimeout) {
               setTimeout(flush);
@@ -17497,7 +17419,7 @@ ${p.commentBefore}` : u;
             }
           }
         },
-        onLastListenerRemove() {
+        onDidRemoveLastListener() {
           if (listener) {
             listener.dispose();
           }
@@ -17512,27 +17434,35 @@ ${p.commentBefore}` : u;
         this.event = event;
         this.disposables = new DisposableStore();
       }
+      /** @see {@link Event.map} */
       map(fn) {
         return new ChainableEvent(map2(this.event, fn, this.disposables));
       }
+      /** @see {@link Event.forEach} */
       forEach(fn) {
         return new ChainableEvent(forEach(this.event, fn, this.disposables));
       }
       filter(fn) {
         return new ChainableEvent(filter(this.event, fn, this.disposables));
       }
+      /** @see {@link Event.reduce} */
       reduce(merge, initial) {
         return new ChainableEvent(reduce(this.event, merge, initial, this.disposables));
       }
+      /** @see {@link Event.reduce} */
       latch() {
         return new ChainableEvent(latch(this.event, void 0, this.disposables));
       }
-      debounce(merge, delay = 100, leading = false, leakWarningThreshold) {
-        return new ChainableEvent(debounce(this.event, merge, delay, leading, leakWarningThreshold, this.disposables));
+      debounce(merge, delay = 100, leading = false, flushOnListenerRemove = false, leakWarningThreshold) {
+        return new ChainableEvent(debounce(this.event, merge, delay, leading, flushOnListenerRemove, leakWarningThreshold, this.disposables));
       }
+      /**
+       * Attach a listener to the event.
+       */
       on(listener, thisArgs, disposables) {
         return this.event(listener, thisArgs, disposables);
       }
+      /** @see {@link Event.once} */
       once(listener, thisArgs, disposables) {
         return once3(this.event)(listener, thisArgs, disposables);
       }
@@ -17548,7 +17478,7 @@ ${p.commentBefore}` : u;
       const fn = (...args) => result.fire(map3(...args));
       const onFirstListenerAdd = () => emitter.on(eventName, fn);
       const onLastListenerRemove = () => emitter.removeListener(eventName, fn);
-      const result = new Emitter({ onFirstListenerAdd, onLastListenerRemove });
+      const result = new Emitter({ onWillAddFirstListener: onFirstListenerAdd, onDidRemoveLastListener: onLastListenerRemove });
       return result.event;
     }
     Event2.fromNodeEventEmitter = fromNodeEventEmitter;
@@ -17556,7 +17486,7 @@ ${p.commentBefore}` : u;
       const fn = (...args) => result.fire(map3(...args));
       const onFirstListenerAdd = () => emitter.addEventListener(eventName, fn);
       const onLastListenerRemove = () => emitter.removeEventListener(eventName, fn);
-      const result = new Emitter({ onFirstListenerAdd, onLastListenerRemove });
+      const result = new Emitter({ onWillAddFirstListener: onFirstListenerAdd, onDidRemoveLastListener: onLastListenerRemove });
       return result.event;
     }
     Event2.fromDOMEventEmitter = fromDOMEventEmitter;
@@ -17585,16 +17515,16 @@ ${p.commentBefore}` : u;
     }
     Event2.runAndSubscribeWithStore = runAndSubscribeWithStore;
     class EmitterObserver {
-      constructor(obs, store) {
-        this.obs = obs;
+      constructor(_observable, store) {
+        this._observable = _observable;
         this._counter = 0;
         this._hasChanged = false;
         const options = {
-          onFirstListenerAdd: () => {
-            obs.addObserver(this);
+          onWillAddFirstListener: () => {
+            _observable.addObserver(this);
           },
-          onLastListenerRemove: () => {
-            obs.removeObserver(this);
+          onDidRemoveLastListener: () => {
+            _observable.removeObserver(this);
           }
         };
         if (!store) {
@@ -17608,14 +17538,18 @@ ${p.commentBefore}` : u;
       beginUpdate(_observable) {
         this._counter++;
       }
+      handlePossibleChange(_observable) {
+      }
       handleChange(_observable, _change) {
         this._hasChanged = true;
       }
       endUpdate(_observable) {
-        if (--this._counter === 0) {
+        this._counter--;
+        if (this._counter === 0) {
+          this._observable.reportChanges();
           if (this._hasChanged) {
             this._hasChanged = false;
-            this.emitter.fire(this.obs.get());
+            this.emitter.fire(this._observable.get());
           }
         }
       }
@@ -17625,46 +17559,78 @@ ${p.commentBefore}` : u;
       return observer.emitter.event;
     }
     Event2.fromObservable = fromObservable;
+    function fromObservableLight(observable) {
+      return (listener) => {
+        let count = 0;
+        let didChange = false;
+        const observer = {
+          beginUpdate() {
+            count++;
+          },
+          endUpdate() {
+            count--;
+            if (count === 0) {
+              observable.reportChanges();
+              if (didChange) {
+                didChange = false;
+                listener();
+              }
+            }
+          },
+          handlePossibleChange() {
+          },
+          handleChange() {
+            didChange = true;
+          }
+        };
+        observable.addObserver(observer);
+        return {
+          dispose() {
+            observable.removeObserver(observer);
+          }
+        };
+      };
+    }
+    Event2.fromObservableLight = fromObservableLight;
   })(Event || (Event = {}));
-  var EventProfiling = class {
+  var EventProfiling = class _EventProfiling {
     constructor(name) {
-      this._listenerCount = 0;
-      this._invocationCount = 0;
-      this._elapsedOverall = 0;
-      this._name = `${name}_${EventProfiling._idPool++}`;
+      this.listenerCount = 0;
+      this.invocationCount = 0;
+      this.elapsedOverall = 0;
+      this.durations = [];
+      this.name = `${name}_${_EventProfiling._idPool++}`;
+      _EventProfiling.all.add(this);
     }
     start(listenerCount) {
-      this._stopWatch = new StopWatch(true);
-      this._listenerCount = listenerCount;
+      this._stopWatch = new StopWatch();
+      this.listenerCount = listenerCount;
     }
     stop() {
       if (this._stopWatch) {
         const elapsed = this._stopWatch.elapsed();
-        this._elapsedOverall += elapsed;
-        this._invocationCount += 1;
-        console.info(`did FIRE ${this._name}: elapsed_ms: ${elapsed.toFixed(5)}, listener: ${this._listenerCount} (elapsed_overall: ${this._elapsedOverall.toFixed(2)}, invocations: ${this._invocationCount})`);
+        this.durations.push(elapsed);
+        this.elapsedOverall += elapsed;
+        this.invocationCount += 1;
         this._stopWatch = void 0;
       }
     }
   };
+  EventProfiling.all = /* @__PURE__ */ new Set();
   EventProfiling._idPool = 0;
   var _globalLeakWarningThreshold = -1;
   var LeakageMonitor = class {
-    constructor(customThreshold, name = Math.random().toString(18).slice(2, 5)) {
-      this.customThreshold = customThreshold;
+    constructor(threshold, name = Math.random().toString(18).slice(2, 5)) {
+      this.threshold = threshold;
       this.name = name;
       this._warnCountdown = 0;
     }
     dispose() {
-      if (this._stacks) {
-        this._stacks.clear();
-      }
+      var _a3;
+      (_a3 = this._stacks) === null || _a3 === void 0 ? void 0 : _a3.clear();
     }
     check(stack, listenerCount) {
-      let threshold = _globalLeakWarningThreshold;
-      if (typeof this.customThreshold === "number") {
-        threshold = this.customThreshold;
-      }
+      const threshold = this.threshold;
       if (threshold <= 0 || listenerCount < threshold) {
         return void 0;
       }
@@ -17693,171 +17659,232 @@ ${p.commentBefore}` : u;
       };
     }
   };
-  var Stacktrace = class {
-    constructor(value) {
-      this.value = value;
-    }
+  var Stacktrace = class _Stacktrace {
     static create() {
       var _a3;
-      return new Stacktrace((_a3 = new Error().stack) !== null && _a3 !== void 0 ? _a3 : "");
+      return new _Stacktrace((_a3 = new Error().stack) !== null && _a3 !== void 0 ? _a3 : "");
+    }
+    constructor(value) {
+      this.value = value;
     }
     print() {
       console.warn(this.value.split("\n").slice(2).join("\n"));
     }
   };
-  var Listener = class {
-    constructor(callback, callbackThis, stack) {
-      this.callback = callback;
-      this.callbackThis = callbackThis;
-      this.stack = stack;
-      this.subscription = new SafeDisposable();
+  var UniqueContainer = class {
+    constructor(value) {
+      this.value = value;
     }
-    invoke(e) {
-      this.callback.call(this.callbackThis, e);
+  };
+  var compactionThreshold = 2;
+  var forEachListener = (listeners, fn) => {
+    if (listeners instanceof UniqueContainer) {
+      fn(listeners);
+    } else {
+      for (let i = 0; i < listeners.length; i++) {
+        const l = listeners[i];
+        if (l) {
+          fn(l);
+        }
+      }
     }
   };
   var Emitter = class {
     constructor(options) {
-      var _a3, _b;
-      this._disposed = false;
+      var _a3, _b, _c, _d, _e;
+      this._size = 0;
       this._options = options;
-      this._leakageMon = _globalLeakWarningThreshold > 0 ? new LeakageMonitor(this._options && this._options.leakWarningThreshold) : void 0;
-      this._perfMon = ((_a3 = this._options) === null || _a3 === void 0 ? void 0 : _a3._profName) ? new EventProfiling(this._options._profName) : void 0;
-      this._deliveryQueue = (_b = this._options) === null || _b === void 0 ? void 0 : _b.deliveryQueue;
+      this._leakageMon = _globalLeakWarningThreshold > 0 || ((_a3 = this._options) === null || _a3 === void 0 ? void 0 : _a3.leakWarningThreshold) ? new LeakageMonitor((_c = (_b = this._options) === null || _b === void 0 ? void 0 : _b.leakWarningThreshold) !== null && _c !== void 0 ? _c : _globalLeakWarningThreshold) : void 0;
+      this._perfMon = ((_d = this._options) === null || _d === void 0 ? void 0 : _d._profName) ? new EventProfiling(this._options._profName) : void 0;
+      this._deliveryQueue = (_e = this._options) === null || _e === void 0 ? void 0 : _e.deliveryQueue;
     }
     dispose() {
       var _a3, _b, _c, _d;
       if (!this._disposed) {
         this._disposed = true;
+        if (((_a3 = this._deliveryQueue) === null || _a3 === void 0 ? void 0 : _a3.current) === this) {
+          this._deliveryQueue.reset();
+        }
         if (this._listeners) {
           if (_enableDisposeWithListenerWarning) {
-            const listeners = Array.from(this._listeners);
+            const listeners = this._listeners;
             queueMicrotask(() => {
-              var _a4;
-              for (const listener of listeners) {
-                if (listener.subscription.isset()) {
-                  listener.subscription.unset();
-                  (_a4 = listener.stack) === null || _a4 === void 0 ? void 0 : _a4.print();
-                }
-              }
+              forEachListener(listeners, (l) => {
+                var _a4;
+                return (_a4 = l.stack) === null || _a4 === void 0 ? void 0 : _a4.print();
+              });
             });
           }
-          this._listeners.clear();
+          this._listeners = void 0;
+          this._size = 0;
         }
-        (_a3 = this._deliveryQueue) === null || _a3 === void 0 ? void 0 : _a3.clear(this);
-        (_c = (_b = this._options) === null || _b === void 0 ? void 0 : _b.onLastListenerRemove) === null || _c === void 0 ? void 0 : _c.call(_b);
+        (_c = (_b = this._options) === null || _b === void 0 ? void 0 : _b.onDidRemoveLastListener) === null || _c === void 0 ? void 0 : _c.call(_b);
         (_d = this._leakageMon) === null || _d === void 0 ? void 0 : _d.dispose();
       }
     }
+    /**
+     * For the public to allow to subscribe
+     * to events from this Emitter
+     */
     get event() {
-      if (!this._event) {
-        this._event = (callback, thisArgs, disposables) => {
-          var _a3, _b, _c;
-          if (!this._listeners) {
-            this._listeners = new LinkedList();
-          }
-          const firstListener = this._listeners.isEmpty();
-          if (firstListener && ((_a3 = this._options) === null || _a3 === void 0 ? void 0 : _a3.onFirstListenerAdd)) {
-            this._options.onFirstListenerAdd(this);
-          }
-          let removeMonitor;
-          let stack;
-          if (this._leakageMon && this._listeners.size >= 30) {
-            stack = Stacktrace.create();
-            removeMonitor = this._leakageMon.check(stack, this._listeners.size + 1);
-          }
-          if (_enableDisposeWithListenerWarning) {
-            stack = stack !== null && stack !== void 0 ? stack : Stacktrace.create();
-          }
-          const listener = new Listener(callback, thisArgs, stack);
-          const removeListener = this._listeners.push(listener);
-          if (firstListener && ((_b = this._options) === null || _b === void 0 ? void 0 : _b.onFirstListenerDidAdd)) {
-            this._options.onFirstListenerDidAdd(this);
-          }
-          if ((_c = this._options) === null || _c === void 0 ? void 0 : _c.onListenerDidAdd) {
-            this._options.onListenerDidAdd(this, callback, thisArgs);
-          }
-          const result = listener.subscription.set(() => {
-            removeMonitor === null || removeMonitor === void 0 ? void 0 : removeMonitor();
-            if (!this._disposed) {
-              removeListener();
-              if (this._options && this._options.onLastListenerRemove) {
-                const hasListeners = this._listeners && !this._listeners.isEmpty();
-                if (!hasListeners) {
-                  this._options.onLastListenerRemove(this);
-                }
-              }
-            }
-          });
-          if (disposables instanceof DisposableStore) {
-            disposables.add(result);
-          } else if (Array.isArray(disposables)) {
-            disposables.push(result);
-          }
-          return result;
-        };
-      }
+      var _a3;
+      (_a3 = this._event) !== null && _a3 !== void 0 ? _a3 : this._event = (callback, thisArgs, disposables) => {
+        var _a4, _b, _c, _d, _e;
+        if (this._leakageMon && this._size > this._leakageMon.threshold * 3) {
+          console.warn(`[${this._leakageMon.name}] REFUSES to accept new listeners because it exceeded its threshold by far`);
+          return Disposable.None;
+        }
+        if (this._disposed) {
+          return Disposable.None;
+        }
+        if (thisArgs) {
+          callback = callback.bind(thisArgs);
+        }
+        const contained = new UniqueContainer(callback);
+        let removeMonitor;
+        let stack;
+        if (this._leakageMon && this._size >= Math.ceil(this._leakageMon.threshold * 0.2)) {
+          contained.stack = Stacktrace.create();
+          removeMonitor = this._leakageMon.check(contained.stack, this._size + 1);
+        }
+        if (_enableDisposeWithListenerWarning) {
+          contained.stack = stack !== null && stack !== void 0 ? stack : Stacktrace.create();
+        }
+        if (!this._listeners) {
+          (_b = (_a4 = this._options) === null || _a4 === void 0 ? void 0 : _a4.onWillAddFirstListener) === null || _b === void 0 ? void 0 : _b.call(_a4, this);
+          this._listeners = contained;
+          (_d = (_c = this._options) === null || _c === void 0 ? void 0 : _c.onDidAddFirstListener) === null || _d === void 0 ? void 0 : _d.call(_c, this);
+        } else if (this._listeners instanceof UniqueContainer) {
+          (_e = this._deliveryQueue) !== null && _e !== void 0 ? _e : this._deliveryQueue = new EventDeliveryQueuePrivate();
+          this._listeners = [this._listeners, contained];
+        } else {
+          this._listeners.push(contained);
+        }
+        this._size++;
+        const result = toDisposable(() => {
+          removeMonitor === null || removeMonitor === void 0 ? void 0 : removeMonitor();
+          this._removeListener(contained);
+        });
+        if (disposables instanceof DisposableStore) {
+          disposables.add(result);
+        } else if (Array.isArray(disposables)) {
+          disposables.push(result);
+        }
+        return result;
+      };
       return this._event;
     }
+    _removeListener(listener) {
+      var _a3, _b, _c, _d;
+      (_b = (_a3 = this._options) === null || _a3 === void 0 ? void 0 : _a3.onWillRemoveListener) === null || _b === void 0 ? void 0 : _b.call(_a3, this);
+      if (!this._listeners) {
+        return;
+      }
+      if (this._size === 1) {
+        this._listeners = void 0;
+        (_d = (_c = this._options) === null || _c === void 0 ? void 0 : _c.onDidRemoveLastListener) === null || _d === void 0 ? void 0 : _d.call(_c, this);
+        this._size = 0;
+        return;
+      }
+      const listeners = this._listeners;
+      const index = listeners.indexOf(listener);
+      if (index === -1) {
+        console.log("disposed?", this._disposed);
+        console.log("size?", this._size);
+        console.log("arr?", JSON.stringify(this._listeners));
+        throw new Error("Attempted to dispose unknown listener");
+      }
+      this._size--;
+      listeners[index] = void 0;
+      const adjustDeliveryQueue = this._deliveryQueue.current === this;
+      if (this._size * compactionThreshold <= listeners.length) {
+        let n = 0;
+        for (let i = 0; i < listeners.length; i++) {
+          if (listeners[i]) {
+            listeners[n++] = listeners[i];
+          } else if (adjustDeliveryQueue) {
+            this._deliveryQueue.end--;
+            if (n < this._deliveryQueue.i) {
+              this._deliveryQueue.i--;
+            }
+          }
+        }
+        listeners.length = n;
+      }
+    }
+    _deliver(listener, value) {
+      var _a3;
+      if (!listener) {
+        return;
+      }
+      const errorHandler2 = ((_a3 = this._options) === null || _a3 === void 0 ? void 0 : _a3.onListenerError) || onUnexpectedError;
+      if (!errorHandler2) {
+        listener.value(value);
+        return;
+      }
+      try {
+        listener.value(value);
+      } catch (e) {
+        errorHandler2(e);
+      }
+    }
+    /** Delivers items in the queue. Assumes the queue is ready to go. */
+    _deliverQueue(dq) {
+      const listeners = dq.current._listeners;
+      while (dq.i < dq.end) {
+        this._deliver(listeners[dq.i++], dq.value);
+      }
+      dq.reset();
+    }
+    /**
+     * To be kept private to fire an event to
+     * subscribers
+     */
     fire(event) {
-      var _a3, _b;
-      if (this._listeners) {
-        if (!this._deliveryQueue) {
-          this._deliveryQueue = new PrivateEventDeliveryQueue();
-        }
-        for (const listener of this._listeners) {
-          this._deliveryQueue.push(this, listener, event);
-        }
-        (_a3 = this._perfMon) === null || _a3 === void 0 ? void 0 : _a3.start(this._deliveryQueue.size);
-        this._deliveryQueue.deliver();
+      var _a3, _b, _c, _d;
+      if ((_a3 = this._deliveryQueue) === null || _a3 === void 0 ? void 0 : _a3.current) {
+        this._deliverQueue(this._deliveryQueue);
         (_b = this._perfMon) === null || _b === void 0 ? void 0 : _b.stop();
       }
+      (_c = this._perfMon) === null || _c === void 0 ? void 0 : _c.start(this._size);
+      if (!this._listeners) {
+      } else if (this._listeners instanceof UniqueContainer) {
+        this._deliver(this._listeners, event);
+      } else {
+        const dq = this._deliveryQueue;
+        dq.enqueue(this, event, this._listeners.length);
+        this._deliverQueue(dq);
+      }
+      (_d = this._perfMon) === null || _d === void 0 ? void 0 : _d.stop();
+    }
+    hasListeners() {
+      return this._size > 0;
     }
   };
-  var EventDeliveryQueue = class {
+  var EventDeliveryQueuePrivate = class {
     constructor() {
-      this._queue = new LinkedList();
+      this.i = -1;
+      this.end = 0;
     }
-    get size() {
-      return this._queue.size;
+    enqueue(emitter, value, end) {
+      this.i = 0;
+      this.end = end;
+      this.current = emitter;
+      this.value = value;
     }
-    push(emitter, listener, event) {
-      this._queue.push(new EventDeliveryQueueElement(emitter, listener, event));
-    }
-    clear(emitter) {
-      const newQueue = new LinkedList();
-      for (const element of this._queue) {
-        if (element.emitter !== emitter) {
-          newQueue.push(element);
-        }
-      }
-      this._queue = newQueue;
-    }
-    deliver() {
-      while (this._queue.size > 0) {
-        const element = this._queue.shift();
-        try {
-          element.listener.invoke(element.event);
-        } catch (e) {
-          onUnexpectedError(e);
-        }
-      }
-    }
-  };
-  var PrivateEventDeliveryQueue = class extends EventDeliveryQueue {
-    clear(emitter) {
-      this._queue.clear();
-    }
-  };
-  var EventDeliveryQueueElement = class {
-    constructor(emitter, listener, event) {
-      this.emitter = emitter;
-      this.listener = listener;
-      this.event = event;
+    reset() {
+      this.i = this.end;
+      this.current = void 0;
+      this.value = void 0;
     }
   };
 
   // node_modules/monaco-editor/esm/vs/base/common/types.js
+  function isString(str) {
+    return typeof str === "string";
+  }
+
+  // node_modules/monaco-editor/esm/vs/base/common/objects.js
   function getAllPropertyNames(obj) {
     let res = [];
     let proto = Object.getPrototypeOf(obj);
@@ -17889,9 +17916,153 @@ ${p.commentBefore}` : u;
     }
     return result;
   }
-  function assertNever(value, message = "Unreachable") {
-    throw new Error(message);
+
+  // node_modules/monaco-editor/esm/vs/nls.js
+  var isPseudo = typeof document !== "undefined" && document.location && document.location.hash.indexOf("pseudo=true") >= 0;
+  function _format(message, args) {
+    let result;
+    if (args.length === 0) {
+      result = message;
+    } else {
+      result = message.replace(/\{(\d+)\}/g, (match, rest) => {
+        const index = rest[0];
+        const arg = args[index];
+        let result2 = match;
+        if (typeof arg === "string") {
+          result2 = arg;
+        } else if (typeof arg === "number" || typeof arg === "boolean" || arg === void 0 || arg === null) {
+          result2 = String(arg);
+        }
+        return result2;
+      });
+    }
+    if (isPseudo) {
+      result = "\uFF3B" + result.replace(/[aouei]/g, "$&$&") + "\uFF3D";
+    }
+    return result;
   }
+  function localize(data, message, ...args) {
+    return _format(message, args);
+  }
+  function getConfiguredDefaultLocale(_) {
+    return void 0;
+  }
+
+  // node_modules/monaco-editor/esm/vs/base/common/platform.js
+  var _a;
+  var LANGUAGE_DEFAULT = "en";
+  var _isWindows = false;
+  var _isMacintosh = false;
+  var _isLinux = false;
+  var _isLinuxSnap = false;
+  var _isNative = false;
+  var _isWeb = false;
+  var _isElectron = false;
+  var _isIOS = false;
+  var _isCI = false;
+  var _isMobile = false;
+  var _locale = void 0;
+  var _language = LANGUAGE_DEFAULT;
+  var _platformLocale = LANGUAGE_DEFAULT;
+  var _translationsConfigFile = void 0;
+  var _userAgent = void 0;
+  var globals = typeof self === "object" ? self : typeof global === "object" ? global : {};
+  var nodeProcess = void 0;
+  if (typeof globals.vscode !== "undefined" && typeof globals.vscode.process !== "undefined") {
+    nodeProcess = globals.vscode.process;
+  } else if (typeof process !== "undefined") {
+    nodeProcess = process;
+  }
+  var isElectronProcess = typeof ((_a = nodeProcess === null || nodeProcess === void 0 ? void 0 : nodeProcess.versions) === null || _a === void 0 ? void 0 : _a.electron) === "string";
+  var isElectronRenderer = isElectronProcess && (nodeProcess === null || nodeProcess === void 0 ? void 0 : nodeProcess.type) === "renderer";
+  if (typeof navigator === "object" && !isElectronRenderer) {
+    _userAgent = navigator.userAgent;
+    _isWindows = _userAgent.indexOf("Windows") >= 0;
+    _isMacintosh = _userAgent.indexOf("Macintosh") >= 0;
+    _isIOS = (_userAgent.indexOf("Macintosh") >= 0 || _userAgent.indexOf("iPad") >= 0 || _userAgent.indexOf("iPhone") >= 0) && !!navigator.maxTouchPoints && navigator.maxTouchPoints > 0;
+    _isLinux = _userAgent.indexOf("Linux") >= 0;
+    _isMobile = (_userAgent === null || _userAgent === void 0 ? void 0 : _userAgent.indexOf("Mobi")) >= 0;
+    _isWeb = true;
+    const configuredLocale = getConfiguredDefaultLocale(
+      // This call _must_ be done in the file that calls `nls.getConfiguredDefaultLocale`
+      // to ensure that the NLS AMD Loader plugin has been loaded and configured.
+      // This is because the loader plugin decides what the default locale is based on
+      // how it's able to resolve the strings.
+      localize({ key: "ensureLoaderPluginIsLoaded", comment: ["{Locked}"] }, "_")
+    );
+    _locale = configuredLocale || LANGUAGE_DEFAULT;
+    _language = _locale;
+    _platformLocale = navigator.language;
+  } else if (typeof nodeProcess === "object") {
+    _isWindows = nodeProcess.platform === "win32";
+    _isMacintosh = nodeProcess.platform === "darwin";
+    _isLinux = nodeProcess.platform === "linux";
+    _isLinuxSnap = _isLinux && !!nodeProcess.env["SNAP"] && !!nodeProcess.env["SNAP_REVISION"];
+    _isElectron = isElectronProcess;
+    _isCI = !!nodeProcess.env["CI"] || !!nodeProcess.env["BUILD_ARTIFACTSTAGINGDIRECTORY"];
+    _locale = LANGUAGE_DEFAULT;
+    _language = LANGUAGE_DEFAULT;
+    const rawNlsConfig = nodeProcess.env["VSCODE_NLS_CONFIG"];
+    if (rawNlsConfig) {
+      try {
+        const nlsConfig = JSON.parse(rawNlsConfig);
+        const resolved = nlsConfig.availableLanguages["*"];
+        _locale = nlsConfig.locale;
+        _platformLocale = nlsConfig.osLocale;
+        _language = resolved ? resolved : LANGUAGE_DEFAULT;
+        _translationsConfigFile = nlsConfig._translationsConfigFile;
+      } catch (e) {
+      }
+    }
+    _isNative = true;
+  } else {
+    console.error("Unable to resolve platform.");
+  }
+  var _platform = 0;
+  if (_isMacintosh) {
+    _platform = 1;
+  } else if (_isWindows) {
+    _platform = 3;
+  } else if (_isLinux) {
+    _platform = 2;
+  }
+  var isWindows = _isWindows;
+  var isMacintosh = _isMacintosh;
+  var isWebWorker = _isWeb && typeof globals.importScripts === "function";
+  var userAgent = _userAgent;
+  var setTimeout0IsFaster = typeof globals.postMessage === "function" && !globals.importScripts;
+  var setTimeout0 = (() => {
+    if (setTimeout0IsFaster) {
+      const pending = [];
+      globals.addEventListener("message", (e) => {
+        if (e.data && e.data.vscodeScheduleAsyncWork) {
+          for (let i = 0, len = pending.length; i < len; i++) {
+            const candidate = pending[i];
+            if (candidate.id === e.data.vscodeScheduleAsyncWork) {
+              pending.splice(i, 1);
+              candidate.callback();
+              return;
+            }
+          }
+        }
+      });
+      let lastId = 0;
+      return (callback) => {
+        const myId = ++lastId;
+        pending.push({
+          id: myId,
+          callback
+        });
+        globals.postMessage({ vscodeScheduleAsyncWork: myId }, "*");
+      };
+    }
+    return (callback) => setTimeout(callback);
+  })();
+  var isChrome = !!(userAgent && userAgent.indexOf("Chrome") >= 0);
+  var isFirefox = !!(userAgent && userAgent.indexOf("Firefox") >= 0);
+  var isSafari = !!(!isChrome && (userAgent && userAgent.indexOf("Safari") >= 0));
+  var isEdge = !!(userAgent && userAgent.indexOf("Edg/") >= 0);
+  var isAndroid = !!(userAgent && userAgent.indexOf("Android") >= 0);
 
   // node_modules/monaco-editor/esm/vs/base/common/cache.js
   var LRUCachedFunction = class {
@@ -17916,10 +18087,13 @@ ${p.commentBefore}` : u;
       this.executor = executor;
       this._didRun = false;
     }
-    hasValue() {
-      return this._didRun;
-    }
-    getValue() {
+    /**
+     * Get the wrapped value.
+     *
+     * This will force evaluation of the lazy value if it has not been resolved yet. Lazy values are only
+     * resolved once. `getValue` will re-throw exceptions that are hit while resolving the value
+     */
+    get value() {
       if (!this._didRun) {
         try {
           this._value = this.executor();
@@ -17934,6 +18108,9 @@ ${p.commentBefore}` : u;
       }
       return this._value;
     }
+    /**
+     * Get the wrapped value without forcing evaluation.
+     */
     get rawValue() {
       return this._value;
     }
@@ -17991,16 +18168,19 @@ ${p.commentBefore}` : u;
   function isBasicASCII(str) {
     return IS_BASIC_ASCII.test(str);
   }
-  var UTF8_BOM_CHARACTER = String.fromCharCode(65279);
-  var GraphemeBreakTree = class {
+  var UTF8_BOM_CHARACTER = String.fromCharCode(
+    65279
+    /* CharCode.UTF8_BOM */
+  );
+  var GraphemeBreakTree = class _GraphemeBreakTree {
+    static getInstance() {
+      if (!_GraphemeBreakTree._INSTANCE) {
+        _GraphemeBreakTree._INSTANCE = new _GraphemeBreakTree();
+      }
+      return _GraphemeBreakTree._INSTANCE;
+    }
     constructor() {
       this._data = getGraphemeBreakRawData();
-    }
-    static getInstance() {
-      if (!GraphemeBreakTree._INSTANCE) {
-        GraphemeBreakTree._INSTANCE = new GraphemeBreakTree();
-      }
-      return GraphemeBreakTree._INSTANCE;
     }
     getGraphemeBreakType(codePoint) {
       if (codePoint < 32) {
@@ -18034,19 +18214,23 @@ ${p.commentBefore}` : u;
   function getGraphemeBreakRawData() {
     return JSON.parse("[0,0,0,51229,51255,12,44061,44087,12,127462,127487,6,7083,7085,5,47645,47671,12,54813,54839,12,128678,128678,14,3270,3270,5,9919,9923,14,45853,45879,12,49437,49463,12,53021,53047,12,71216,71218,7,128398,128399,14,129360,129374,14,2519,2519,5,4448,4519,9,9742,9742,14,12336,12336,14,44957,44983,12,46749,46775,12,48541,48567,12,50333,50359,12,52125,52151,12,53917,53943,12,69888,69890,5,73018,73018,5,127990,127990,14,128558,128559,14,128759,128760,14,129653,129655,14,2027,2035,5,2891,2892,7,3761,3761,5,6683,6683,5,8293,8293,4,9825,9826,14,9999,9999,14,43452,43453,5,44509,44535,12,45405,45431,12,46301,46327,12,47197,47223,12,48093,48119,12,48989,49015,12,49885,49911,12,50781,50807,12,51677,51703,12,52573,52599,12,53469,53495,12,54365,54391,12,65279,65279,4,70471,70472,7,72145,72147,7,119173,119179,5,127799,127818,14,128240,128244,14,128512,128512,14,128652,128652,14,128721,128722,14,129292,129292,14,129445,129450,14,129734,129743,14,1476,1477,5,2366,2368,7,2750,2752,7,3076,3076,5,3415,3415,5,4141,4144,5,6109,6109,5,6964,6964,5,7394,7400,5,9197,9198,14,9770,9770,14,9877,9877,14,9968,9969,14,10084,10084,14,43052,43052,5,43713,43713,5,44285,44311,12,44733,44759,12,45181,45207,12,45629,45655,12,46077,46103,12,46525,46551,12,46973,46999,12,47421,47447,12,47869,47895,12,48317,48343,12,48765,48791,12,49213,49239,12,49661,49687,12,50109,50135,12,50557,50583,12,51005,51031,12,51453,51479,12,51901,51927,12,52349,52375,12,52797,52823,12,53245,53271,12,53693,53719,12,54141,54167,12,54589,54615,12,55037,55063,12,69506,69509,5,70191,70193,5,70841,70841,7,71463,71467,5,72330,72342,5,94031,94031,5,123628,123631,5,127763,127765,14,127941,127941,14,128043,128062,14,128302,128317,14,128465,128467,14,128539,128539,14,128640,128640,14,128662,128662,14,128703,128703,14,128745,128745,14,129004,129007,14,129329,129330,14,129402,129402,14,129483,129483,14,129686,129704,14,130048,131069,14,173,173,4,1757,1757,1,2200,2207,5,2434,2435,7,2631,2632,5,2817,2817,5,3008,3008,5,3201,3201,5,3387,3388,5,3542,3542,5,3902,3903,7,4190,4192,5,6002,6003,5,6439,6440,5,6765,6770,7,7019,7027,5,7154,7155,7,8205,8205,13,8505,8505,14,9654,9654,14,9757,9757,14,9792,9792,14,9852,9853,14,9890,9894,14,9937,9937,14,9981,9981,14,10035,10036,14,11035,11036,14,42654,42655,5,43346,43347,7,43587,43587,5,44006,44007,7,44173,44199,12,44397,44423,12,44621,44647,12,44845,44871,12,45069,45095,12,45293,45319,12,45517,45543,12,45741,45767,12,45965,45991,12,46189,46215,12,46413,46439,12,46637,46663,12,46861,46887,12,47085,47111,12,47309,47335,12,47533,47559,12,47757,47783,12,47981,48007,12,48205,48231,12,48429,48455,12,48653,48679,12,48877,48903,12,49101,49127,12,49325,49351,12,49549,49575,12,49773,49799,12,49997,50023,12,50221,50247,12,50445,50471,12,50669,50695,12,50893,50919,12,51117,51143,12,51341,51367,12,51565,51591,12,51789,51815,12,52013,52039,12,52237,52263,12,52461,52487,12,52685,52711,12,52909,52935,12,53133,53159,12,53357,53383,12,53581,53607,12,53805,53831,12,54029,54055,12,54253,54279,12,54477,54503,12,54701,54727,12,54925,54951,12,55149,55175,12,68101,68102,5,69762,69762,7,70067,70069,7,70371,70378,5,70720,70721,7,71087,71087,5,71341,71341,5,71995,71996,5,72249,72249,7,72850,72871,5,73109,73109,5,118576,118598,5,121505,121519,5,127245,127247,14,127568,127569,14,127777,127777,14,127872,127891,14,127956,127967,14,128015,128016,14,128110,128172,14,128259,128259,14,128367,128368,14,128424,128424,14,128488,128488,14,128530,128532,14,128550,128551,14,128566,128566,14,128647,128647,14,128656,128656,14,128667,128673,14,128691,128693,14,128715,128715,14,128728,128732,14,128752,128752,14,128765,128767,14,129096,129103,14,129311,129311,14,129344,129349,14,129394,129394,14,129413,129425,14,129466,129471,14,129511,129535,14,129664,129666,14,129719,129722,14,129760,129767,14,917536,917631,5,13,13,2,1160,1161,5,1564,1564,4,1807,1807,1,2085,2087,5,2307,2307,7,2382,2383,7,2497,2500,5,2563,2563,7,2677,2677,5,2763,2764,7,2879,2879,5,2914,2915,5,3021,3021,5,3142,3144,5,3263,3263,5,3285,3286,5,3398,3400,7,3530,3530,5,3633,3633,5,3864,3865,5,3974,3975,5,4155,4156,7,4229,4230,5,5909,5909,7,6078,6085,7,6277,6278,5,6451,6456,7,6744,6750,5,6846,6846,5,6972,6972,5,7074,7077,5,7146,7148,7,7222,7223,5,7416,7417,5,8234,8238,4,8417,8417,5,9000,9000,14,9203,9203,14,9730,9731,14,9748,9749,14,9762,9763,14,9776,9783,14,9800,9811,14,9831,9831,14,9872,9873,14,9882,9882,14,9900,9903,14,9929,9933,14,9941,9960,14,9974,9974,14,9989,9989,14,10006,10006,14,10062,10062,14,10160,10160,14,11647,11647,5,12953,12953,14,43019,43019,5,43232,43249,5,43443,43443,5,43567,43568,7,43696,43696,5,43765,43765,7,44013,44013,5,44117,44143,12,44229,44255,12,44341,44367,12,44453,44479,12,44565,44591,12,44677,44703,12,44789,44815,12,44901,44927,12,45013,45039,12,45125,45151,12,45237,45263,12,45349,45375,12,45461,45487,12,45573,45599,12,45685,45711,12,45797,45823,12,45909,45935,12,46021,46047,12,46133,46159,12,46245,46271,12,46357,46383,12,46469,46495,12,46581,46607,12,46693,46719,12,46805,46831,12,46917,46943,12,47029,47055,12,47141,47167,12,47253,47279,12,47365,47391,12,47477,47503,12,47589,47615,12,47701,47727,12,47813,47839,12,47925,47951,12,48037,48063,12,48149,48175,12,48261,48287,12,48373,48399,12,48485,48511,12,48597,48623,12,48709,48735,12,48821,48847,12,48933,48959,12,49045,49071,12,49157,49183,12,49269,49295,12,49381,49407,12,49493,49519,12,49605,49631,12,49717,49743,12,49829,49855,12,49941,49967,12,50053,50079,12,50165,50191,12,50277,50303,12,50389,50415,12,50501,50527,12,50613,50639,12,50725,50751,12,50837,50863,12,50949,50975,12,51061,51087,12,51173,51199,12,51285,51311,12,51397,51423,12,51509,51535,12,51621,51647,12,51733,51759,12,51845,51871,12,51957,51983,12,52069,52095,12,52181,52207,12,52293,52319,12,52405,52431,12,52517,52543,12,52629,52655,12,52741,52767,12,52853,52879,12,52965,52991,12,53077,53103,12,53189,53215,12,53301,53327,12,53413,53439,12,53525,53551,12,53637,53663,12,53749,53775,12,53861,53887,12,53973,53999,12,54085,54111,12,54197,54223,12,54309,54335,12,54421,54447,12,54533,54559,12,54645,54671,12,54757,54783,12,54869,54895,12,54981,55007,12,55093,55119,12,55243,55291,10,66045,66045,5,68325,68326,5,69688,69702,5,69817,69818,5,69957,69958,7,70089,70092,5,70198,70199,5,70462,70462,5,70502,70508,5,70750,70750,5,70846,70846,7,71100,71101,5,71230,71230,7,71351,71351,5,71737,71738,5,72000,72000,7,72160,72160,5,72273,72278,5,72752,72758,5,72882,72883,5,73031,73031,5,73461,73462,7,94192,94193,7,119149,119149,7,121403,121452,5,122915,122916,5,126980,126980,14,127358,127359,14,127535,127535,14,127759,127759,14,127771,127771,14,127792,127793,14,127825,127867,14,127897,127899,14,127945,127945,14,127985,127986,14,128000,128007,14,128021,128021,14,128066,128100,14,128184,128235,14,128249,128252,14,128266,128276,14,128335,128335,14,128379,128390,14,128407,128419,14,128444,128444,14,128481,128481,14,128499,128499,14,128526,128526,14,128536,128536,14,128543,128543,14,128556,128556,14,128564,128564,14,128577,128580,14,128643,128645,14,128649,128649,14,128654,128654,14,128660,128660,14,128664,128664,14,128675,128675,14,128686,128689,14,128695,128696,14,128705,128709,14,128717,128719,14,128725,128725,14,128736,128741,14,128747,128748,14,128755,128755,14,128762,128762,14,128981,128991,14,129009,129023,14,129160,129167,14,129296,129304,14,129320,129327,14,129340,129342,14,129356,129356,14,129388,129392,14,129399,129400,14,129404,129407,14,129432,129442,14,129454,129455,14,129473,129474,14,129485,129487,14,129648,129651,14,129659,129660,14,129671,129679,14,129709,129711,14,129728,129730,14,129751,129753,14,129776,129782,14,917505,917505,4,917760,917999,5,10,10,3,127,159,4,768,879,5,1471,1471,5,1536,1541,1,1648,1648,5,1767,1768,5,1840,1866,5,2070,2073,5,2137,2139,5,2274,2274,1,2363,2363,7,2377,2380,7,2402,2403,5,2494,2494,5,2507,2508,7,2558,2558,5,2622,2624,7,2641,2641,5,2691,2691,7,2759,2760,5,2786,2787,5,2876,2876,5,2881,2884,5,2901,2902,5,3006,3006,5,3014,3016,7,3072,3072,5,3134,3136,5,3157,3158,5,3260,3260,5,3266,3266,5,3274,3275,7,3328,3329,5,3391,3392,7,3405,3405,5,3457,3457,5,3536,3537,7,3551,3551,5,3636,3642,5,3764,3772,5,3895,3895,5,3967,3967,7,3993,4028,5,4146,4151,5,4182,4183,7,4226,4226,5,4253,4253,5,4957,4959,5,5940,5940,7,6070,6070,7,6087,6088,7,6158,6158,4,6432,6434,5,6448,6449,7,6679,6680,5,6742,6742,5,6754,6754,5,6783,6783,5,6912,6915,5,6966,6970,5,6978,6978,5,7042,7042,7,7080,7081,5,7143,7143,7,7150,7150,7,7212,7219,5,7380,7392,5,7412,7412,5,8203,8203,4,8232,8232,4,8265,8265,14,8400,8412,5,8421,8432,5,8617,8618,14,9167,9167,14,9200,9200,14,9410,9410,14,9723,9726,14,9733,9733,14,9745,9745,14,9752,9752,14,9760,9760,14,9766,9766,14,9774,9774,14,9786,9786,14,9794,9794,14,9823,9823,14,9828,9828,14,9833,9850,14,9855,9855,14,9875,9875,14,9880,9880,14,9885,9887,14,9896,9897,14,9906,9916,14,9926,9927,14,9935,9935,14,9939,9939,14,9962,9962,14,9972,9972,14,9978,9978,14,9986,9986,14,9997,9997,14,10002,10002,14,10017,10017,14,10055,10055,14,10071,10071,14,10133,10135,14,10548,10549,14,11093,11093,14,12330,12333,5,12441,12442,5,42608,42610,5,43010,43010,5,43045,43046,5,43188,43203,7,43302,43309,5,43392,43394,5,43446,43449,5,43493,43493,5,43571,43572,7,43597,43597,7,43703,43704,5,43756,43757,5,44003,44004,7,44009,44010,7,44033,44059,12,44089,44115,12,44145,44171,12,44201,44227,12,44257,44283,12,44313,44339,12,44369,44395,12,44425,44451,12,44481,44507,12,44537,44563,12,44593,44619,12,44649,44675,12,44705,44731,12,44761,44787,12,44817,44843,12,44873,44899,12,44929,44955,12,44985,45011,12,45041,45067,12,45097,45123,12,45153,45179,12,45209,45235,12,45265,45291,12,45321,45347,12,45377,45403,12,45433,45459,12,45489,45515,12,45545,45571,12,45601,45627,12,45657,45683,12,45713,45739,12,45769,45795,12,45825,45851,12,45881,45907,12,45937,45963,12,45993,46019,12,46049,46075,12,46105,46131,12,46161,46187,12,46217,46243,12,46273,46299,12,46329,46355,12,46385,46411,12,46441,46467,12,46497,46523,12,46553,46579,12,46609,46635,12,46665,46691,12,46721,46747,12,46777,46803,12,46833,46859,12,46889,46915,12,46945,46971,12,47001,47027,12,47057,47083,12,47113,47139,12,47169,47195,12,47225,47251,12,47281,47307,12,47337,47363,12,47393,47419,12,47449,47475,12,47505,47531,12,47561,47587,12,47617,47643,12,47673,47699,12,47729,47755,12,47785,47811,12,47841,47867,12,47897,47923,12,47953,47979,12,48009,48035,12,48065,48091,12,48121,48147,12,48177,48203,12,48233,48259,12,48289,48315,12,48345,48371,12,48401,48427,12,48457,48483,12,48513,48539,12,48569,48595,12,48625,48651,12,48681,48707,12,48737,48763,12,48793,48819,12,48849,48875,12,48905,48931,12,48961,48987,12,49017,49043,12,49073,49099,12,49129,49155,12,49185,49211,12,49241,49267,12,49297,49323,12,49353,49379,12,49409,49435,12,49465,49491,12,49521,49547,12,49577,49603,12,49633,49659,12,49689,49715,12,49745,49771,12,49801,49827,12,49857,49883,12,49913,49939,12,49969,49995,12,50025,50051,12,50081,50107,12,50137,50163,12,50193,50219,12,50249,50275,12,50305,50331,12,50361,50387,12,50417,50443,12,50473,50499,12,50529,50555,12,50585,50611,12,50641,50667,12,50697,50723,12,50753,50779,12,50809,50835,12,50865,50891,12,50921,50947,12,50977,51003,12,51033,51059,12,51089,51115,12,51145,51171,12,51201,51227,12,51257,51283,12,51313,51339,12,51369,51395,12,51425,51451,12,51481,51507,12,51537,51563,12,51593,51619,12,51649,51675,12,51705,51731,12,51761,51787,12,51817,51843,12,51873,51899,12,51929,51955,12,51985,52011,12,52041,52067,12,52097,52123,12,52153,52179,12,52209,52235,12,52265,52291,12,52321,52347,12,52377,52403,12,52433,52459,12,52489,52515,12,52545,52571,12,52601,52627,12,52657,52683,12,52713,52739,12,52769,52795,12,52825,52851,12,52881,52907,12,52937,52963,12,52993,53019,12,53049,53075,12,53105,53131,12,53161,53187,12,53217,53243,12,53273,53299,12,53329,53355,12,53385,53411,12,53441,53467,12,53497,53523,12,53553,53579,12,53609,53635,12,53665,53691,12,53721,53747,12,53777,53803,12,53833,53859,12,53889,53915,12,53945,53971,12,54001,54027,12,54057,54083,12,54113,54139,12,54169,54195,12,54225,54251,12,54281,54307,12,54337,54363,12,54393,54419,12,54449,54475,12,54505,54531,12,54561,54587,12,54617,54643,12,54673,54699,12,54729,54755,12,54785,54811,12,54841,54867,12,54897,54923,12,54953,54979,12,55009,55035,12,55065,55091,12,55121,55147,12,55177,55203,12,65024,65039,5,65520,65528,4,66422,66426,5,68152,68154,5,69291,69292,5,69633,69633,5,69747,69748,5,69811,69814,5,69826,69826,5,69932,69932,7,70016,70017,5,70079,70080,7,70095,70095,5,70196,70196,5,70367,70367,5,70402,70403,7,70464,70464,5,70487,70487,5,70709,70711,7,70725,70725,7,70833,70834,7,70843,70844,7,70849,70849,7,71090,71093,5,71103,71104,5,71227,71228,7,71339,71339,5,71344,71349,5,71458,71461,5,71727,71735,5,71985,71989,7,71998,71998,5,72002,72002,7,72154,72155,5,72193,72202,5,72251,72254,5,72281,72283,5,72344,72345,5,72766,72766,7,72874,72880,5,72885,72886,5,73023,73029,5,73104,73105,5,73111,73111,5,92912,92916,5,94095,94098,5,113824,113827,4,119142,119142,7,119155,119162,4,119362,119364,5,121476,121476,5,122888,122904,5,123184,123190,5,125252,125258,5,127183,127183,14,127340,127343,14,127377,127386,14,127491,127503,14,127548,127551,14,127744,127756,14,127761,127761,14,127769,127769,14,127773,127774,14,127780,127788,14,127796,127797,14,127820,127823,14,127869,127869,14,127894,127895,14,127902,127903,14,127943,127943,14,127947,127950,14,127972,127972,14,127988,127988,14,127992,127994,14,128009,128011,14,128019,128019,14,128023,128041,14,128064,128064,14,128102,128107,14,128174,128181,14,128238,128238,14,128246,128247,14,128254,128254,14,128264,128264,14,128278,128299,14,128329,128330,14,128348,128359,14,128371,128377,14,128392,128393,14,128401,128404,14,128421,128421,14,128433,128434,14,128450,128452,14,128476,128478,14,128483,128483,14,128495,128495,14,128506,128506,14,128519,128520,14,128528,128528,14,128534,128534,14,128538,128538,14,128540,128542,14,128544,128549,14,128552,128555,14,128557,128557,14,128560,128563,14,128565,128565,14,128567,128576,14,128581,128591,14,128641,128642,14,128646,128646,14,128648,128648,14,128650,128651,14,128653,128653,14,128655,128655,14,128657,128659,14,128661,128661,14,128663,128663,14,128665,128666,14,128674,128674,14,128676,128677,14,128679,128685,14,128690,128690,14,128694,128694,14,128697,128702,14,128704,128704,14,128710,128714,14,128716,128716,14,128720,128720,14,128723,128724,14,128726,128727,14,128733,128735,14,128742,128744,14,128746,128746,14,128749,128751,14,128753,128754,14,128756,128758,14,128761,128761,14,128763,128764,14,128884,128895,14,128992,129003,14,129008,129008,14,129036,129039,14,129114,129119,14,129198,129279,14,129293,129295,14,129305,129310,14,129312,129319,14,129328,129328,14,129331,129338,14,129343,129343,14,129351,129355,14,129357,129359,14,129375,129387,14,129393,129393,14,129395,129398,14,129401,129401,14,129403,129403,14,129408,129412,14,129426,129431,14,129443,129444,14,129451,129453,14,129456,129465,14,129472,129472,14,129475,129482,14,129484,129484,14,129488,129510,14,129536,129647,14,129652,129652,14,129656,129658,14,129661,129663,14,129667,129670,14,129680,129685,14,129705,129708,14,129712,129718,14,129723,129727,14,129731,129733,14,129744,129750,14,129754,129759,14,129768,129775,14,129783,129791,14,917504,917504,4,917506,917535,4,917632,917759,4,918000,921599,4,0,9,4,11,12,4,14,31,4,169,169,14,174,174,14,1155,1159,5,1425,1469,5,1473,1474,5,1479,1479,5,1552,1562,5,1611,1631,5,1750,1756,5,1759,1764,5,1770,1773,5,1809,1809,5,1958,1968,5,2045,2045,5,2075,2083,5,2089,2093,5,2192,2193,1,2250,2273,5,2275,2306,5,2362,2362,5,2364,2364,5,2369,2376,5,2381,2381,5,2385,2391,5,2433,2433,5,2492,2492,5,2495,2496,7,2503,2504,7,2509,2509,5,2530,2531,5,2561,2562,5,2620,2620,5,2625,2626,5,2635,2637,5,2672,2673,5,2689,2690,5,2748,2748,5,2753,2757,5,2761,2761,7,2765,2765,5,2810,2815,5,2818,2819,7,2878,2878,5,2880,2880,7,2887,2888,7,2893,2893,5,2903,2903,5,2946,2946,5,3007,3007,7,3009,3010,7,3018,3020,7,3031,3031,5,3073,3075,7,3132,3132,5,3137,3140,7,3146,3149,5,3170,3171,5,3202,3203,7,3262,3262,7,3264,3265,7,3267,3268,7,3271,3272,7,3276,3277,5,3298,3299,5,3330,3331,7,3390,3390,5,3393,3396,5,3402,3404,7,3406,3406,1,3426,3427,5,3458,3459,7,3535,3535,5,3538,3540,5,3544,3550,7,3570,3571,7,3635,3635,7,3655,3662,5,3763,3763,7,3784,3789,5,3893,3893,5,3897,3897,5,3953,3966,5,3968,3972,5,3981,3991,5,4038,4038,5,4145,4145,7,4153,4154,5,4157,4158,5,4184,4185,5,4209,4212,5,4228,4228,7,4237,4237,5,4352,4447,8,4520,4607,10,5906,5908,5,5938,5939,5,5970,5971,5,6068,6069,5,6071,6077,5,6086,6086,5,6089,6099,5,6155,6157,5,6159,6159,5,6313,6313,5,6435,6438,7,6441,6443,7,6450,6450,5,6457,6459,5,6681,6682,7,6741,6741,7,6743,6743,7,6752,6752,5,6757,6764,5,6771,6780,5,6832,6845,5,6847,6862,5,6916,6916,7,6965,6965,5,6971,6971,7,6973,6977,7,6979,6980,7,7040,7041,5,7073,7073,7,7078,7079,7,7082,7082,7,7142,7142,5,7144,7145,5,7149,7149,5,7151,7153,5,7204,7211,7,7220,7221,7,7376,7378,5,7393,7393,7,7405,7405,5,7415,7415,7,7616,7679,5,8204,8204,5,8206,8207,4,8233,8233,4,8252,8252,14,8288,8292,4,8294,8303,4,8413,8416,5,8418,8420,5,8482,8482,14,8596,8601,14,8986,8987,14,9096,9096,14,9193,9196,14,9199,9199,14,9201,9202,14,9208,9210,14,9642,9643,14,9664,9664,14,9728,9729,14,9732,9732,14,9735,9741,14,9743,9744,14,9746,9746,14,9750,9751,14,9753,9756,14,9758,9759,14,9761,9761,14,9764,9765,14,9767,9769,14,9771,9773,14,9775,9775,14,9784,9785,14,9787,9791,14,9793,9793,14,9795,9799,14,9812,9822,14,9824,9824,14,9827,9827,14,9829,9830,14,9832,9832,14,9851,9851,14,9854,9854,14,9856,9861,14,9874,9874,14,9876,9876,14,9878,9879,14,9881,9881,14,9883,9884,14,9888,9889,14,9895,9895,14,9898,9899,14,9904,9905,14,9917,9918,14,9924,9925,14,9928,9928,14,9934,9934,14,9936,9936,14,9938,9938,14,9940,9940,14,9961,9961,14,9963,9967,14,9970,9971,14,9973,9973,14,9975,9977,14,9979,9980,14,9982,9985,14,9987,9988,14,9992,9996,14,9998,9998,14,10000,10001,14,10004,10004,14,10013,10013,14,10024,10024,14,10052,10052,14,10060,10060,14,10067,10069,14,10083,10083,14,10085,10087,14,10145,10145,14,10175,10175,14,11013,11015,14,11088,11088,14,11503,11505,5,11744,11775,5,12334,12335,5,12349,12349,14,12951,12951,14,42607,42607,5,42612,42621,5,42736,42737,5,43014,43014,5,43043,43044,7,43047,43047,7,43136,43137,7,43204,43205,5,43263,43263,5,43335,43345,5,43360,43388,8,43395,43395,7,43444,43445,7,43450,43451,7,43454,43456,7,43561,43566,5,43569,43570,5,43573,43574,5,43596,43596,5,43644,43644,5,43698,43700,5,43710,43711,5,43755,43755,7,43758,43759,7,43766,43766,5,44005,44005,5,44008,44008,5,44012,44012,7,44032,44032,11,44060,44060,11,44088,44088,11,44116,44116,11,44144,44144,11,44172,44172,11,44200,44200,11,44228,44228,11,44256,44256,11,44284,44284,11,44312,44312,11,44340,44340,11,44368,44368,11,44396,44396,11,44424,44424,11,44452,44452,11,44480,44480,11,44508,44508,11,44536,44536,11,44564,44564,11,44592,44592,11,44620,44620,11,44648,44648,11,44676,44676,11,44704,44704,11,44732,44732,11,44760,44760,11,44788,44788,11,44816,44816,11,44844,44844,11,44872,44872,11,44900,44900,11,44928,44928,11,44956,44956,11,44984,44984,11,45012,45012,11,45040,45040,11,45068,45068,11,45096,45096,11,45124,45124,11,45152,45152,11,45180,45180,11,45208,45208,11,45236,45236,11,45264,45264,11,45292,45292,11,45320,45320,11,45348,45348,11,45376,45376,11,45404,45404,11,45432,45432,11,45460,45460,11,45488,45488,11,45516,45516,11,45544,45544,11,45572,45572,11,45600,45600,11,45628,45628,11,45656,45656,11,45684,45684,11,45712,45712,11,45740,45740,11,45768,45768,11,45796,45796,11,45824,45824,11,45852,45852,11,45880,45880,11,45908,45908,11,45936,45936,11,45964,45964,11,45992,45992,11,46020,46020,11,46048,46048,11,46076,46076,11,46104,46104,11,46132,46132,11,46160,46160,11,46188,46188,11,46216,46216,11,46244,46244,11,46272,46272,11,46300,46300,11,46328,46328,11,46356,46356,11,46384,46384,11,46412,46412,11,46440,46440,11,46468,46468,11,46496,46496,11,46524,46524,11,46552,46552,11,46580,46580,11,46608,46608,11,46636,46636,11,46664,46664,11,46692,46692,11,46720,46720,11,46748,46748,11,46776,46776,11,46804,46804,11,46832,46832,11,46860,46860,11,46888,46888,11,46916,46916,11,46944,46944,11,46972,46972,11,47000,47000,11,47028,47028,11,47056,47056,11,47084,47084,11,47112,47112,11,47140,47140,11,47168,47168,11,47196,47196,11,47224,47224,11,47252,47252,11,47280,47280,11,47308,47308,11,47336,47336,11,47364,47364,11,47392,47392,11,47420,47420,11,47448,47448,11,47476,47476,11,47504,47504,11,47532,47532,11,47560,47560,11,47588,47588,11,47616,47616,11,47644,47644,11,47672,47672,11,47700,47700,11,47728,47728,11,47756,47756,11,47784,47784,11,47812,47812,11,47840,47840,11,47868,47868,11,47896,47896,11,47924,47924,11,47952,47952,11,47980,47980,11,48008,48008,11,48036,48036,11,48064,48064,11,48092,48092,11,48120,48120,11,48148,48148,11,48176,48176,11,48204,48204,11,48232,48232,11,48260,48260,11,48288,48288,11,48316,48316,11,48344,48344,11,48372,48372,11,48400,48400,11,48428,48428,11,48456,48456,11,48484,48484,11,48512,48512,11,48540,48540,11,48568,48568,11,48596,48596,11,48624,48624,11,48652,48652,11,48680,48680,11,48708,48708,11,48736,48736,11,48764,48764,11,48792,48792,11,48820,48820,11,48848,48848,11,48876,48876,11,48904,48904,11,48932,48932,11,48960,48960,11,48988,48988,11,49016,49016,11,49044,49044,11,49072,49072,11,49100,49100,11,49128,49128,11,49156,49156,11,49184,49184,11,49212,49212,11,49240,49240,11,49268,49268,11,49296,49296,11,49324,49324,11,49352,49352,11,49380,49380,11,49408,49408,11,49436,49436,11,49464,49464,11,49492,49492,11,49520,49520,11,49548,49548,11,49576,49576,11,49604,49604,11,49632,49632,11,49660,49660,11,49688,49688,11,49716,49716,11,49744,49744,11,49772,49772,11,49800,49800,11,49828,49828,11,49856,49856,11,49884,49884,11,49912,49912,11,49940,49940,11,49968,49968,11,49996,49996,11,50024,50024,11,50052,50052,11,50080,50080,11,50108,50108,11,50136,50136,11,50164,50164,11,50192,50192,11,50220,50220,11,50248,50248,11,50276,50276,11,50304,50304,11,50332,50332,11,50360,50360,11,50388,50388,11,50416,50416,11,50444,50444,11,50472,50472,11,50500,50500,11,50528,50528,11,50556,50556,11,50584,50584,11,50612,50612,11,50640,50640,11,50668,50668,11,50696,50696,11,50724,50724,11,50752,50752,11,50780,50780,11,50808,50808,11,50836,50836,11,50864,50864,11,50892,50892,11,50920,50920,11,50948,50948,11,50976,50976,11,51004,51004,11,51032,51032,11,51060,51060,11,51088,51088,11,51116,51116,11,51144,51144,11,51172,51172,11,51200,51200,11,51228,51228,11,51256,51256,11,51284,51284,11,51312,51312,11,51340,51340,11,51368,51368,11,51396,51396,11,51424,51424,11,51452,51452,11,51480,51480,11,51508,51508,11,51536,51536,11,51564,51564,11,51592,51592,11,51620,51620,11,51648,51648,11,51676,51676,11,51704,51704,11,51732,51732,11,51760,51760,11,51788,51788,11,51816,51816,11,51844,51844,11,51872,51872,11,51900,51900,11,51928,51928,11,51956,51956,11,51984,51984,11,52012,52012,11,52040,52040,11,52068,52068,11,52096,52096,11,52124,52124,11,52152,52152,11,52180,52180,11,52208,52208,11,52236,52236,11,52264,52264,11,52292,52292,11,52320,52320,11,52348,52348,11,52376,52376,11,52404,52404,11,52432,52432,11,52460,52460,11,52488,52488,11,52516,52516,11,52544,52544,11,52572,52572,11,52600,52600,11,52628,52628,11,52656,52656,11,52684,52684,11,52712,52712,11,52740,52740,11,52768,52768,11,52796,52796,11,52824,52824,11,52852,52852,11,52880,52880,11,52908,52908,11,52936,52936,11,52964,52964,11,52992,52992,11,53020,53020,11,53048,53048,11,53076,53076,11,53104,53104,11,53132,53132,11,53160,53160,11,53188,53188,11,53216,53216,11,53244,53244,11,53272,53272,11,53300,53300,11,53328,53328,11,53356,53356,11,53384,53384,11,53412,53412,11,53440,53440,11,53468,53468,11,53496,53496,11,53524,53524,11,53552,53552,11,53580,53580,11,53608,53608,11,53636,53636,11,53664,53664,11,53692,53692,11,53720,53720,11,53748,53748,11,53776,53776,11,53804,53804,11,53832,53832,11,53860,53860,11,53888,53888,11,53916,53916,11,53944,53944,11,53972,53972,11,54000,54000,11,54028,54028,11,54056,54056,11,54084,54084,11,54112,54112,11,54140,54140,11,54168,54168,11,54196,54196,11,54224,54224,11,54252,54252,11,54280,54280,11,54308,54308,11,54336,54336,11,54364,54364,11,54392,54392,11,54420,54420,11,54448,54448,11,54476,54476,11,54504,54504,11,54532,54532,11,54560,54560,11,54588,54588,11,54616,54616,11,54644,54644,11,54672,54672,11,54700,54700,11,54728,54728,11,54756,54756,11,54784,54784,11,54812,54812,11,54840,54840,11,54868,54868,11,54896,54896,11,54924,54924,11,54952,54952,11,54980,54980,11,55008,55008,11,55036,55036,11,55064,55064,11,55092,55092,11,55120,55120,11,55148,55148,11,55176,55176,11,55216,55238,9,64286,64286,5,65056,65071,5,65438,65439,5,65529,65531,4,66272,66272,5,68097,68099,5,68108,68111,5,68159,68159,5,68900,68903,5,69446,69456,5,69632,69632,7,69634,69634,7,69744,69744,5,69759,69761,5,69808,69810,7,69815,69816,7,69821,69821,1,69837,69837,1,69927,69931,5,69933,69940,5,70003,70003,5,70018,70018,7,70070,70078,5,70082,70083,1,70094,70094,7,70188,70190,7,70194,70195,7,70197,70197,7,70206,70206,5,70368,70370,7,70400,70401,5,70459,70460,5,70463,70463,7,70465,70468,7,70475,70477,7,70498,70499,7,70512,70516,5,70712,70719,5,70722,70724,5,70726,70726,5,70832,70832,5,70835,70840,5,70842,70842,5,70845,70845,5,70847,70848,5,70850,70851,5,71088,71089,7,71096,71099,7,71102,71102,7,71132,71133,5,71219,71226,5,71229,71229,5,71231,71232,5,71340,71340,7,71342,71343,7,71350,71350,7,71453,71455,5,71462,71462,7,71724,71726,7,71736,71736,7,71984,71984,5,71991,71992,7,71997,71997,7,71999,71999,1,72001,72001,1,72003,72003,5,72148,72151,5,72156,72159,7,72164,72164,7,72243,72248,5,72250,72250,1,72263,72263,5,72279,72280,7,72324,72329,1,72343,72343,7,72751,72751,7,72760,72765,5,72767,72767,5,72873,72873,7,72881,72881,7,72884,72884,7,73009,73014,5,73020,73021,5,73030,73030,1,73098,73102,7,73107,73108,7,73110,73110,7,73459,73460,5,78896,78904,4,92976,92982,5,94033,94087,7,94180,94180,5,113821,113822,5,118528,118573,5,119141,119141,5,119143,119145,5,119150,119154,5,119163,119170,5,119210,119213,5,121344,121398,5,121461,121461,5,121499,121503,5,122880,122886,5,122907,122913,5,122918,122922,5,123566,123566,5,125136,125142,5,126976,126979,14,126981,127182,14,127184,127231,14,127279,127279,14,127344,127345,14,127374,127374,14,127405,127461,14,127489,127490,14,127514,127514,14,127538,127546,14,127561,127567,14,127570,127743,14,127757,127758,14,127760,127760,14,127762,127762,14,127766,127768,14,127770,127770,14,127772,127772,14,127775,127776,14,127778,127779,14,127789,127791,14,127794,127795,14,127798,127798,14,127819,127819,14,127824,127824,14,127868,127868,14,127870,127871,14,127892,127893,14,127896,127896,14,127900,127901,14,127904,127940,14,127942,127942,14,127944,127944,14,127946,127946,14,127951,127955,14,127968,127971,14,127973,127984,14,127987,127987,14,127989,127989,14,127991,127991,14,127995,127999,5,128008,128008,14,128012,128014,14,128017,128018,14,128020,128020,14,128022,128022,14,128042,128042,14,128063,128063,14,128065,128065,14,128101,128101,14,128108,128109,14,128173,128173,14,128182,128183,14,128236,128237,14,128239,128239,14,128245,128245,14,128248,128248,14,128253,128253,14,128255,128258,14,128260,128263,14,128265,128265,14,128277,128277,14,128300,128301,14,128326,128328,14,128331,128334,14,128336,128347,14,128360,128366,14,128369,128370,14,128378,128378,14,128391,128391,14,128394,128397,14,128400,128400,14,128405,128406,14,128420,128420,14,128422,128423,14,128425,128432,14,128435,128443,14,128445,128449,14,128453,128464,14,128468,128475,14,128479,128480,14,128482,128482,14,128484,128487,14,128489,128494,14,128496,128498,14,128500,128505,14,128507,128511,14,128513,128518,14,128521,128525,14,128527,128527,14,128529,128529,14,128533,128533,14,128535,128535,14,128537,128537,14]");
   }
-  var AmbiguousCharacters = class {
-    constructor(confusableDictionary) {
-      this.confusableDictionary = confusableDictionary;
-    }
+  var AmbiguousCharacters = class _AmbiguousCharacters {
     static getInstance(locales) {
-      return AmbiguousCharacters.cache.get(Array.from(locales));
+      return _AmbiguousCharacters.cache.get(Array.from(locales));
     }
     static getLocales() {
-      return AmbiguousCharacters._locales.getValue();
+      return _AmbiguousCharacters._locales.value;
+    }
+    constructor(confusableDictionary) {
+      this.confusableDictionary = confusableDictionary;
     }
     isAmbiguous(codePoint) {
       return this.confusableDictionary.has(codePoint);
     }
+    /**
+     * Returns the non basic ASCII code point that the given code point can be confused,
+     * or undefined if such code point does note exist.
+     */
     getPrimaryConfusable(codePoint) {
       return this.confusableDictionary.get(codePoint);
     }
@@ -18056,7 +18240,7 @@ ${p.commentBefore}` : u;
   };
   _a2 = AmbiguousCharacters;
   AmbiguousCharacters.ambiguousCharacterData = new Lazy(() => {
-    return JSON.parse('{"_common":[8232,32,8233,32,5760,32,8192,32,8193,32,8194,32,8195,32,8196,32,8197,32,8198,32,8200,32,8201,32,8202,32,8287,32,8199,32,8239,32,2042,95,65101,95,65102,95,65103,95,8208,45,8209,45,8210,45,65112,45,1748,45,8259,45,727,45,8722,45,10134,45,11450,45,1549,44,1643,44,8218,44,184,44,42233,44,894,59,2307,58,2691,58,1417,58,1795,58,1796,58,5868,58,65072,58,6147,58,6153,58,8282,58,1475,58,760,58,42889,58,8758,58,720,58,42237,58,451,33,11601,33,660,63,577,63,2429,63,5038,63,42731,63,119149,46,8228,46,1793,46,1794,46,42510,46,68176,46,1632,46,1776,46,42232,46,1373,96,65287,96,8219,96,8242,96,1370,96,1523,96,8175,96,65344,96,900,96,8189,96,8125,96,8127,96,8190,96,697,96,884,96,712,96,714,96,715,96,756,96,699,96,701,96,700,96,702,96,42892,96,1497,96,2036,96,2037,96,5194,96,5836,96,94033,96,94034,96,65339,91,10088,40,10098,40,12308,40,64830,40,65341,93,10089,41,10099,41,12309,41,64831,41,10100,123,119060,123,10101,125,65342,94,8270,42,1645,42,8727,42,66335,42,5941,47,8257,47,8725,47,8260,47,9585,47,10187,47,10744,47,119354,47,12755,47,12339,47,11462,47,20031,47,12035,47,65340,92,65128,92,8726,92,10189,92,10741,92,10745,92,119311,92,119355,92,12756,92,20022,92,12034,92,42872,38,708,94,710,94,5869,43,10133,43,66203,43,8249,60,10094,60,706,60,119350,60,5176,60,5810,60,5120,61,11840,61,12448,61,42239,61,8250,62,10095,62,707,62,119351,62,5171,62,94015,62,8275,126,732,126,8128,126,8764,126,65372,124,65293,45,120784,50,120794,50,120804,50,120814,50,120824,50,130034,50,42842,50,423,50,1000,50,42564,50,5311,50,42735,50,119302,51,120785,51,120795,51,120805,51,120815,51,120825,51,130035,51,42923,51,540,51,439,51,42858,51,11468,51,1248,51,94011,51,71882,51,120786,52,120796,52,120806,52,120816,52,120826,52,130036,52,5070,52,71855,52,120787,53,120797,53,120807,53,120817,53,120827,53,130037,53,444,53,71867,53,120788,54,120798,54,120808,54,120818,54,120828,54,130038,54,11474,54,5102,54,71893,54,119314,55,120789,55,120799,55,120809,55,120819,55,120829,55,130039,55,66770,55,71878,55,2819,56,2538,56,2666,56,125131,56,120790,56,120800,56,120810,56,120820,56,120830,56,130040,56,547,56,546,56,66330,56,2663,57,2920,57,2541,57,3437,57,120791,57,120801,57,120811,57,120821,57,120831,57,130041,57,42862,57,11466,57,71884,57,71852,57,71894,57,9082,97,65345,97,119834,97,119886,97,119938,97,119990,97,120042,97,120094,97,120146,97,120198,97,120250,97,120302,97,120354,97,120406,97,120458,97,593,97,945,97,120514,97,120572,97,120630,97,120688,97,120746,97,65313,65,119808,65,119860,65,119912,65,119964,65,120016,65,120068,65,120120,65,120172,65,120224,65,120276,65,120328,65,120380,65,120432,65,913,65,120488,65,120546,65,120604,65,120662,65,120720,65,5034,65,5573,65,42222,65,94016,65,66208,65,119835,98,119887,98,119939,98,119991,98,120043,98,120095,98,120147,98,120199,98,120251,98,120303,98,120355,98,120407,98,120459,98,388,98,5071,98,5234,98,5551,98,65314,66,8492,66,119809,66,119861,66,119913,66,120017,66,120069,66,120121,66,120173,66,120225,66,120277,66,120329,66,120381,66,120433,66,42932,66,914,66,120489,66,120547,66,120605,66,120663,66,120721,66,5108,66,5623,66,42192,66,66178,66,66209,66,66305,66,65347,99,8573,99,119836,99,119888,99,119940,99,119992,99,120044,99,120096,99,120148,99,120200,99,120252,99,120304,99,120356,99,120408,99,120460,99,7428,99,1010,99,11429,99,43951,99,66621,99,128844,67,71922,67,71913,67,65315,67,8557,67,8450,67,8493,67,119810,67,119862,67,119914,67,119966,67,120018,67,120174,67,120226,67,120278,67,120330,67,120382,67,120434,67,1017,67,11428,67,5087,67,42202,67,66210,67,66306,67,66581,67,66844,67,8574,100,8518,100,119837,100,119889,100,119941,100,119993,100,120045,100,120097,100,120149,100,120201,100,120253,100,120305,100,120357,100,120409,100,120461,100,1281,100,5095,100,5231,100,42194,100,8558,68,8517,68,119811,68,119863,68,119915,68,119967,68,120019,68,120071,68,120123,68,120175,68,120227,68,120279,68,120331,68,120383,68,120435,68,5024,68,5598,68,5610,68,42195,68,8494,101,65349,101,8495,101,8519,101,119838,101,119890,101,119942,101,120046,101,120098,101,120150,101,120202,101,120254,101,120306,101,120358,101,120410,101,120462,101,43826,101,1213,101,8959,69,65317,69,8496,69,119812,69,119864,69,119916,69,120020,69,120072,69,120124,69,120176,69,120228,69,120280,69,120332,69,120384,69,120436,69,917,69,120492,69,120550,69,120608,69,120666,69,120724,69,11577,69,5036,69,42224,69,71846,69,71854,69,66182,69,119839,102,119891,102,119943,102,119995,102,120047,102,120099,102,120151,102,120203,102,120255,102,120307,102,120359,102,120411,102,120463,102,43829,102,42905,102,383,102,7837,102,1412,102,119315,70,8497,70,119813,70,119865,70,119917,70,120021,70,120073,70,120125,70,120177,70,120229,70,120281,70,120333,70,120385,70,120437,70,42904,70,988,70,120778,70,5556,70,42205,70,71874,70,71842,70,66183,70,66213,70,66853,70,65351,103,8458,103,119840,103,119892,103,119944,103,120048,103,120100,103,120152,103,120204,103,120256,103,120308,103,120360,103,120412,103,120464,103,609,103,7555,103,397,103,1409,103,119814,71,119866,71,119918,71,119970,71,120022,71,120074,71,120126,71,120178,71,120230,71,120282,71,120334,71,120386,71,120438,71,1292,71,5056,71,5107,71,42198,71,65352,104,8462,104,119841,104,119945,104,119997,104,120049,104,120101,104,120153,104,120205,104,120257,104,120309,104,120361,104,120413,104,120465,104,1211,104,1392,104,5058,104,65320,72,8459,72,8460,72,8461,72,119815,72,119867,72,119919,72,120023,72,120179,72,120231,72,120283,72,120335,72,120387,72,120439,72,919,72,120494,72,120552,72,120610,72,120668,72,120726,72,11406,72,5051,72,5500,72,42215,72,66255,72,731,105,9075,105,65353,105,8560,105,8505,105,8520,105,119842,105,119894,105,119946,105,119998,105,120050,105,120102,105,120154,105,120206,105,120258,105,120310,105,120362,105,120414,105,120466,105,120484,105,618,105,617,105,953,105,8126,105,890,105,120522,105,120580,105,120638,105,120696,105,120754,105,1110,105,42567,105,1231,105,43893,105,5029,105,71875,105,65354,106,8521,106,119843,106,119895,106,119947,106,119999,106,120051,106,120103,106,120155,106,120207,106,120259,106,120311,106,120363,106,120415,106,120467,106,1011,106,1112,106,65322,74,119817,74,119869,74,119921,74,119973,74,120025,74,120077,74,120129,74,120181,74,120233,74,120285,74,120337,74,120389,74,120441,74,42930,74,895,74,1032,74,5035,74,5261,74,42201,74,119844,107,119896,107,119948,107,120000,107,120052,107,120104,107,120156,107,120208,107,120260,107,120312,107,120364,107,120416,107,120468,107,8490,75,65323,75,119818,75,119870,75,119922,75,119974,75,120026,75,120078,75,120130,75,120182,75,120234,75,120286,75,120338,75,120390,75,120442,75,922,75,120497,75,120555,75,120613,75,120671,75,120729,75,11412,75,5094,75,5845,75,42199,75,66840,75,1472,108,8739,73,9213,73,65512,73,1633,108,1777,73,66336,108,125127,108,120783,73,120793,73,120803,73,120813,73,120823,73,130033,73,65321,73,8544,73,8464,73,8465,73,119816,73,119868,73,119920,73,120024,73,120128,73,120180,73,120232,73,120284,73,120336,73,120388,73,120440,73,65356,108,8572,73,8467,108,119845,108,119897,108,119949,108,120001,108,120053,108,120105,73,120157,73,120209,73,120261,73,120313,73,120365,73,120417,73,120469,73,448,73,120496,73,120554,73,120612,73,120670,73,120728,73,11410,73,1030,73,1216,73,1493,108,1503,108,1575,108,126464,108,126592,108,65166,108,65165,108,1994,108,11599,73,5825,73,42226,73,93992,73,66186,124,66313,124,119338,76,8556,76,8466,76,119819,76,119871,76,119923,76,120027,76,120079,76,120131,76,120183,76,120235,76,120287,76,120339,76,120391,76,120443,76,11472,76,5086,76,5290,76,42209,76,93974,76,71843,76,71858,76,66587,76,66854,76,65325,77,8559,77,8499,77,119820,77,119872,77,119924,77,120028,77,120080,77,120132,77,120184,77,120236,77,120288,77,120340,77,120392,77,120444,77,924,77,120499,77,120557,77,120615,77,120673,77,120731,77,1018,77,11416,77,5047,77,5616,77,5846,77,42207,77,66224,77,66321,77,119847,110,119899,110,119951,110,120003,110,120055,110,120107,110,120159,110,120211,110,120263,110,120315,110,120367,110,120419,110,120471,110,1400,110,1404,110,65326,78,8469,78,119821,78,119873,78,119925,78,119977,78,120029,78,120081,78,120185,78,120237,78,120289,78,120341,78,120393,78,120445,78,925,78,120500,78,120558,78,120616,78,120674,78,120732,78,11418,78,42208,78,66835,78,3074,111,3202,111,3330,111,3458,111,2406,111,2662,111,2790,111,3046,111,3174,111,3302,111,3430,111,3664,111,3792,111,4160,111,1637,111,1781,111,65359,111,8500,111,119848,111,119900,111,119952,111,120056,111,120108,111,120160,111,120212,111,120264,111,120316,111,120368,111,120420,111,120472,111,7439,111,7441,111,43837,111,959,111,120528,111,120586,111,120644,111,120702,111,120760,111,963,111,120532,111,120590,111,120648,111,120706,111,120764,111,11423,111,4351,111,1413,111,1505,111,1607,111,126500,111,126564,111,126596,111,65259,111,65260,111,65258,111,65257,111,1726,111,64428,111,64429,111,64427,111,64426,111,1729,111,64424,111,64425,111,64423,111,64422,111,1749,111,3360,111,4125,111,66794,111,71880,111,71895,111,66604,111,1984,79,2534,79,2918,79,12295,79,70864,79,71904,79,120782,79,120792,79,120802,79,120812,79,120822,79,130032,79,65327,79,119822,79,119874,79,119926,79,119978,79,120030,79,120082,79,120134,79,120186,79,120238,79,120290,79,120342,79,120394,79,120446,79,927,79,120502,79,120560,79,120618,79,120676,79,120734,79,11422,79,1365,79,11604,79,4816,79,2848,79,66754,79,42227,79,71861,79,66194,79,66219,79,66564,79,66838,79,9076,112,65360,112,119849,112,119901,112,119953,112,120005,112,120057,112,120109,112,120161,112,120213,112,120265,112,120317,112,120369,112,120421,112,120473,112,961,112,120530,112,120544,112,120588,112,120602,112,120646,112,120660,112,120704,112,120718,112,120762,112,120776,112,11427,112,65328,80,8473,80,119823,80,119875,80,119927,80,119979,80,120031,80,120083,80,120187,80,120239,80,120291,80,120343,80,120395,80,120447,80,929,80,120504,80,120562,80,120620,80,120678,80,120736,80,11426,80,5090,80,5229,80,42193,80,66197,80,119850,113,119902,113,119954,113,120006,113,120058,113,120110,113,120162,113,120214,113,120266,113,120318,113,120370,113,120422,113,120474,113,1307,113,1379,113,1382,113,8474,81,119824,81,119876,81,119928,81,119980,81,120032,81,120084,81,120188,81,120240,81,120292,81,120344,81,120396,81,120448,81,11605,81,119851,114,119903,114,119955,114,120007,114,120059,114,120111,114,120163,114,120215,114,120267,114,120319,114,120371,114,120423,114,120475,114,43847,114,43848,114,7462,114,11397,114,43905,114,119318,82,8475,82,8476,82,8477,82,119825,82,119877,82,119929,82,120033,82,120189,82,120241,82,120293,82,120345,82,120397,82,120449,82,422,82,5025,82,5074,82,66740,82,5511,82,42211,82,94005,82,65363,115,119852,115,119904,115,119956,115,120008,115,120060,115,120112,115,120164,115,120216,115,120268,115,120320,115,120372,115,120424,115,120476,115,42801,115,445,115,1109,115,43946,115,71873,115,66632,115,65331,83,119826,83,119878,83,119930,83,119982,83,120034,83,120086,83,120138,83,120190,83,120242,83,120294,83,120346,83,120398,83,120450,83,1029,83,1359,83,5077,83,5082,83,42210,83,94010,83,66198,83,66592,83,119853,116,119905,116,119957,116,120009,116,120061,116,120113,116,120165,116,120217,116,120269,116,120321,116,120373,116,120425,116,120477,116,8868,84,10201,84,128872,84,65332,84,119827,84,119879,84,119931,84,119983,84,120035,84,120087,84,120139,84,120191,84,120243,84,120295,84,120347,84,120399,84,120451,84,932,84,120507,84,120565,84,120623,84,120681,84,120739,84,11430,84,5026,84,42196,84,93962,84,71868,84,66199,84,66225,84,66325,84,119854,117,119906,117,119958,117,120010,117,120062,117,120114,117,120166,117,120218,117,120270,117,120322,117,120374,117,120426,117,120478,117,42911,117,7452,117,43854,117,43858,117,651,117,965,117,120534,117,120592,117,120650,117,120708,117,120766,117,1405,117,66806,117,71896,117,8746,85,8899,85,119828,85,119880,85,119932,85,119984,85,120036,85,120088,85,120140,85,120192,85,120244,85,120296,85,120348,85,120400,85,120452,85,1357,85,4608,85,66766,85,5196,85,42228,85,94018,85,71864,85,8744,118,8897,118,65366,118,8564,118,119855,118,119907,118,119959,118,120011,118,120063,118,120115,118,120167,118,120219,118,120271,118,120323,118,120375,118,120427,118,120479,118,7456,118,957,118,120526,118,120584,118,120642,118,120700,118,120758,118,1141,118,1496,118,71430,118,43945,118,71872,118,119309,86,1639,86,1783,86,8548,86,119829,86,119881,86,119933,86,119985,86,120037,86,120089,86,120141,86,120193,86,120245,86,120297,86,120349,86,120401,86,120453,86,1140,86,11576,86,5081,86,5167,86,42719,86,42214,86,93960,86,71840,86,66845,86,623,119,119856,119,119908,119,119960,119,120012,119,120064,119,120116,119,120168,119,120220,119,120272,119,120324,119,120376,119,120428,119,120480,119,7457,119,1121,119,1309,119,1377,119,71434,119,71438,119,71439,119,43907,119,71919,87,71910,87,119830,87,119882,87,119934,87,119986,87,120038,87,120090,87,120142,87,120194,87,120246,87,120298,87,120350,87,120402,87,120454,87,1308,87,5043,87,5076,87,42218,87,5742,120,10539,120,10540,120,10799,120,65368,120,8569,120,119857,120,119909,120,119961,120,120013,120,120065,120,120117,120,120169,120,120221,120,120273,120,120325,120,120377,120,120429,120,120481,120,5441,120,5501,120,5741,88,9587,88,66338,88,71916,88,65336,88,8553,88,119831,88,119883,88,119935,88,119987,88,120039,88,120091,88,120143,88,120195,88,120247,88,120299,88,120351,88,120403,88,120455,88,42931,88,935,88,120510,88,120568,88,120626,88,120684,88,120742,88,11436,88,11613,88,5815,88,42219,88,66192,88,66228,88,66327,88,66855,88,611,121,7564,121,65369,121,119858,121,119910,121,119962,121,120014,121,120066,121,120118,121,120170,121,120222,121,120274,121,120326,121,120378,121,120430,121,120482,121,655,121,7935,121,43866,121,947,121,8509,121,120516,121,120574,121,120632,121,120690,121,120748,121,1199,121,4327,121,71900,121,65337,89,119832,89,119884,89,119936,89,119988,89,120040,89,120092,89,120144,89,120196,89,120248,89,120300,89,120352,89,120404,89,120456,89,933,89,978,89,120508,89,120566,89,120624,89,120682,89,120740,89,11432,89,1198,89,5033,89,5053,89,42220,89,94019,89,71844,89,66226,89,119859,122,119911,122,119963,122,120015,122,120067,122,120119,122,120171,122,120223,122,120275,122,120327,122,120379,122,120431,122,120483,122,7458,122,43923,122,71876,122,66293,90,71909,90,65338,90,8484,90,8488,90,119833,90,119885,90,119937,90,119989,90,120041,90,120197,90,120249,90,120301,90,120353,90,120405,90,120457,90,918,90,120493,90,120551,90,120609,90,120667,90,120725,90,5059,90,42204,90,71849,90,65282,34,65284,36,65285,37,65286,38,65290,42,65291,43,65294,46,65295,47,65296,48,65297,49,65298,50,65299,51,65300,52,65301,53,65302,54,65303,55,65304,56,65305,57,65308,60,65309,61,65310,62,65312,64,65316,68,65318,70,65319,71,65324,76,65329,81,65330,82,65333,85,65334,86,65335,87,65343,95,65346,98,65348,100,65350,102,65355,107,65357,109,65358,110,65361,113,65362,114,65364,116,65365,117,65367,119,65370,122,65371,123,65373,125],"_default":[160,32,8211,45,65374,126,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"cs":[65374,126,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"de":[65374,126,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"es":[8211,45,65374,126,65306,58,65281,33,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"fr":[65374,126,65306,58,65281,33,8216,96,8245,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"it":[160,32,8211,45,65374,126,65306,58,65281,33,8216,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"ja":[8211,45,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65292,44,65307,59],"ko":[8211,45,65374,126,65306,58,65281,33,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"pl":[65374,126,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"pt-BR":[65374,126,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"qps-ploc":[160,32,8211,45,65374,126,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"ru":[65374,126,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,305,105,921,73,1009,112,215,120,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"tr":[160,32,8211,45,65374,126,65306,58,65281,33,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"zh-hans":[65374,126,65306,58,65281,33,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65288,40,65289,41],"zh-hant":[8211,45,65374,126,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65307,59]}');
+    return JSON.parse('{"_common":[8232,32,8233,32,5760,32,8192,32,8193,32,8194,32,8195,32,8196,32,8197,32,8198,32,8200,32,8201,32,8202,32,8287,32,8199,32,8239,32,2042,95,65101,95,65102,95,65103,95,8208,45,8209,45,8210,45,65112,45,1748,45,8259,45,727,45,8722,45,10134,45,11450,45,1549,44,1643,44,8218,44,184,44,42233,44,894,59,2307,58,2691,58,1417,58,1795,58,1796,58,5868,58,65072,58,6147,58,6153,58,8282,58,1475,58,760,58,42889,58,8758,58,720,58,42237,58,451,33,11601,33,660,63,577,63,2429,63,5038,63,42731,63,119149,46,8228,46,1793,46,1794,46,42510,46,68176,46,1632,46,1776,46,42232,46,1373,96,65287,96,8219,96,8242,96,1370,96,1523,96,8175,96,65344,96,900,96,8189,96,8125,96,8127,96,8190,96,697,96,884,96,712,96,714,96,715,96,756,96,699,96,701,96,700,96,702,96,42892,96,1497,96,2036,96,2037,96,5194,96,5836,96,94033,96,94034,96,65339,91,10088,40,10098,40,12308,40,64830,40,65341,93,10089,41,10099,41,12309,41,64831,41,10100,123,119060,123,10101,125,65342,94,8270,42,1645,42,8727,42,66335,42,5941,47,8257,47,8725,47,8260,47,9585,47,10187,47,10744,47,119354,47,12755,47,12339,47,11462,47,20031,47,12035,47,65340,92,65128,92,8726,92,10189,92,10741,92,10745,92,119311,92,119355,92,12756,92,20022,92,12034,92,42872,38,708,94,710,94,5869,43,10133,43,66203,43,8249,60,10094,60,706,60,119350,60,5176,60,5810,60,5120,61,11840,61,12448,61,42239,61,8250,62,10095,62,707,62,119351,62,5171,62,94015,62,8275,126,732,126,8128,126,8764,126,65372,124,65293,45,120784,50,120794,50,120804,50,120814,50,120824,50,130034,50,42842,50,423,50,1000,50,42564,50,5311,50,42735,50,119302,51,120785,51,120795,51,120805,51,120815,51,120825,51,130035,51,42923,51,540,51,439,51,42858,51,11468,51,1248,51,94011,51,71882,51,120786,52,120796,52,120806,52,120816,52,120826,52,130036,52,5070,52,71855,52,120787,53,120797,53,120807,53,120817,53,120827,53,130037,53,444,53,71867,53,120788,54,120798,54,120808,54,120818,54,120828,54,130038,54,11474,54,5102,54,71893,54,119314,55,120789,55,120799,55,120809,55,120819,55,120829,55,130039,55,66770,55,71878,55,2819,56,2538,56,2666,56,125131,56,120790,56,120800,56,120810,56,120820,56,120830,56,130040,56,547,56,546,56,66330,56,2663,57,2920,57,2541,57,3437,57,120791,57,120801,57,120811,57,120821,57,120831,57,130041,57,42862,57,11466,57,71884,57,71852,57,71894,57,9082,97,65345,97,119834,97,119886,97,119938,97,119990,97,120042,97,120094,97,120146,97,120198,97,120250,97,120302,97,120354,97,120406,97,120458,97,593,97,945,97,120514,97,120572,97,120630,97,120688,97,120746,97,65313,65,119808,65,119860,65,119912,65,119964,65,120016,65,120068,65,120120,65,120172,65,120224,65,120276,65,120328,65,120380,65,120432,65,913,65,120488,65,120546,65,120604,65,120662,65,120720,65,5034,65,5573,65,42222,65,94016,65,66208,65,119835,98,119887,98,119939,98,119991,98,120043,98,120095,98,120147,98,120199,98,120251,98,120303,98,120355,98,120407,98,120459,98,388,98,5071,98,5234,98,5551,98,65314,66,8492,66,119809,66,119861,66,119913,66,120017,66,120069,66,120121,66,120173,66,120225,66,120277,66,120329,66,120381,66,120433,66,42932,66,914,66,120489,66,120547,66,120605,66,120663,66,120721,66,5108,66,5623,66,42192,66,66178,66,66209,66,66305,66,65347,99,8573,99,119836,99,119888,99,119940,99,119992,99,120044,99,120096,99,120148,99,120200,99,120252,99,120304,99,120356,99,120408,99,120460,99,7428,99,1010,99,11429,99,43951,99,66621,99,128844,67,71922,67,71913,67,65315,67,8557,67,8450,67,8493,67,119810,67,119862,67,119914,67,119966,67,120018,67,120174,67,120226,67,120278,67,120330,67,120382,67,120434,67,1017,67,11428,67,5087,67,42202,67,66210,67,66306,67,66581,67,66844,67,8574,100,8518,100,119837,100,119889,100,119941,100,119993,100,120045,100,120097,100,120149,100,120201,100,120253,100,120305,100,120357,100,120409,100,120461,100,1281,100,5095,100,5231,100,42194,100,8558,68,8517,68,119811,68,119863,68,119915,68,119967,68,120019,68,120071,68,120123,68,120175,68,120227,68,120279,68,120331,68,120383,68,120435,68,5024,68,5598,68,5610,68,42195,68,8494,101,65349,101,8495,101,8519,101,119838,101,119890,101,119942,101,120046,101,120098,101,120150,101,120202,101,120254,101,120306,101,120358,101,120410,101,120462,101,43826,101,1213,101,8959,69,65317,69,8496,69,119812,69,119864,69,119916,69,120020,69,120072,69,120124,69,120176,69,120228,69,120280,69,120332,69,120384,69,120436,69,917,69,120492,69,120550,69,120608,69,120666,69,120724,69,11577,69,5036,69,42224,69,71846,69,71854,69,66182,69,119839,102,119891,102,119943,102,119995,102,120047,102,120099,102,120151,102,120203,102,120255,102,120307,102,120359,102,120411,102,120463,102,43829,102,42905,102,383,102,7837,102,1412,102,119315,70,8497,70,119813,70,119865,70,119917,70,120021,70,120073,70,120125,70,120177,70,120229,70,120281,70,120333,70,120385,70,120437,70,42904,70,988,70,120778,70,5556,70,42205,70,71874,70,71842,70,66183,70,66213,70,66853,70,65351,103,8458,103,119840,103,119892,103,119944,103,120048,103,120100,103,120152,103,120204,103,120256,103,120308,103,120360,103,120412,103,120464,103,609,103,7555,103,397,103,1409,103,119814,71,119866,71,119918,71,119970,71,120022,71,120074,71,120126,71,120178,71,120230,71,120282,71,120334,71,120386,71,120438,71,1292,71,5056,71,5107,71,42198,71,65352,104,8462,104,119841,104,119945,104,119997,104,120049,104,120101,104,120153,104,120205,104,120257,104,120309,104,120361,104,120413,104,120465,104,1211,104,1392,104,5058,104,65320,72,8459,72,8460,72,8461,72,119815,72,119867,72,119919,72,120023,72,120179,72,120231,72,120283,72,120335,72,120387,72,120439,72,919,72,120494,72,120552,72,120610,72,120668,72,120726,72,11406,72,5051,72,5500,72,42215,72,66255,72,731,105,9075,105,65353,105,8560,105,8505,105,8520,105,119842,105,119894,105,119946,105,119998,105,120050,105,120102,105,120154,105,120206,105,120258,105,120310,105,120362,105,120414,105,120466,105,120484,105,618,105,617,105,953,105,8126,105,890,105,120522,105,120580,105,120638,105,120696,105,120754,105,1110,105,42567,105,1231,105,43893,105,5029,105,71875,105,65354,106,8521,106,119843,106,119895,106,119947,106,119999,106,120051,106,120103,106,120155,106,120207,106,120259,106,120311,106,120363,106,120415,106,120467,106,1011,106,1112,106,65322,74,119817,74,119869,74,119921,74,119973,74,120025,74,120077,74,120129,74,120181,74,120233,74,120285,74,120337,74,120389,74,120441,74,42930,74,895,74,1032,74,5035,74,5261,74,42201,74,119844,107,119896,107,119948,107,120000,107,120052,107,120104,107,120156,107,120208,107,120260,107,120312,107,120364,107,120416,107,120468,107,8490,75,65323,75,119818,75,119870,75,119922,75,119974,75,120026,75,120078,75,120130,75,120182,75,120234,75,120286,75,120338,75,120390,75,120442,75,922,75,120497,75,120555,75,120613,75,120671,75,120729,75,11412,75,5094,75,5845,75,42199,75,66840,75,1472,108,8739,73,9213,73,65512,73,1633,108,1777,73,66336,108,125127,108,120783,73,120793,73,120803,73,120813,73,120823,73,130033,73,65321,73,8544,73,8464,73,8465,73,119816,73,119868,73,119920,73,120024,73,120128,73,120180,73,120232,73,120284,73,120336,73,120388,73,120440,73,65356,108,8572,73,8467,108,119845,108,119897,108,119949,108,120001,108,120053,108,120105,73,120157,73,120209,73,120261,73,120313,73,120365,73,120417,73,120469,73,448,73,120496,73,120554,73,120612,73,120670,73,120728,73,11410,73,1030,73,1216,73,1493,108,1503,108,1575,108,126464,108,126592,108,65166,108,65165,108,1994,108,11599,73,5825,73,42226,73,93992,73,66186,124,66313,124,119338,76,8556,76,8466,76,119819,76,119871,76,119923,76,120027,76,120079,76,120131,76,120183,76,120235,76,120287,76,120339,76,120391,76,120443,76,11472,76,5086,76,5290,76,42209,76,93974,76,71843,76,71858,76,66587,76,66854,76,65325,77,8559,77,8499,77,119820,77,119872,77,119924,77,120028,77,120080,77,120132,77,120184,77,120236,77,120288,77,120340,77,120392,77,120444,77,924,77,120499,77,120557,77,120615,77,120673,77,120731,77,1018,77,11416,77,5047,77,5616,77,5846,77,42207,77,66224,77,66321,77,119847,110,119899,110,119951,110,120003,110,120055,110,120107,110,120159,110,120211,110,120263,110,120315,110,120367,110,120419,110,120471,110,1400,110,1404,110,65326,78,8469,78,119821,78,119873,78,119925,78,119977,78,120029,78,120081,78,120185,78,120237,78,120289,78,120341,78,120393,78,120445,78,925,78,120500,78,120558,78,120616,78,120674,78,120732,78,11418,78,42208,78,66835,78,3074,111,3202,111,3330,111,3458,111,2406,111,2662,111,2790,111,3046,111,3174,111,3302,111,3430,111,3664,111,3792,111,4160,111,1637,111,1781,111,65359,111,8500,111,119848,111,119900,111,119952,111,120056,111,120108,111,120160,111,120212,111,120264,111,120316,111,120368,111,120420,111,120472,111,7439,111,7441,111,43837,111,959,111,120528,111,120586,111,120644,111,120702,111,120760,111,963,111,120532,111,120590,111,120648,111,120706,111,120764,111,11423,111,4351,111,1413,111,1505,111,1607,111,126500,111,126564,111,126596,111,65259,111,65260,111,65258,111,65257,111,1726,111,64428,111,64429,111,64427,111,64426,111,1729,111,64424,111,64425,111,64423,111,64422,111,1749,111,3360,111,4125,111,66794,111,71880,111,71895,111,66604,111,1984,79,2534,79,2918,79,12295,79,70864,79,71904,79,120782,79,120792,79,120802,79,120812,79,120822,79,130032,79,65327,79,119822,79,119874,79,119926,79,119978,79,120030,79,120082,79,120134,79,120186,79,120238,79,120290,79,120342,79,120394,79,120446,79,927,79,120502,79,120560,79,120618,79,120676,79,120734,79,11422,79,1365,79,11604,79,4816,79,2848,79,66754,79,42227,79,71861,79,66194,79,66219,79,66564,79,66838,79,9076,112,65360,112,119849,112,119901,112,119953,112,120005,112,120057,112,120109,112,120161,112,120213,112,120265,112,120317,112,120369,112,120421,112,120473,112,961,112,120530,112,120544,112,120588,112,120602,112,120646,112,120660,112,120704,112,120718,112,120762,112,120776,112,11427,112,65328,80,8473,80,119823,80,119875,80,119927,80,119979,80,120031,80,120083,80,120187,80,120239,80,120291,80,120343,80,120395,80,120447,80,929,80,120504,80,120562,80,120620,80,120678,80,120736,80,11426,80,5090,80,5229,80,42193,80,66197,80,119850,113,119902,113,119954,113,120006,113,120058,113,120110,113,120162,113,120214,113,120266,113,120318,113,120370,113,120422,113,120474,113,1307,113,1379,113,1382,113,8474,81,119824,81,119876,81,119928,81,119980,81,120032,81,120084,81,120188,81,120240,81,120292,81,120344,81,120396,81,120448,81,11605,81,119851,114,119903,114,119955,114,120007,114,120059,114,120111,114,120163,114,120215,114,120267,114,120319,114,120371,114,120423,114,120475,114,43847,114,43848,114,7462,114,11397,114,43905,114,119318,82,8475,82,8476,82,8477,82,119825,82,119877,82,119929,82,120033,82,120189,82,120241,82,120293,82,120345,82,120397,82,120449,82,422,82,5025,82,5074,82,66740,82,5511,82,42211,82,94005,82,65363,115,119852,115,119904,115,119956,115,120008,115,120060,115,120112,115,120164,115,120216,115,120268,115,120320,115,120372,115,120424,115,120476,115,42801,115,445,115,1109,115,43946,115,71873,115,66632,115,65331,83,119826,83,119878,83,119930,83,119982,83,120034,83,120086,83,120138,83,120190,83,120242,83,120294,83,120346,83,120398,83,120450,83,1029,83,1359,83,5077,83,5082,83,42210,83,94010,83,66198,83,66592,83,119853,116,119905,116,119957,116,120009,116,120061,116,120113,116,120165,116,120217,116,120269,116,120321,116,120373,116,120425,116,120477,116,8868,84,10201,84,128872,84,65332,84,119827,84,119879,84,119931,84,119983,84,120035,84,120087,84,120139,84,120191,84,120243,84,120295,84,120347,84,120399,84,120451,84,932,84,120507,84,120565,84,120623,84,120681,84,120739,84,11430,84,5026,84,42196,84,93962,84,71868,84,66199,84,66225,84,66325,84,119854,117,119906,117,119958,117,120010,117,120062,117,120114,117,120166,117,120218,117,120270,117,120322,117,120374,117,120426,117,120478,117,42911,117,7452,117,43854,117,43858,117,651,117,965,117,120534,117,120592,117,120650,117,120708,117,120766,117,1405,117,66806,117,71896,117,8746,85,8899,85,119828,85,119880,85,119932,85,119984,85,120036,85,120088,85,120140,85,120192,85,120244,85,120296,85,120348,85,120400,85,120452,85,1357,85,4608,85,66766,85,5196,85,42228,85,94018,85,71864,85,8744,118,8897,118,65366,118,8564,118,119855,118,119907,118,119959,118,120011,118,120063,118,120115,118,120167,118,120219,118,120271,118,120323,118,120375,118,120427,118,120479,118,7456,118,957,118,120526,118,120584,118,120642,118,120700,118,120758,118,1141,118,1496,118,71430,118,43945,118,71872,118,119309,86,1639,86,1783,86,8548,86,119829,86,119881,86,119933,86,119985,86,120037,86,120089,86,120141,86,120193,86,120245,86,120297,86,120349,86,120401,86,120453,86,1140,86,11576,86,5081,86,5167,86,42719,86,42214,86,93960,86,71840,86,66845,86,623,119,119856,119,119908,119,119960,119,120012,119,120064,119,120116,119,120168,119,120220,119,120272,119,120324,119,120376,119,120428,119,120480,119,7457,119,1121,119,1309,119,1377,119,71434,119,71438,119,71439,119,43907,119,71919,87,71910,87,119830,87,119882,87,119934,87,119986,87,120038,87,120090,87,120142,87,120194,87,120246,87,120298,87,120350,87,120402,87,120454,87,1308,87,5043,87,5076,87,42218,87,5742,120,10539,120,10540,120,10799,120,65368,120,8569,120,119857,120,119909,120,119961,120,120013,120,120065,120,120117,120,120169,120,120221,120,120273,120,120325,120,120377,120,120429,120,120481,120,5441,120,5501,120,5741,88,9587,88,66338,88,71916,88,65336,88,8553,88,119831,88,119883,88,119935,88,119987,88,120039,88,120091,88,120143,88,120195,88,120247,88,120299,88,120351,88,120403,88,120455,88,42931,88,935,88,120510,88,120568,88,120626,88,120684,88,120742,88,11436,88,11613,88,5815,88,42219,88,66192,88,66228,88,66327,88,66855,88,611,121,7564,121,65369,121,119858,121,119910,121,119962,121,120014,121,120066,121,120118,121,120170,121,120222,121,120274,121,120326,121,120378,121,120430,121,120482,121,655,121,7935,121,43866,121,947,121,8509,121,120516,121,120574,121,120632,121,120690,121,120748,121,1199,121,4327,121,71900,121,65337,89,119832,89,119884,89,119936,89,119988,89,120040,89,120092,89,120144,89,120196,89,120248,89,120300,89,120352,89,120404,89,120456,89,933,89,978,89,120508,89,120566,89,120624,89,120682,89,120740,89,11432,89,1198,89,5033,89,5053,89,42220,89,94019,89,71844,89,66226,89,119859,122,119911,122,119963,122,120015,122,120067,122,120119,122,120171,122,120223,122,120275,122,120327,122,120379,122,120431,122,120483,122,7458,122,43923,122,71876,122,66293,90,71909,90,65338,90,8484,90,8488,90,119833,90,119885,90,119937,90,119989,90,120041,90,120197,90,120249,90,120301,90,120353,90,120405,90,120457,90,918,90,120493,90,120551,90,120609,90,120667,90,120725,90,5059,90,42204,90,71849,90,65282,34,65284,36,65285,37,65286,38,65290,42,65291,43,65294,46,65295,47,65296,48,65297,49,65298,50,65299,51,65300,52,65301,53,65302,54,65303,55,65304,56,65305,57,65308,60,65309,61,65310,62,65312,64,65316,68,65318,70,65319,71,65324,76,65329,81,65330,82,65333,85,65334,86,65335,87,65343,95,65346,98,65348,100,65350,102,65355,107,65357,109,65358,110,65361,113,65362,114,65364,116,65365,117,65367,119,65370,122,65371,123,65373,125,119846,109],"_default":[160,32,8211,45,65374,126,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"cs":[65374,126,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"de":[65374,126,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"es":[8211,45,65374,126,65306,58,65281,33,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"fr":[65374,126,65306,58,65281,33,8216,96,8245,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"it":[160,32,8211,45,65374,126,65306,58,65281,33,8216,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"ja":[8211,45,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65292,44,65307,59],"ko":[8211,45,65374,126,65306,58,65281,33,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"pl":[65374,126,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"pt-BR":[65374,126,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"qps-ploc":[160,32,8211,45,65374,126,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"ru":[65374,126,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,305,105,921,73,1009,112,215,120,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"tr":[160,32,8211,45,65374,126,65306,58,65281,33,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65288,40,65289,41,65292,44,65307,59,65311,63],"zh-hans":[65374,126,65306,58,65281,33,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65288,40,65289,41],"zh-hant":[8211,45,65374,126,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,73,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89,65283,35,65307,59]}');
   });
   AmbiguousCharacters.cache = new LRUCachedFunction((locales) => {
     function arrayToMap(arr) {
@@ -18085,7 +18269,7 @@ ${p.commentBefore}` : u;
       }
       return result;
     }
-    const data = _a2.ambiguousCharacterData.getValue();
+    const data = _a2.ambiguousCharacterData.value;
     let filteredLocales = locales.filter((l) => !l.startsWith("_") && l in data);
     if (filteredLocales.length === 0) {
       filteredLocales = ["_default"];
@@ -18099,22 +18283,22 @@ ${p.commentBefore}` : u;
     const map2 = mergeMaps(commonMap, languageSpecificMap);
     return new AmbiguousCharacters(map2);
   });
-  AmbiguousCharacters._locales = new Lazy(() => Object.keys(AmbiguousCharacters.ambiguousCharacterData.getValue()).filter((k) => !k.startsWith("_")));
-  var InvisibleCharacters = class {
+  AmbiguousCharacters._locales = new Lazy(() => Object.keys(AmbiguousCharacters.ambiguousCharacterData.value).filter((k) => !k.startsWith("_")));
+  var InvisibleCharacters = class _InvisibleCharacters {
     static getRawData() {
       return JSON.parse("[9,10,11,12,13,32,127,160,173,847,1564,4447,4448,6068,6069,6155,6156,6157,6158,7355,7356,8192,8193,8194,8195,8196,8197,8198,8199,8200,8201,8202,8203,8204,8205,8206,8207,8234,8235,8236,8237,8238,8239,8287,8288,8289,8290,8291,8292,8293,8294,8295,8296,8297,8298,8299,8300,8301,8302,8303,10240,12288,12644,65024,65025,65026,65027,65028,65029,65030,65031,65032,65033,65034,65035,65036,65037,65038,65039,65279,65440,65520,65521,65522,65523,65524,65525,65526,65527,65528,65532,78844,119155,119156,119157,119158,119159,119160,119161,119162,917504,917505,917506,917507,917508,917509,917510,917511,917512,917513,917514,917515,917516,917517,917518,917519,917520,917521,917522,917523,917524,917525,917526,917527,917528,917529,917530,917531,917532,917533,917534,917535,917536,917537,917538,917539,917540,917541,917542,917543,917544,917545,917546,917547,917548,917549,917550,917551,917552,917553,917554,917555,917556,917557,917558,917559,917560,917561,917562,917563,917564,917565,917566,917567,917568,917569,917570,917571,917572,917573,917574,917575,917576,917577,917578,917579,917580,917581,917582,917583,917584,917585,917586,917587,917588,917589,917590,917591,917592,917593,917594,917595,917596,917597,917598,917599,917600,917601,917602,917603,917604,917605,917606,917607,917608,917609,917610,917611,917612,917613,917614,917615,917616,917617,917618,917619,917620,917621,917622,917623,917624,917625,917626,917627,917628,917629,917630,917631,917760,917761,917762,917763,917764,917765,917766,917767,917768,917769,917770,917771,917772,917773,917774,917775,917776,917777,917778,917779,917780,917781,917782,917783,917784,917785,917786,917787,917788,917789,917790,917791,917792,917793,917794,917795,917796,917797,917798,917799,917800,917801,917802,917803,917804,917805,917806,917807,917808,917809,917810,917811,917812,917813,917814,917815,917816,917817,917818,917819,917820,917821,917822,917823,917824,917825,917826,917827,917828,917829,917830,917831,917832,917833,917834,917835,917836,917837,917838,917839,917840,917841,917842,917843,917844,917845,917846,917847,917848,917849,917850,917851,917852,917853,917854,917855,917856,917857,917858,917859,917860,917861,917862,917863,917864,917865,917866,917867,917868,917869,917870,917871,917872,917873,917874,917875,917876,917877,917878,917879,917880,917881,917882,917883,917884,917885,917886,917887,917888,917889,917890,917891,917892,917893,917894,917895,917896,917897,917898,917899,917900,917901,917902,917903,917904,917905,917906,917907,917908,917909,917910,917911,917912,917913,917914,917915,917916,917917,917918,917919,917920,917921,917922,917923,917924,917925,917926,917927,917928,917929,917930,917931,917932,917933,917934,917935,917936,917937,917938,917939,917940,917941,917942,917943,917944,917945,917946,917947,917948,917949,917950,917951,917952,917953,917954,917955,917956,917957,917958,917959,917960,917961,917962,917963,917964,917965,917966,917967,917968,917969,917970,917971,917972,917973,917974,917975,917976,917977,917978,917979,917980,917981,917982,917983,917984,917985,917986,917987,917988,917989,917990,917991,917992,917993,917994,917995,917996,917997,917998,917999]");
     }
     static getData() {
       if (!this._data) {
-        this._data = new Set(InvisibleCharacters.getRawData());
+        this._data = new Set(_InvisibleCharacters.getRawData());
       }
       return this._data;
     }
     static isInvisibleCharacter(codePoint) {
-      return InvisibleCharacters.getData().has(codePoint);
+      return _InvisibleCharacters.getData().has(codePoint);
     }
     static get codePoints() {
-      return InvisibleCharacters.getData();
+      return _InvisibleCharacters.getData();
     }
   };
   InvisibleCharacters._data = void 0;
@@ -18188,12 +18372,12 @@ ${p.commentBefore}` : u;
     listen(eventName, arg) {
       let req = null;
       const emitter = new Emitter({
-        onFirstListenerAdd: () => {
+        onWillAddFirstListener: () => {
           req = String(++this._lastSentReq);
           this._pendingEmitters.set(req, emitter);
           this._send(new SubscribeEventMessage(this._workerId, req, eventName, arg));
         },
-        onLastListenerRemove: () => {
+        onDidRemoveLastListener: () => {
           this._pendingEmitters.delete(req);
           this._send(new UnsubscribeEventMessage(this._workerId, req));
           req = null;
@@ -18400,10 +18584,10 @@ ${p.commentBefore}` : u;
           delete loaderConfig["trustedTypesPolicy"];
         }
         loaderConfig.catchError = true;
-        globals.require.config(loaderConfig);
+        globalThis.require.config(loaderConfig);
       }
       return new Promise((resolve3, reject) => {
-        const req = globals.require;
+        const req = globalThis.require;
         req([moduleId], (module) => {
           this._requestHandler = module.create(hostProxy);
           if (!this._requestHandler) {
@@ -18418,15 +18602,25 @@ ${p.commentBefore}` : u;
 
   // node_modules/monaco-editor/esm/vs/base/common/diff/diffChange.js
   var DiffChange = class {
+    /**
+     * Constructs a new DiffChange with the given sequence information
+     * and content.
+     */
     constructor(originalStart, originalLength, modifiedStart, modifiedLength) {
       this.originalStart = originalStart;
       this.originalLength = originalLength;
       this.modifiedStart = modifiedStart;
       this.modifiedLength = modifiedLength;
     }
+    /**
+     * The end point (exclusive) of the change in the original sequence.
+     */
     getOriginalEnd() {
       return this.originalStart + this.originalLength;
     }
+    /**
+     * The end point (exclusive) of the change in the modified sequence.
+     */
     getModifiedEnd() {
       return this.modifiedStart + this.modifiedLength;
     }
@@ -18465,14 +18659,17 @@ ${p.commentBefore}` : u;
     }
     return leftPad((bufferOrValue >>> 0).toString(16), bitsize / 4);
   }
-  var StringSHA1 = class {
+  var StringSHA1 = class _StringSHA1 {
     constructor() {
       this._h0 = 1732584193;
       this._h1 = 4023233417;
       this._h2 = 2562383102;
       this._h3 = 271733878;
       this._h4 = 3285377520;
-      this._buff = new Uint8Array(64 + 3);
+      this._buff = new Uint8Array(
+        64 + 3
+        /* to fit any utf-8 */
+      );
       this._buffDV = new DataView(this._buff.buffer);
       this._buffLen = 0;
       this._totalLen = 0;
@@ -18557,7 +18754,12 @@ ${p.commentBefore}` : u;
         this._finished = true;
         if (this._leftoverHighSurrogate) {
           this._leftoverHighSurrogate = 0;
-          this._buffLen = this._push(this._buff, this._buffLen, 65533);
+          this._buffLen = this._push(
+            this._buff,
+            this._buffLen,
+            65533
+            /* SHA1Constant.UNICODE_REPLACEMENT */
+          );
         }
         this._totalLen += this._buffLen;
         this._wrapUp();
@@ -18577,7 +18779,7 @@ ${p.commentBefore}` : u;
       this._step();
     }
     _step() {
-      const bigBlock32 = StringSHA1._bigBlock32;
+      const bigBlock32 = _StringSHA1._bigBlock32;
       const data = this._buffDV;
       for (let j = 0; j < 64; j += 4) {
         bigBlock32.setUint32(j, data.getUint32(j, false), false);
@@ -18647,6 +18849,21 @@ ${p.commentBefore}` : u;
     }
   };
   var MyArray = class {
+    /**
+     * Copies a range of elements from an Array starting at the specified source index and pastes
+     * them to another Array starting at the specified destination index. The length and the indexes
+     * are specified as 64-bit integers.
+     * sourceArray:
+     *		The Array that contains the data to copy.
+     * sourceIndex:
+     *		A 64-bit integer that represents the index in the sourceArray at which copying begins.
+     * destinationArray:
+     *		The Array that receives the data.
+     * destinationIndex:
+     *		A 64-bit integer that represents the index in the destinationArray at which storing begins.
+     * length:
+     *		A 64-bit integer that represents the number of elements to copy.
+     */
     static Copy(sourceArray, sourceIndex, destinationArray, destinationIndex, length) {
       for (let i = 0; i < length; i++) {
         destinationArray[destinationIndex + i] = sourceArray[sourceIndex + i];
@@ -18659,6 +18876,9 @@ ${p.commentBefore}` : u;
     }
   };
   var DiffChangeHelper = class {
+    /**
+     * Constructs a new DiffChangeHelper for the given DiffSequences.
+     */
     constructor() {
       this.m_changes = [];
       this.m_originalStart = 1073741824;
@@ -18666,6 +18886,9 @@ ${p.commentBefore}` : u;
       this.m_originalCount = 0;
       this.m_modifiedCount = 0;
     }
+    /**
+     * Marks the beginning of the next change in the set of differences.
+     */
     MarkNextChange() {
       if (this.m_originalCount > 0 || this.m_modifiedCount > 0) {
         this.m_changes.push(new DiffChange(this.m_originalStart, this.m_originalCount, this.m_modifiedStart, this.m_modifiedCount));
@@ -18675,22 +18898,42 @@ ${p.commentBefore}` : u;
       this.m_originalStart = 1073741824;
       this.m_modifiedStart = 1073741824;
     }
+    /**
+     * Adds the original element at the given position to the elements
+     * affected by the current change. The modified index gives context
+     * to the change position with respect to the original sequence.
+     * @param originalIndex The index of the original element to add.
+     * @param modifiedIndex The index of the modified element that provides corresponding position in the modified sequence.
+     */
     AddOriginalElement(originalIndex, modifiedIndex) {
       this.m_originalStart = Math.min(this.m_originalStart, originalIndex);
       this.m_modifiedStart = Math.min(this.m_modifiedStart, modifiedIndex);
       this.m_originalCount++;
     }
+    /**
+     * Adds the modified element at the given position to the elements
+     * affected by the current change. The original index gives context
+     * to the change position with respect to the modified sequence.
+     * @param originalIndex The index of the original element that provides corresponding position in the original sequence.
+     * @param modifiedIndex The index of the modified element to add.
+     */
     AddModifiedElement(originalIndex, modifiedIndex) {
       this.m_originalStart = Math.min(this.m_originalStart, originalIndex);
       this.m_modifiedStart = Math.min(this.m_modifiedStart, modifiedIndex);
       this.m_modifiedCount++;
     }
+    /**
+     * Retrieves all of the changes marked by the class.
+     */
     getChanges() {
       if (this.m_originalCount > 0 || this.m_modifiedCount > 0) {
         this.MarkNextChange();
       }
       return this.m_changes;
     }
+    /**
+     * Retrieves all of the changes marked by the class in the reverse order
+     */
     getReverseChanges() {
       if (this.m_originalCount > 0 || this.m_modifiedCount > 0) {
         this.MarkNextChange();
@@ -18699,13 +18942,16 @@ ${p.commentBefore}` : u;
       return this.m_changes;
     }
   };
-  var LcsDiff = class {
+  var LcsDiff = class _LcsDiff {
+    /**
+     * Constructs the DiffFinder
+     */
     constructor(originalSequence, modifiedSequence, continueProcessingPredicate = null) {
       this.ContinueProcessingPredicate = continueProcessingPredicate;
       this._originalSequence = originalSequence;
       this._modifiedSequence = modifiedSequence;
-      const [originalStringElements, originalElementsOrHash, originalHasStrings] = LcsDiff._getElements(originalSequence);
-      const [modifiedStringElements, modifiedElementsOrHash, modifiedHasStrings] = LcsDiff._getElements(modifiedSequence);
+      const [originalStringElements, originalElementsOrHash, originalHasStrings] = _LcsDiff._getElements(originalSequence);
+      const [modifiedStringElements, modifiedElementsOrHash, modifiedHasStrings] = _LcsDiff._getElements(modifiedSequence);
       this._hasStrings = originalHasStrings && modifiedHasStrings;
       this._originalStringElements = originalStringElements;
       this._originalElementsOrHash = originalElementsOrHash;
@@ -18719,7 +18965,7 @@ ${p.commentBefore}` : u;
     }
     static _getElements(sequence) {
       const elements = sequence.getElements();
-      if (LcsDiff._isStringArray(elements)) {
+      if (_LcsDiff._isStringArray(elements)) {
         const hashes = new Int32Array(elements.length);
         for (let i = 0, len = elements.length; i < len; i++) {
           hashes[i] = stringHash(elements[i], 0);
@@ -18741,8 +18987,8 @@ ${p.commentBefore}` : u;
       if (!this.ElementsAreEqual(originalIndex, newIndex)) {
         return false;
       }
-      const originalElement = LcsDiff._getStrictElement(this._originalSequence, originalIndex);
-      const modifiedElement = LcsDiff._getStrictElement(this._modifiedSequence, newIndex);
+      const originalElement = _LcsDiff._getStrictElement(this._originalSequence, originalIndex);
+      const modifiedElement = _LcsDiff._getStrictElement(this._modifiedSequence, newIndex);
       return originalElement === modifiedElement;
     }
     static _getStrictElement(sequence, index) {
@@ -18766,6 +19012,11 @@ ${p.commentBefore}` : u;
     ComputeDiff(pretty) {
       return this._ComputeDiff(0, this._originalElementsOrHash.length - 1, 0, this._modifiedElementsOrHash.length - 1, pretty);
     }
+    /**
+     * Computes the differences between the original and modified input
+     * sequences on the bounded range.
+     * @returns An array of the differences between the two input sequences.
+     */
     _ComputeDiff(originalStart, originalEnd, modifiedStart, modifiedEnd, pretty) {
       const quitEarlyArr = [false];
       let changes = this.ComputeDiffRecursive(originalStart, originalEnd, modifiedStart, modifiedEnd, quitEarlyArr);
@@ -18777,6 +19028,11 @@ ${p.commentBefore}` : u;
         changes
       };
     }
+    /**
+     * Private helper method which computes the differences on the bounded range
+     * recursively.
+     * @returns An array of the differences between the two input sequences.
+     */
     ComputeDiffRecursive(originalStart, originalEnd, modifiedStart, modifiedEnd, quitEarlyArr) {
       quitEarlyArr[0] = false;
       while (originalStart <= originalEnd && modifiedStart <= modifiedEnd && this.ElementsAreEqual(originalStart, modifiedStart)) {
@@ -18917,6 +19173,22 @@ ${p.commentBefore}` : u;
       }
       return this.ConcatenateChanges(forwardChanges, reverseChanges);
     }
+    /**
+     * Given the range to compute the diff on, this method finds the point:
+     * (midOriginal, midModified)
+     * that exists in the middle of the LCS of the two sequences and
+     * is the point at which the LCS problem may be broken down recursively.
+     * This method will try to keep the LCS trace in memory. If the LCS recursion
+     * point is calculated and the full trace is available in memory, then this method
+     * will return the change list.
+     * @param originalStart The start bound of the original sequence range
+     * @param originalEnd The end bound of the original sequence range
+     * @param modifiedStart The start bound of the modified sequence range
+     * @param modifiedEnd The end bound of the modified sequence range
+     * @param midOriginal The middle point of the original sequence range
+     * @param midModified The middle point of the modified sequence range
+     * @returns The diff changes, if available, otherwise null
+     */
     ComputeRecursionPoint(originalStart, originalEnd, modifiedStart, modifiedEnd, midOriginalArr, midModifiedArr, quitEarlyArr) {
       let originalIndex = 0, modifiedIndex = 0;
       let diagonalForwardStart = 0, diagonalForwardEnd = 0;
@@ -19029,6 +19301,14 @@ ${p.commentBefore}` : u;
       }
       return this.WALKTRACE(diagonalForwardBase, diagonalForwardStart, diagonalForwardEnd, diagonalForwardOffset, diagonalReverseBase, diagonalReverseStart, diagonalReverseEnd, diagonalReverseOffset, forwardPoints, reversePoints, originalIndex, originalEnd, midOriginalArr, modifiedIndex, modifiedEnd, midModifiedArr, deltaIsEven, quitEarlyArr);
     }
+    /**
+     * Shifts the given changes to provide a more intuitive diff.
+     * While the first element in a diff matches the first element after the diff,
+     * we shift the diff down.
+     *
+     * @param changes The list of changes to shift
+     * @returns The shifted changes
+     */
     PrettifyChanges(changes) {
       for (let i = 0; i < changes.length; i++) {
         const change = changes[i];
@@ -19079,9 +19359,9 @@ ${p.commentBefore}` : u;
             break;
           }
           const touchingPreviousChange = originalStart === originalStop && modifiedStart === modifiedStop;
-          const score = (touchingPreviousChange ? 5 : 0) + this._boundaryScore(originalStart, change.originalLength, modifiedStart, change.modifiedLength);
-          if (score > bestScore) {
-            bestScore = score;
+          const score2 = (touchingPreviousChange ? 5 : 0) + this._boundaryScore(originalStart, change.originalLength, modifiedStart, change.modifiedLength);
+          if (score2 > bestScore) {
+            bestScore = score2;
             bestDelta = delta;
           }
         }
@@ -19135,9 +19415,9 @@ ${p.commentBefore}` : u;
       let bestModifiedStart = 0;
       for (let i = originalStart; i < originalMax; i++) {
         for (let j = modifiedStart; j < modifiedMax; j++) {
-          const score = this._contiguousSequenceScore(i, j, desiredLength);
-          if (score > 0 && score > bestScore) {
-            bestScore = score;
+          const score2 = this._contiguousSequenceScore(i, j, desiredLength);
+          if (score2 > 0 && score2 > bestScore) {
+            bestScore = score2;
             bestOriginalStart = i;
             bestModifiedStart = j;
           }
@@ -19149,14 +19429,14 @@ ${p.commentBefore}` : u;
       return null;
     }
     _contiguousSequenceScore(originalStart, modifiedStart, length) {
-      let score = 0;
+      let score2 = 0;
       for (let l = 0; l < length; l++) {
         if (!this.ElementsAreEqual(originalStart + l, modifiedStart + l)) {
           return 0;
         }
-        score += this._originalStringElements[originalStart + l].length;
+        score2 += this._originalStringElements[originalStart + l].length;
       }
-      return score;
+      return score2;
     }
     _OriginalIsBoundary(index) {
       if (index <= 0 || index >= this._originalElementsOrHash.length - 1) {
@@ -19199,6 +19479,13 @@ ${p.commentBefore}` : u;
       const modifiedScore = this._ModifiedRegionIsBoundary(modifiedStart, modifiedLength) ? 1 : 0;
       return originalScore + modifiedScore;
     }
+    /**
+     * Concatenates the two input DiffChange lists and returns the resulting
+     * list.
+     * @param The left changes
+     * @param The right changes
+     * @returns The concatenated list
+     */
     ConcatenateChanges(left, right) {
       const mergedChangeArr = [];
       if (left.length === 0 || right.length === 0) {
@@ -19216,6 +19503,14 @@ ${p.commentBefore}` : u;
         return result;
       }
     }
+    /**
+     * Returns true if the two changes overlap and can be merged into a single
+     * change
+     * @param left The left change
+     * @param right The right change
+     * @param mergedChange The merged change if the two overlap, null otherwise
+     * @returns True if the two changes overlap
+     */
     ChangesOverlap(left, right, mergedChangeArr) {
       Debug.Assert(left.originalStart <= right.originalStart, "Left change is not less than or equal to right change");
       Debug.Assert(left.modifiedStart <= right.modifiedStart, "Left change is not less than or equal to right change");
@@ -19237,6 +19532,18 @@ ${p.commentBefore}` : u;
         return false;
       }
     }
+    /**
+     * Helper method used to clip a diagonal index to the range of valid
+     * diagonals. This also decides whether or not the diagonal index,
+     * if it exceeds the boundary, should be clipped to the boundary or clipped
+     * one inside the boundary depending on the Even/Odd status of the boundary
+     * and numDifferences.
+     * @param diagonal The index of the diagonal to clip.
+     * @param numDifferences The current number of differences being iterated upon.
+     * @param diagonalBaseIndex The base reference diagonal.
+     * @param numDiagonals The total number of diagonals.
+     * @returns The clipped diagonal index.
+     */
     ClipDiagonalBound(diagonal, numDifferences, diagonalBaseIndex, numDiagonals) {
       if (diagonal >= 0 && diagonal < numDiagonals) {
         return diagonal;
@@ -19289,12 +19596,14 @@ ${p.commentBefore}` : u;
     };
   } else {
     safeProcess = {
+      // Supported
       get platform() {
         return isWindows ? "win32" : isMacintosh ? "darwin" : "linux";
       },
       get arch() {
         return void 0;
       },
+      // Unsupported
       get env() {
         return {};
       },
@@ -19333,11 +19642,17 @@ ${p.commentBefore}` : u;
       this.code = "ERR_INVALID_ARG_TYPE";
     }
   };
+  function validateObject(pathObject, name) {
+    if (pathObject === null || typeof pathObject !== "object") {
+      throw new ErrorInvalidArgType(name, "Object", pathObject);
+    }
+  }
   function validateString(value, name) {
     if (typeof value !== "string") {
       throw new ErrorInvalidArgType(name, "string", value);
     }
   }
+  var platformIsWin32 = platform === "win32";
   function isPathSeparator(code) {
     return code === CHAR_FORWARD_SLASH || code === CHAR_BACKWARD_SLASH;
   }
@@ -19408,9 +19723,7 @@ ${p.commentBefore}` : u;
     return res;
   }
   function _format2(sep2, pathObject) {
-    if (pathObject === null || typeof pathObject !== "object") {
-      throw new ErrorInvalidArgType("pathObject", "Object", pathObject);
-    }
+    validateObject(pathObject, "pathObject");
     const dir = pathObject.dir || pathObject.root;
     const base = pathObject.base || `${pathObject.name || ""}${pathObject.ext || ""}`;
     if (!dir) {
@@ -19419,6 +19732,7 @@ ${p.commentBefore}` : u;
     return dir === pathObject.root ? `${dir}${base}` : `${dir}${sep2}${base}`;
   }
   var win32 = {
+    // path.resolve([from ...], to)
     resolve(...pathSegments) {
       let resolvedDevice = "";
       let resolvedTail = "";
@@ -19580,7 +19894,8 @@ ${p.commentBefore}` : u;
         return false;
       }
       const code = path5.charCodeAt(0);
-      return isPathSeparator(code) || len > 2 && isWindowsDeviceRoot(code) && path5.charCodeAt(1) === CHAR_COLON && isPathSeparator(path5.charCodeAt(2));
+      return isPathSeparator(code) || // Possible device root
+      len > 2 && isWindowsDeviceRoot(code) && path5.charCodeAt(1) === CHAR_COLON && isPathSeparator(path5.charCodeAt(2));
     },
     join(...paths) {
       if (paths.length === 0) {
@@ -19628,6 +19943,10 @@ ${p.commentBefore}` : u;
       }
       return win32.normalize(joined);
     },
+    // It will solve the relative path from `from` to `to`, for instance:
+    //  from = 'C:\\orandea\\test\\aaa'
+    //  to = 'C:\\orandea\\impl\\bbb'
+    // The output of the function should be: '..\\..\\impl\\bbb'
     relative(from, to) {
       validateString(from, "from");
       validateString(to, "to");
@@ -19713,11 +20032,8 @@ ${p.commentBefore}` : u;
       return toOrig.slice(toStart, toEnd);
     },
     toNamespacedPath(path5) {
-      if (typeof path5 !== "string") {
+      if (typeof path5 !== "string" || path5.length === 0) {
         return path5;
-      }
-      if (path5.length === 0) {
-        return "";
       }
       const resolvedPath = win32.resolve(path5);
       if (resolvedPath.length <= 2) {
@@ -19897,7 +20213,9 @@ ${p.commentBefore}` : u;
           preDotState = -1;
         }
       }
-      if (startDot === -1 || end === -1 || preDotState === 0 || preDotState === 1 && startDot === end - 1 && startDot === startPart + 1) {
+      if (startDot === -1 || end === -1 || // We saw a non-dot character immediately before the dot
+      preDotState === 0 || // The (right-most) trimmed path component is exactly '..'
+      preDotState === 1 && startDot === end - 1 && startDot === startPart + 1) {
         return "";
       }
       return path5.slice(startDot, end);
@@ -19993,7 +20311,9 @@ ${p.commentBefore}` : u;
         }
       }
       if (end !== -1) {
-        if (startDot === -1 || preDotState === 0 || preDotState === 1 && startDot === end - 1 && startDot === startPart + 1) {
+        if (startDot === -1 || // We saw a non-dot character immediately before the dot
+        preDotState === 0 || // The (right-most) trimmed path component is exactly '..'
+        preDotState === 1 && startDot === end - 1 && startDot === startPart + 1) {
           ret.base = ret.name = path5.slice(startPart, end);
         } else {
           ret.name = path5.slice(startPart, startDot);
@@ -20013,12 +20333,23 @@ ${p.commentBefore}` : u;
     win32: null,
     posix: null
   };
+  var posixCwd = (() => {
+    if (platformIsWin32) {
+      const regexp = /\\/g;
+      return () => {
+        const cwd2 = cwd().replace(regexp, "/");
+        return cwd2.slice(cwd2.indexOf("/"));
+      };
+    }
+    return () => cwd();
+  })();
   var posix = {
+    // path.resolve([from ...], to)
     resolve(...pathSegments) {
       let resolvedPath = "";
       let resolvedAbsolute = false;
       for (let i = pathSegments.length - 1; i >= -1 && !resolvedAbsolute; i--) {
-        const path5 = i >= 0 ? pathSegments[i] : cwd();
+        const path5 = i >= 0 ? pathSegments[i] : posixCwd();
         validateString(path5, "path");
         if (path5.length === 0) {
           continue;
@@ -20248,7 +20579,9 @@ ${p.commentBefore}` : u;
           preDotState = -1;
         }
       }
-      if (startDot === -1 || end === -1 || preDotState === 0 || preDotState === 1 && startDot === end - 1 && startDot === startPart + 1) {
+      if (startDot === -1 || end === -1 || // We saw a non-dot character immediately before the dot
+      preDotState === 0 || // The (right-most) trimmed path component is exactly '..'
+      preDotState === 1 && startDot === end - 1 && startDot === startPart + 1) {
         return "";
       }
       return path5.slice(startDot, end);
@@ -20299,7 +20632,9 @@ ${p.commentBefore}` : u;
       }
       if (end !== -1) {
         const start2 = startPart === 0 && isAbsolute2 ? 1 : startPart;
-        if (startDot === -1 || preDotState === 0 || preDotState === 1 && startDot === end - 1 && startDot === startPart + 1) {
+        if (startDot === -1 || // We saw a non-dot character immediately before the dot
+        preDotState === 0 || // The (right-most) trimmed path component is exactly '..'
+        preDotState === 1 && startDot === end - 1 && startDot === startPart + 1) {
           ret.base = ret.name = path5.slice(start2, end);
         } else {
           ret.name = path5.slice(start2, startDot);
@@ -20321,13 +20656,13 @@ ${p.commentBefore}` : u;
   };
   posix.win32 = win32.win32 = win32;
   posix.posix = win32.posix = posix;
-  var normalize = platform === "win32" ? win32.normalize : posix.normalize;
-  var resolve = platform === "win32" ? win32.resolve : posix.resolve;
-  var relative = platform === "win32" ? win32.relative : posix.relative;
-  var dirname = platform === "win32" ? win32.dirname : posix.dirname;
-  var basename = platform === "win32" ? win32.basename : posix.basename;
-  var extname = platform === "win32" ? win32.extname : posix.extname;
-  var sep = platform === "win32" ? win32.sep : posix.sep;
+  var normalize = platformIsWin32 ? win32.normalize : posix.normalize;
+  var resolve = platformIsWin32 ? win32.resolve : posix.resolve;
+  var relative = platformIsWin32 ? win32.relative : posix.relative;
+  var dirname = platformIsWin32 ? win32.dirname : posix.dirname;
+  var basename = platformIsWin32 ? win32.basename : posix.basename;
+  var extname = platformIsWin32 ? win32.extname : posix.extname;
+  var sep = platformIsWin32 ? win32.sep : posix.sep;
 
   // node_modules/monaco-editor/esm/vs/base/common/uri.js
   var _schemePattern = /^\w[\w\d+.-]*$/;
@@ -20375,7 +20710,19 @@ ${p.commentBefore}` : u;
   var _empty = "";
   var _slash = "/";
   var _regexp = /^(([^:/?#]+?):)?(\/\/([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?/;
-  var URI = class {
+  var URI = class _URI {
+    static isUri(thing) {
+      if (thing instanceof _URI) {
+        return true;
+      }
+      if (!thing) {
+        return false;
+      }
+      return typeof thing.authority === "string" && typeof thing.fragment === "string" && typeof thing.path === "string" && typeof thing.query === "string" && typeof thing.scheme === "string" && typeof thing.fsPath === "string" && typeof thing.with === "function" && typeof thing.toString === "function";
+    }
+    /**
+     * @internal
+     */
     constructor(schemeOrData, authority, path5, query, fragment, _strict = false) {
       if (typeof schemeOrData === "object") {
         this.scheme = schemeOrData.scheme || _empty;
@@ -20392,18 +20739,35 @@ ${p.commentBefore}` : u;
         _validateUri(this, _strict);
       }
     }
-    static isUri(thing) {
-      if (thing instanceof URI) {
-        return true;
-      }
-      if (!thing) {
-        return false;
-      }
-      return typeof thing.authority === "string" && typeof thing.fragment === "string" && typeof thing.path === "string" && typeof thing.query === "string" && typeof thing.scheme === "string" && typeof thing.fsPath === "string" && typeof thing.with === "function" && typeof thing.toString === "function";
-    }
+    // ---- filesystem path -----------------------
+    /**
+     * Returns a string representing the corresponding file system path of this URI.
+     * Will handle UNC paths, normalizes windows drive letters to lower-case, and uses the
+     * platform specific path separator.
+     *
+     * * Will *not* validate the path for invalid characters and semantics.
+     * * Will *not* look at the scheme of this URI.
+     * * The result shall *not* be used for display purposes but for accessing a file on disk.
+     *
+     *
+     * The *difference* to `URI#path` is the use of the platform specific separator and the handling
+     * of UNC paths. See the below sample of a file-uri with an authority (UNC path).
+     *
+     * ```ts
+        const u = URI.parse('file://server/c$/folder/file.txt')
+        u.authority === 'server'
+        u.path === '/shares/c$/file.txt'
+        u.fsPath === '\\server\c$\folder\file.txt'
+    ```
+     *
+     * Using `URI#path` to read a file (using fs-apis) would not be enough because parts of the path,
+     * namely the server name, would be missing. Therefore `URI#fsPath` exists - it's sugar to ease working
+     * with URIs that represent files on disk (`file` scheme).
+     */
     get fsPath() {
       return uriToFsPath(this, false);
     }
+    // ---- modify to new -------------------------
     with(change) {
       if (!change) {
         return this;
@@ -20439,6 +20803,13 @@ ${p.commentBefore}` : u;
       }
       return new Uri(scheme, authority, path5, query, fragment);
     }
+    // ---- parse & validate ------------------------
+    /**
+     * Creates a new URI from a string, e.g. `http://www.example.com/some/path`,
+     * `file:///usr/home`, or `scheme:with/path`.
+     *
+     * @param value A string which represents an URI (see `URI#toString`).
+     */
     static parse(value, _strict = false) {
       const match = _regexp.exec(value);
       if (!match) {
@@ -20446,6 +20817,27 @@ ${p.commentBefore}` : u;
       }
       return new Uri(match[2] || _empty, percentDecode(match[4] || _empty), percentDecode(match[5] || _empty), percentDecode(match[7] || _empty), percentDecode(match[9] || _empty), _strict);
     }
+    /**
+     * Creates a new URI from a file system path, e.g. `c:\my\files`,
+     * `/usr/home`, or `\\server\share\some\path`.
+     *
+     * The *difference* between `URI#parse` and `URI#file` is that the latter treats the argument
+     * as path, not as stringified-uri. E.g. `URI.file(path)` is **not the same as**
+     * `URI.parse('file://' + path)` because the path might contain characters that are
+     * interpreted (# and ?). See the following sample:
+     * ```ts
+    const good = URI.file('/coding/c#/project1');
+    good.scheme === 'file';
+    good.path === '/coding/c#/project1';
+    good.fragment === '';
+    const bad = URI.parse('file://' + '/coding/c#/project1');
+    bad.scheme === 'file';
+    bad.path === '/coding/c'; // path is now broken
+    bad.fragment === '/project1';
+    ```
+     *
+     * @param path A file system path (see `URI#fsPath`)
+     */
     static file(path5) {
       let authority = _empty;
       if (isWindows) {
@@ -20463,23 +20855,48 @@ ${p.commentBefore}` : u;
       }
       return new Uri("file", authority, path5, _empty, _empty);
     }
-    static from(components) {
-      const result = new Uri(components.scheme, components.authority, components.path, components.query, components.fragment);
-      _validateUri(result, true);
+    /**
+     * Creates new URI from uri components.
+     *
+     * Unless `strict` is `true` the scheme is defaults to be `file`. This function performs
+     * validation and should be used for untrusted uri components retrieved from storage,
+     * user input, command arguments etc
+     */
+    static from(components, strict) {
+      const result = new Uri(components.scheme, components.authority, components.path, components.query, components.fragment, strict);
       return result;
     }
+    /**
+     * Join a URI path with path fragments and normalizes the resulting path.
+     *
+     * @param uri The input URI.
+     * @param pathFragment The path fragment to add to the URI path.
+     * @returns The resulting URI.
+     */
     static joinPath(uri, ...pathFragment) {
       if (!uri.path) {
         throw new Error(`[UriError]: cannot call joinPath on URI without path`);
       }
       let newPath;
       if (isWindows && uri.scheme === "file") {
-        newPath = URI.file(win32.join(uriToFsPath(uri, true), ...pathFragment)).path;
+        newPath = _URI.file(win32.join(uriToFsPath(uri, true), ...pathFragment)).path;
       } else {
         newPath = posix.join(uri.path, ...pathFragment);
       }
       return uri.with({ path: newPath });
     }
+    // ---- printing/externalize ---------------------------
+    /**
+     * Creates a string representation for this URI. It's guaranteed that calling
+     * `URI.parse` with the result of this function creates an URI which is equal
+     * to this URI.
+     *
+     * * The result shall *not* be used for display purposes but for externalization or transport.
+     * * The result will be encoded using the percentage encoding and encoding happens mostly
+     * ignore the scheme-specific encoding rules.
+     *
+     * @param skipEncoding Do not encode the result, default is `false`
+     */
     toString(skipEncoding = false) {
       return _asFormatted(this, skipEncoding);
     }
@@ -20487,14 +20904,15 @@ ${p.commentBefore}` : u;
       return this;
     }
     static revive(data) {
+      var _a3, _b;
       if (!data) {
         return data;
-      } else if (data instanceof URI) {
+      } else if (data instanceof _URI) {
         return data;
       } else {
         const result = new Uri(data);
-        result._formatted = data.external;
-        result._fsPath = data._sep === _pathSepMarker ? data.fsPath : null;
+        result._formatted = (_a3 = data.external) !== null && _a3 !== void 0 ? _a3 : null;
+        result._fsPath = data._sep === _pathSepMarker ? (_b = data.fsPath) !== null && _b !== void 0 ? _b : null : null;
         return result;
       }
     }
@@ -20525,6 +20943,7 @@ ${p.commentBefore}` : u;
     toJSON() {
       const res = {
         $mid: 1
+        /* MarshalledId.Uri */
       };
       if (this._fsPath) {
         res.fsPath = this._fsPath;
@@ -20552,32 +20971,89 @@ ${p.commentBefore}` : u;
     }
   };
   var encodeTable = {
-    [58]: "%3A",
-    [47]: "%2F",
-    [63]: "%3F",
-    [35]: "%23",
-    [91]: "%5B",
-    [93]: "%5D",
-    [64]: "%40",
-    [33]: "%21",
-    [36]: "%24",
-    [38]: "%26",
-    [39]: "%27",
-    [40]: "%28",
-    [41]: "%29",
-    [42]: "%2A",
-    [43]: "%2B",
-    [44]: "%2C",
-    [59]: "%3B",
-    [61]: "%3D",
-    [32]: "%20"
+    [
+      58
+      /* CharCode.Colon */
+    ]: "%3A",
+    [
+      47
+      /* CharCode.Slash */
+    ]: "%2F",
+    [
+      63
+      /* CharCode.QuestionMark */
+    ]: "%3F",
+    [
+      35
+      /* CharCode.Hash */
+    ]: "%23",
+    [
+      91
+      /* CharCode.OpenSquareBracket */
+    ]: "%5B",
+    [
+      93
+      /* CharCode.CloseSquareBracket */
+    ]: "%5D",
+    [
+      64
+      /* CharCode.AtSign */
+    ]: "%40",
+    [
+      33
+      /* CharCode.ExclamationMark */
+    ]: "%21",
+    [
+      36
+      /* CharCode.DollarSign */
+    ]: "%24",
+    [
+      38
+      /* CharCode.Ampersand */
+    ]: "%26",
+    [
+      39
+      /* CharCode.SingleQuote */
+    ]: "%27",
+    [
+      40
+      /* CharCode.OpenParen */
+    ]: "%28",
+    [
+      41
+      /* CharCode.CloseParen */
+    ]: "%29",
+    [
+      42
+      /* CharCode.Asterisk */
+    ]: "%2A",
+    [
+      43
+      /* CharCode.Plus */
+    ]: "%2B",
+    [
+      44
+      /* CharCode.Comma */
+    ]: "%2C",
+    [
+      59
+      /* CharCode.Semicolon */
+    ]: "%3B",
+    [
+      61
+      /* CharCode.Equals */
+    ]: "%3D",
+    [
+      32
+      /* CharCode.Space */
+    ]: "%20"
   };
-  function encodeURIComponentFast(uriComponent, allowSlash) {
+  function encodeURIComponentFast(uriComponent, isPath, isAuthority) {
     let res = void 0;
     let nativeEncodePos = -1;
     for (let pos = 0; pos < uriComponent.length; pos++) {
       const code = uriComponent.charCodeAt(pos);
-      if (code >= 97 && code <= 122 || code >= 65 && code <= 90 || code >= 48 && code <= 57 || code === 45 || code === 46 || code === 95 || code === 126 || allowSlash && code === 47) {
+      if (code >= 97 && code <= 122 || code >= 65 && code <= 90 || code >= 48 && code <= 57 || code === 45 || code === 46 || code === 95 || code === 126 || isPath && code === 47 || isAuthority && code === 91 || isAuthority && code === 93 || isAuthority && code === 58) {
         if (nativeEncodePos !== -1) {
           res += encodeURIComponent(uriComponent.substring(nativeEncodePos, pos));
           nativeEncodePos = -1;
@@ -20658,22 +21134,22 @@ ${p.commentBefore}` : u;
       if (idx !== -1) {
         const userinfo = authority.substr(0, idx);
         authority = authority.substr(idx + 1);
-        idx = userinfo.indexOf(":");
+        idx = userinfo.lastIndexOf(":");
         if (idx === -1) {
-          res += encoder(userinfo, false);
+          res += encoder(userinfo, false, false);
         } else {
-          res += encoder(userinfo.substr(0, idx), false);
+          res += encoder(userinfo.substr(0, idx), false, false);
           res += ":";
-          res += encoder(userinfo.substr(idx + 1), false);
+          res += encoder(userinfo.substr(idx + 1), false, true);
         }
         res += "@";
       }
       authority = authority.toLowerCase();
-      idx = authority.indexOf(":");
+      idx = authority.lastIndexOf(":");
       if (idx === -1) {
-        res += encoder(authority, false);
+        res += encoder(authority, false, true);
       } else {
-        res += encoder(authority.substr(0, idx), false);
+        res += encoder(authority.substr(0, idx), false, true);
         res += authority.substr(idx);
       }
     }
@@ -20689,15 +21165,15 @@ ${p.commentBefore}` : u;
           path5 = `${String.fromCharCode(code + 32)}:${path5.substr(2)}`;
         }
       }
-      res += encoder(path5, true);
+      res += encoder(path5, true, false);
     }
     if (query) {
       res += "?";
-      res += encoder(query, false);
+      res += encoder(query, false, false);
     }
     if (fragment) {
       res += "#";
-      res += !skipEncoding ? encodeURIComponentFast(fragment, false) : fragment;
+      res += !skipEncoding ? encodeURIComponentFast(fragment, false, false) : fragment;
     }
     return res;
   }
@@ -20721,33 +21197,59 @@ ${p.commentBefore}` : u;
   }
 
   // node_modules/monaco-editor/esm/vs/editor/common/core/position.js
-  var Position = class {
+  var Position = class _Position {
     constructor(lineNumber, column) {
       this.lineNumber = lineNumber;
       this.column = column;
     }
+    /**
+     * Create a new position from this position.
+     *
+     * @param newLineNumber new line number
+     * @param newColumn new column
+     */
     with(newLineNumber = this.lineNumber, newColumn = this.column) {
       if (newLineNumber === this.lineNumber && newColumn === this.column) {
         return this;
       } else {
-        return new Position(newLineNumber, newColumn);
+        return new _Position(newLineNumber, newColumn);
       }
     }
+    /**
+     * Derive a new position from this position.
+     *
+     * @param deltaLineNumber line number delta
+     * @param deltaColumn column delta
+     */
     delta(deltaLineNumber = 0, deltaColumn = 0) {
       return this.with(this.lineNumber + deltaLineNumber, this.column + deltaColumn);
     }
+    /**
+     * Test if this position equals other position
+     */
     equals(other) {
-      return Position.equals(this, other);
+      return _Position.equals(this, other);
     }
+    /**
+     * Test if position `a` equals position `b`
+     */
     static equals(a2, b) {
       if (!a2 && !b) {
         return true;
       }
       return !!a2 && !!b && a2.lineNumber === b.lineNumber && a2.column === b.column;
     }
+    /**
+     * Test if this position is before other position.
+     * If the two positions are equal, the result will be false.
+     */
     isBefore(other) {
-      return Position.isBefore(this, other);
+      return _Position.isBefore(this, other);
     }
+    /**
+     * Test if position `a` is before position `b`.
+     * If the two positions are equal, the result will be false.
+     */
     static isBefore(a2, b) {
       if (a2.lineNumber < b.lineNumber) {
         return true;
@@ -20757,9 +21259,17 @@ ${p.commentBefore}` : u;
       }
       return a2.column < b.column;
     }
+    /**
+     * Test if this position is before other position.
+     * If the two positions are equal, the result will be true.
+     */
     isBeforeOrEqual(other) {
-      return Position.isBeforeOrEqual(this, other);
+      return _Position.isBeforeOrEqual(this, other);
     }
+    /**
+     * Test if position `a` is before position `b`.
+     * If the two positions are equal, the result will be true.
+     */
     static isBeforeOrEqual(a2, b) {
       if (a2.lineNumber < b.lineNumber) {
         return true;
@@ -20769,6 +21279,9 @@ ${p.commentBefore}` : u;
       }
       return a2.column <= b.column;
     }
+    /**
+     * A function that compares positions, useful for sorting
+     */
     static compare(a2, b) {
       const aLineNumber = a2.lineNumber | 0;
       const bLineNumber = b.lineNumber | 0;
@@ -20779,22 +21292,35 @@ ${p.commentBefore}` : u;
       }
       return aLineNumber - bLineNumber;
     }
+    /**
+     * Clone this position.
+     */
     clone() {
-      return new Position(this.lineNumber, this.column);
+      return new _Position(this.lineNumber, this.column);
     }
+    /**
+     * Convert to a human-readable representation.
+     */
     toString() {
       return "(" + this.lineNumber + "," + this.column + ")";
     }
+    // ---
+    /**
+     * Create a `Position` from an `IPosition`.
+     */
     static lift(pos) {
-      return new Position(pos.lineNumber, pos.column);
+      return new _Position(pos.lineNumber, pos.column);
     }
+    /**
+     * Test if `obj` is an `IPosition`.
+     */
     static isIPosition(obj) {
       return obj && typeof obj.lineNumber === "number" && typeof obj.column === "number";
     }
   };
 
   // node_modules/monaco-editor/esm/vs/editor/common/core/range.js
-  var Range = class {
+  var Range = class _Range {
     constructor(startLineNumber, startColumn, endLineNumber, endColumn) {
       if (startLineNumber > endLineNumber || startLineNumber === endLineNumber && startColumn > endColumn) {
         this.startLineNumber = endLineNumber;
@@ -20808,15 +21334,27 @@ ${p.commentBefore}` : u;
         this.endColumn = endColumn;
       }
     }
+    /**
+     * Test if this range is empty.
+     */
     isEmpty() {
-      return Range.isEmpty(this);
+      return _Range.isEmpty(this);
     }
+    /**
+     * Test if `range` is empty.
+     */
     static isEmpty(range) {
       return range.startLineNumber === range.endLineNumber && range.startColumn === range.endColumn;
     }
+    /**
+     * Test if position is in this range. If the position is at the edges, will return true.
+     */
     containsPosition(position) {
-      return Range.containsPosition(this, position);
+      return _Range.containsPosition(this, position);
     }
+    /**
+     * Test if `position` is in `range`. If the position is at the edges, will return true.
+     */
     static containsPosition(range, position) {
       if (position.lineNumber < range.startLineNumber || position.lineNumber > range.endLineNumber) {
         return false;
@@ -20829,6 +21367,10 @@ ${p.commentBefore}` : u;
       }
       return true;
     }
+    /**
+     * Test if `position` is in `range`. If the position is at the edges, will return false.
+     * @internal
+     */
     static strictContainsPosition(range, position) {
       if (position.lineNumber < range.startLineNumber || position.lineNumber > range.endLineNumber) {
         return false;
@@ -20841,9 +21383,15 @@ ${p.commentBefore}` : u;
       }
       return true;
     }
+    /**
+     * Test if range is in this range. If the range is equal to this range, will return true.
+     */
     containsRange(range) {
-      return Range.containsRange(this, range);
+      return _Range.containsRange(this, range);
     }
+    /**
+     * Test if `otherRange` is in `range`. If the ranges are equal, will return true.
+     */
     static containsRange(range, otherRange) {
       if (otherRange.startLineNumber < range.startLineNumber || otherRange.endLineNumber < range.startLineNumber) {
         return false;
@@ -20859,9 +21407,15 @@ ${p.commentBefore}` : u;
       }
       return true;
     }
+    /**
+     * Test if `range` is strictly in this range. `range` must start after and end before this range for the result to be true.
+     */
     strictContainsRange(range) {
-      return Range.strictContainsRange(this, range);
+      return _Range.strictContainsRange(this, range);
     }
+    /**
+     * Test if `otherRange` is strictly in `range` (must start after, and end before). If the ranges are equal, will return false.
+     */
     static strictContainsRange(range, otherRange) {
       if (otherRange.startLineNumber < range.startLineNumber || otherRange.endLineNumber < range.startLineNumber) {
         return false;
@@ -20877,9 +21431,17 @@ ${p.commentBefore}` : u;
       }
       return true;
     }
+    /**
+     * A reunion of the two ranges.
+     * The smallest position will be used as the start point, and the largest one as the end point.
+     */
     plusRange(range) {
-      return Range.plusRange(this, range);
+      return _Range.plusRange(this, range);
     }
+    /**
+     * A reunion of the two ranges.
+     * The smallest position will be used as the start point, and the largest one as the end point.
+     */
     static plusRange(a2, b) {
       let startLineNumber;
       let startColumn;
@@ -20905,11 +21467,17 @@ ${p.commentBefore}` : u;
         endLineNumber = a2.endLineNumber;
         endColumn = a2.endColumn;
       }
-      return new Range(startLineNumber, startColumn, endLineNumber, endColumn);
+      return new _Range(startLineNumber, startColumn, endLineNumber, endColumn);
     }
+    /**
+     * A intersection of the two ranges.
+     */
     intersectRanges(range) {
-      return Range.intersectRanges(this, range);
+      return _Range.intersectRanges(this, range);
     }
+    /**
+     * A intersection of the two ranges.
+     */
     static intersectRanges(a2, b) {
       let resultStartLineNumber = a2.startLineNumber;
       let resultStartColumn = a2.startColumn;
@@ -20937,53 +21505,114 @@ ${p.commentBefore}` : u;
       if (resultStartLineNumber === resultEndLineNumber && resultStartColumn > resultEndColumn) {
         return null;
       }
-      return new Range(resultStartLineNumber, resultStartColumn, resultEndLineNumber, resultEndColumn);
+      return new _Range(resultStartLineNumber, resultStartColumn, resultEndLineNumber, resultEndColumn);
     }
+    /**
+     * Test if this range equals other.
+     */
     equalsRange(other) {
-      return Range.equalsRange(this, other);
+      return _Range.equalsRange(this, other);
     }
+    /**
+     * Test if range `a` equals `b`.
+     */
     static equalsRange(a2, b) {
+      if (!a2 && !b) {
+        return true;
+      }
       return !!a2 && !!b && a2.startLineNumber === b.startLineNumber && a2.startColumn === b.startColumn && a2.endLineNumber === b.endLineNumber && a2.endColumn === b.endColumn;
     }
+    /**
+     * Return the end position (which will be after or equal to the start position)
+     */
     getEndPosition() {
-      return Range.getEndPosition(this);
+      return _Range.getEndPosition(this);
     }
+    /**
+     * Return the end position (which will be after or equal to the start position)
+     */
     static getEndPosition(range) {
       return new Position(range.endLineNumber, range.endColumn);
     }
+    /**
+     * Return the start position (which will be before or equal to the end position)
+     */
     getStartPosition() {
-      return Range.getStartPosition(this);
+      return _Range.getStartPosition(this);
     }
+    /**
+     * Return the start position (which will be before or equal to the end position)
+     */
     static getStartPosition(range) {
       return new Position(range.startLineNumber, range.startColumn);
     }
+    /**
+     * Transform to a user presentable string representation.
+     */
     toString() {
       return "[" + this.startLineNumber + "," + this.startColumn + " -> " + this.endLineNumber + "," + this.endColumn + "]";
     }
+    /**
+     * Create a new range using this range's start position, and using endLineNumber and endColumn as the end position.
+     */
     setEndPosition(endLineNumber, endColumn) {
-      return new Range(this.startLineNumber, this.startColumn, endLineNumber, endColumn);
+      return new _Range(this.startLineNumber, this.startColumn, endLineNumber, endColumn);
     }
+    /**
+     * Create a new range using this range's end position, and using startLineNumber and startColumn as the start position.
+     */
     setStartPosition(startLineNumber, startColumn) {
-      return new Range(startLineNumber, startColumn, this.endLineNumber, this.endColumn);
+      return new _Range(startLineNumber, startColumn, this.endLineNumber, this.endColumn);
     }
+    /**
+     * Create a new empty range using this range's start position.
+     */
     collapseToStart() {
-      return Range.collapseToStart(this);
+      return _Range.collapseToStart(this);
     }
+    /**
+     * Create a new empty range using this range's start position.
+     */
     static collapseToStart(range) {
-      return new Range(range.startLineNumber, range.startColumn, range.startLineNumber, range.startColumn);
+      return new _Range(range.startLineNumber, range.startColumn, range.startLineNumber, range.startColumn);
     }
+    /**
+     * Create a new empty range using this range's end position.
+     */
+    collapseToEnd() {
+      return _Range.collapseToEnd(this);
+    }
+    /**
+     * Create a new empty range using this range's end position.
+     */
+    static collapseToEnd(range) {
+      return new _Range(range.endLineNumber, range.endColumn, range.endLineNumber, range.endColumn);
+    }
+    /**
+     * Moves the range by the given amount of lines.
+     */
+    delta(lineCount) {
+      return new _Range(this.startLineNumber + lineCount, this.startColumn, this.endLineNumber + lineCount, this.endColumn);
+    }
+    // ---
     static fromPositions(start, end = start) {
-      return new Range(start.lineNumber, start.column, end.lineNumber, end.column);
+      return new _Range(start.lineNumber, start.column, end.lineNumber, end.column);
     }
     static lift(range) {
       if (!range) {
         return null;
       }
-      return new Range(range.startLineNumber, range.startColumn, range.endLineNumber, range.endColumn);
+      return new _Range(range.startLineNumber, range.startColumn, range.endLineNumber, range.endColumn);
     }
+    /**
+     * Test if `obj` is an `IRange`.
+     */
     static isIRange(obj) {
       return obj && typeof obj.startLineNumber === "number" && typeof obj.startColumn === "number" && typeof obj.endLineNumber === "number" && typeof obj.endColumn === "number";
     }
+    /**
+     * Test if the two ranges are touching in any way.
+     */
     static areIntersectingOrTouching(a2, b) {
       if (a2.endLineNumber < b.startLineNumber || a2.endLineNumber === b.startLineNumber && a2.endColumn < b.startColumn) {
         return false;
@@ -20993,6 +21622,9 @@ ${p.commentBefore}` : u;
       }
       return true;
     }
+    /**
+     * Test if the two ranges are intersecting. If the ranges are touching it returns true.
+     */
     static areIntersecting(a2, b) {
       if (a2.endLineNumber < b.startLineNumber || a2.endLineNumber === b.startLineNumber && a2.endColumn <= b.startColumn) {
         return false;
@@ -21002,6 +21634,10 @@ ${p.commentBefore}` : u;
       }
       return true;
     }
+    /**
+     * A function that compares ranges, useful for sorting ranges
+     * It will first compare ranges on the startPosition and then on the endPosition
+     */
     static compareRangesUsingStarts(a2, b) {
       if (a2 && b) {
         const aStartLineNumber = a2.startLineNumber | 0;
@@ -21027,6 +21663,10 @@ ${p.commentBefore}` : u;
       const bExists = b ? 1 : 0;
       return aExists - bExists;
     }
+    /**
+     * A function that compares ranges, useful for sorting ranges
+     * It will first compare ranges on the endPosition and then on the startPosition
+     */
     static compareRangesUsingEnds(a2, b) {
       if (a2.endLineNumber === b.endLineNumber) {
         if (a2.endColumn === b.endColumn) {
@@ -21039,6 +21679,9 @@ ${p.commentBefore}` : u;
       }
       return a2.endLineNumber - b.endLineNumber;
     }
+    /**
+     * Test if the range spans multiple lines.
+     */
     static spansMultipleLines(range) {
       return range.endLineNumber > range.startLineNumber;
     }
@@ -21046,395 +21689,6 @@ ${p.commentBefore}` : u;
       return this;
     }
   };
-
-  // node_modules/monaco-editor/esm/vs/editor/common/diff/diffComputer.js
-  var MINIMUM_MATCHING_CHARACTER_LENGTH = 3;
-  function computeDiff(originalSequence, modifiedSequence, continueProcessingPredicate, pretty) {
-    const diffAlgo = new LcsDiff(originalSequence, modifiedSequence, continueProcessingPredicate);
-    return diffAlgo.ComputeDiff(pretty);
-  }
-  var LineSequence = class {
-    constructor(lines) {
-      const startColumns = [];
-      const endColumns = [];
-      for (let i = 0, length = lines.length; i < length; i++) {
-        startColumns[i] = getFirstNonBlankColumn(lines[i], 1);
-        endColumns[i] = getLastNonBlankColumn(lines[i], 1);
-      }
-      this.lines = lines;
-      this._startColumns = startColumns;
-      this._endColumns = endColumns;
-    }
-    getElements() {
-      const elements = [];
-      for (let i = 0, len = this.lines.length; i < len; i++) {
-        elements[i] = this.lines[i].substring(this._startColumns[i] - 1, this._endColumns[i] - 1);
-      }
-      return elements;
-    }
-    getStrictElement(index) {
-      return this.lines[index];
-    }
-    getStartLineNumber(i) {
-      return i + 1;
-    }
-    getEndLineNumber(i) {
-      return i + 1;
-    }
-    createCharSequence(shouldIgnoreTrimWhitespace, startIndex, endIndex) {
-      const charCodes = [];
-      const lineNumbers = [];
-      const columns = [];
-      let len = 0;
-      for (let index = startIndex; index <= endIndex; index++) {
-        const lineContent = this.lines[index];
-        const startColumn = shouldIgnoreTrimWhitespace ? this._startColumns[index] : 1;
-        const endColumn = shouldIgnoreTrimWhitespace ? this._endColumns[index] : lineContent.length + 1;
-        for (let col = startColumn; col < endColumn; col++) {
-          charCodes[len] = lineContent.charCodeAt(col - 1);
-          lineNumbers[len] = index + 1;
-          columns[len] = col;
-          len++;
-        }
-        if (!shouldIgnoreTrimWhitespace && index < endIndex) {
-          charCodes[len] = 10;
-          lineNumbers[len] = index + 1;
-          columns[len] = lineContent.length + 1;
-          len++;
-        }
-      }
-      return new CharSequence(charCodes, lineNumbers, columns);
-    }
-  };
-  var CharSequence = class {
-    constructor(charCodes, lineNumbers, columns) {
-      this._charCodes = charCodes;
-      this._lineNumbers = lineNumbers;
-      this._columns = columns;
-    }
-    toString() {
-      return "[" + this._charCodes.map((s, idx) => (s === 10 ? "\\n" : String.fromCharCode(s)) + `-(${this._lineNumbers[idx]},${this._columns[idx]})`).join(", ") + "]";
-    }
-    _assertIndex(index, arr) {
-      if (index < 0 || index >= arr.length) {
-        throw new Error(`Illegal index`);
-      }
-    }
-    getElements() {
-      return this._charCodes;
-    }
-    getStartLineNumber(i) {
-      if (i > 0 && i === this._lineNumbers.length) {
-        return this.getEndLineNumber(i - 1);
-      }
-      this._assertIndex(i, this._lineNumbers);
-      return this._lineNumbers[i];
-    }
-    getEndLineNumber(i) {
-      if (i === -1) {
-        return this.getStartLineNumber(i + 1);
-      }
-      this._assertIndex(i, this._lineNumbers);
-      if (this._charCodes[i] === 10) {
-        return this._lineNumbers[i] + 1;
-      }
-      return this._lineNumbers[i];
-    }
-    getStartColumn(i) {
-      if (i > 0 && i === this._columns.length) {
-        return this.getEndColumn(i - 1);
-      }
-      this._assertIndex(i, this._columns);
-      return this._columns[i];
-    }
-    getEndColumn(i) {
-      if (i === -1) {
-        return this.getStartColumn(i + 1);
-      }
-      this._assertIndex(i, this._columns);
-      if (this._charCodes[i] === 10) {
-        return 1;
-      }
-      return this._columns[i] + 1;
-    }
-  };
-  var CharChange = class {
-    constructor(originalStartLineNumber, originalStartColumn, originalEndLineNumber, originalEndColumn, modifiedStartLineNumber, modifiedStartColumn, modifiedEndLineNumber, modifiedEndColumn) {
-      this.originalStartLineNumber = originalStartLineNumber;
-      this.originalStartColumn = originalStartColumn;
-      this.originalEndLineNumber = originalEndLineNumber;
-      this.originalEndColumn = originalEndColumn;
-      this.modifiedStartLineNumber = modifiedStartLineNumber;
-      this.modifiedStartColumn = modifiedStartColumn;
-      this.modifiedEndLineNumber = modifiedEndLineNumber;
-      this.modifiedEndColumn = modifiedEndColumn;
-    }
-    static createFromDiffChange(diffChange, originalCharSequence, modifiedCharSequence) {
-      const originalStartLineNumber = originalCharSequence.getStartLineNumber(diffChange.originalStart);
-      const originalStartColumn = originalCharSequence.getStartColumn(diffChange.originalStart);
-      const originalEndLineNumber = originalCharSequence.getEndLineNumber(diffChange.originalStart + diffChange.originalLength - 1);
-      const originalEndColumn = originalCharSequence.getEndColumn(diffChange.originalStart + diffChange.originalLength - 1);
-      const modifiedStartLineNumber = modifiedCharSequence.getStartLineNumber(diffChange.modifiedStart);
-      const modifiedStartColumn = modifiedCharSequence.getStartColumn(diffChange.modifiedStart);
-      const modifiedEndLineNumber = modifiedCharSequence.getEndLineNumber(diffChange.modifiedStart + diffChange.modifiedLength - 1);
-      const modifiedEndColumn = modifiedCharSequence.getEndColumn(diffChange.modifiedStart + diffChange.modifiedLength - 1);
-      return new CharChange(originalStartLineNumber, originalStartColumn, originalEndLineNumber, originalEndColumn, modifiedStartLineNumber, modifiedStartColumn, modifiedEndLineNumber, modifiedEndColumn);
-    }
-  };
-  function postProcessCharChanges(rawChanges) {
-    if (rawChanges.length <= 1) {
-      return rawChanges;
-    }
-    const result = [rawChanges[0]];
-    let prevChange = result[0];
-    for (let i = 1, len = rawChanges.length; i < len; i++) {
-      const currChange = rawChanges[i];
-      const originalMatchingLength = currChange.originalStart - (prevChange.originalStart + prevChange.originalLength);
-      const modifiedMatchingLength = currChange.modifiedStart - (prevChange.modifiedStart + prevChange.modifiedLength);
-      const matchingLength = Math.min(originalMatchingLength, modifiedMatchingLength);
-      if (matchingLength < MINIMUM_MATCHING_CHARACTER_LENGTH) {
-        prevChange.originalLength = currChange.originalStart + currChange.originalLength - prevChange.originalStart;
-        prevChange.modifiedLength = currChange.modifiedStart + currChange.modifiedLength - prevChange.modifiedStart;
-      } else {
-        result.push(currChange);
-        prevChange = currChange;
-      }
-    }
-    return result;
-  }
-  var LineChange = class {
-    constructor(originalStartLineNumber, originalEndLineNumber, modifiedStartLineNumber, modifiedEndLineNumber, charChanges) {
-      this.originalStartLineNumber = originalStartLineNumber;
-      this.originalEndLineNumber = originalEndLineNumber;
-      this.modifiedStartLineNumber = modifiedStartLineNumber;
-      this.modifiedEndLineNumber = modifiedEndLineNumber;
-      this.charChanges = charChanges;
-    }
-    static createFromDiffResult(shouldIgnoreTrimWhitespace, diffChange, originalLineSequence, modifiedLineSequence, continueCharDiff, shouldComputeCharChanges, shouldPostProcessCharChanges) {
-      let originalStartLineNumber;
-      let originalEndLineNumber;
-      let modifiedStartLineNumber;
-      let modifiedEndLineNumber;
-      let charChanges = void 0;
-      if (diffChange.originalLength === 0) {
-        originalStartLineNumber = originalLineSequence.getStartLineNumber(diffChange.originalStart) - 1;
-        originalEndLineNumber = 0;
-      } else {
-        originalStartLineNumber = originalLineSequence.getStartLineNumber(diffChange.originalStart);
-        originalEndLineNumber = originalLineSequence.getEndLineNumber(diffChange.originalStart + diffChange.originalLength - 1);
-      }
-      if (diffChange.modifiedLength === 0) {
-        modifiedStartLineNumber = modifiedLineSequence.getStartLineNumber(diffChange.modifiedStart) - 1;
-        modifiedEndLineNumber = 0;
-      } else {
-        modifiedStartLineNumber = modifiedLineSequence.getStartLineNumber(diffChange.modifiedStart);
-        modifiedEndLineNumber = modifiedLineSequence.getEndLineNumber(diffChange.modifiedStart + diffChange.modifiedLength - 1);
-      }
-      if (shouldComputeCharChanges && diffChange.originalLength > 0 && diffChange.originalLength < 20 && diffChange.modifiedLength > 0 && diffChange.modifiedLength < 20 && continueCharDiff()) {
-        const originalCharSequence = originalLineSequence.createCharSequence(shouldIgnoreTrimWhitespace, diffChange.originalStart, diffChange.originalStart + diffChange.originalLength - 1);
-        const modifiedCharSequence = modifiedLineSequence.createCharSequence(shouldIgnoreTrimWhitespace, diffChange.modifiedStart, diffChange.modifiedStart + diffChange.modifiedLength - 1);
-        if (originalCharSequence.getElements().length > 0 && modifiedCharSequence.getElements().length > 0) {
-          let rawChanges = computeDiff(originalCharSequence, modifiedCharSequence, continueCharDiff, true).changes;
-          if (shouldPostProcessCharChanges) {
-            rawChanges = postProcessCharChanges(rawChanges);
-          }
-          charChanges = [];
-          for (let i = 0, length = rawChanges.length; i < length; i++) {
-            charChanges.push(CharChange.createFromDiffChange(rawChanges[i], originalCharSequence, modifiedCharSequence));
-          }
-        }
-      }
-      return new LineChange(originalStartLineNumber, originalEndLineNumber, modifiedStartLineNumber, modifiedEndLineNumber, charChanges);
-    }
-  };
-  var DiffComputer = class {
-    constructor(originalLines, modifiedLines, opts) {
-      this.shouldComputeCharChanges = opts.shouldComputeCharChanges;
-      this.shouldPostProcessCharChanges = opts.shouldPostProcessCharChanges;
-      this.shouldIgnoreTrimWhitespace = opts.shouldIgnoreTrimWhitespace;
-      this.shouldMakePrettyDiff = opts.shouldMakePrettyDiff;
-      this.originalLines = originalLines;
-      this.modifiedLines = modifiedLines;
-      this.original = new LineSequence(originalLines);
-      this.modified = new LineSequence(modifiedLines);
-      this.continueLineDiff = createContinueProcessingPredicate(opts.maxComputationTime);
-      this.continueCharDiff = createContinueProcessingPredicate(opts.maxComputationTime === 0 ? 0 : Math.min(opts.maxComputationTime, 5e3));
-    }
-    computeDiff() {
-      if (this.original.lines.length === 1 && this.original.lines[0].length === 0) {
-        if (this.modified.lines.length === 1 && this.modified.lines[0].length === 0) {
-          return {
-            quitEarly: false,
-            changes: []
-          };
-        }
-        return {
-          quitEarly: false,
-          changes: [{
-            originalStartLineNumber: 1,
-            originalEndLineNumber: 1,
-            modifiedStartLineNumber: 1,
-            modifiedEndLineNumber: this.modified.lines.length,
-            charChanges: [{
-              modifiedEndColumn: 0,
-              modifiedEndLineNumber: 0,
-              modifiedStartColumn: 0,
-              modifiedStartLineNumber: 0,
-              originalEndColumn: 0,
-              originalEndLineNumber: 0,
-              originalStartColumn: 0,
-              originalStartLineNumber: 0
-            }]
-          }]
-        };
-      }
-      if (this.modified.lines.length === 1 && this.modified.lines[0].length === 0) {
-        return {
-          quitEarly: false,
-          changes: [{
-            originalStartLineNumber: 1,
-            originalEndLineNumber: this.original.lines.length,
-            modifiedStartLineNumber: 1,
-            modifiedEndLineNumber: 1,
-            charChanges: [{
-              modifiedEndColumn: 0,
-              modifiedEndLineNumber: 0,
-              modifiedStartColumn: 0,
-              modifiedStartLineNumber: 0,
-              originalEndColumn: 0,
-              originalEndLineNumber: 0,
-              originalStartColumn: 0,
-              originalStartLineNumber: 0
-            }]
-          }]
-        };
-      }
-      const diffResult = computeDiff(this.original, this.modified, this.continueLineDiff, this.shouldMakePrettyDiff);
-      const rawChanges = diffResult.changes;
-      const quitEarly = diffResult.quitEarly;
-      if (this.shouldIgnoreTrimWhitespace) {
-        const lineChanges = [];
-        for (let i = 0, length = rawChanges.length; i < length; i++) {
-          lineChanges.push(LineChange.createFromDiffResult(this.shouldIgnoreTrimWhitespace, rawChanges[i], this.original, this.modified, this.continueCharDiff, this.shouldComputeCharChanges, this.shouldPostProcessCharChanges));
-        }
-        return {
-          quitEarly,
-          changes: lineChanges
-        };
-      }
-      const result = [];
-      let originalLineIndex = 0;
-      let modifiedLineIndex = 0;
-      for (let i = -1, len = rawChanges.length; i < len; i++) {
-        const nextChange = i + 1 < len ? rawChanges[i + 1] : null;
-        const originalStop = nextChange ? nextChange.originalStart : this.originalLines.length;
-        const modifiedStop = nextChange ? nextChange.modifiedStart : this.modifiedLines.length;
-        while (originalLineIndex < originalStop && modifiedLineIndex < modifiedStop) {
-          const originalLine = this.originalLines[originalLineIndex];
-          const modifiedLine = this.modifiedLines[modifiedLineIndex];
-          if (originalLine !== modifiedLine) {
-            {
-              let originalStartColumn = getFirstNonBlankColumn(originalLine, 1);
-              let modifiedStartColumn = getFirstNonBlankColumn(modifiedLine, 1);
-              while (originalStartColumn > 1 && modifiedStartColumn > 1) {
-                const originalChar = originalLine.charCodeAt(originalStartColumn - 2);
-                const modifiedChar = modifiedLine.charCodeAt(modifiedStartColumn - 2);
-                if (originalChar !== modifiedChar) {
-                  break;
-                }
-                originalStartColumn--;
-                modifiedStartColumn--;
-              }
-              if (originalStartColumn > 1 || modifiedStartColumn > 1) {
-                this._pushTrimWhitespaceCharChange(result, originalLineIndex + 1, 1, originalStartColumn, modifiedLineIndex + 1, 1, modifiedStartColumn);
-              }
-            }
-            {
-              let originalEndColumn = getLastNonBlankColumn(originalLine, 1);
-              let modifiedEndColumn = getLastNonBlankColumn(modifiedLine, 1);
-              const originalMaxColumn = originalLine.length + 1;
-              const modifiedMaxColumn = modifiedLine.length + 1;
-              while (originalEndColumn < originalMaxColumn && modifiedEndColumn < modifiedMaxColumn) {
-                const originalChar = originalLine.charCodeAt(originalEndColumn - 1);
-                const modifiedChar = originalLine.charCodeAt(modifiedEndColumn - 1);
-                if (originalChar !== modifiedChar) {
-                  break;
-                }
-                originalEndColumn++;
-                modifiedEndColumn++;
-              }
-              if (originalEndColumn < originalMaxColumn || modifiedEndColumn < modifiedMaxColumn) {
-                this._pushTrimWhitespaceCharChange(result, originalLineIndex + 1, originalEndColumn, originalMaxColumn, modifiedLineIndex + 1, modifiedEndColumn, modifiedMaxColumn);
-              }
-            }
-          }
-          originalLineIndex++;
-          modifiedLineIndex++;
-        }
-        if (nextChange) {
-          result.push(LineChange.createFromDiffResult(this.shouldIgnoreTrimWhitespace, nextChange, this.original, this.modified, this.continueCharDiff, this.shouldComputeCharChanges, this.shouldPostProcessCharChanges));
-          originalLineIndex += nextChange.originalLength;
-          modifiedLineIndex += nextChange.modifiedLength;
-        }
-      }
-      return {
-        quitEarly,
-        changes: result
-      };
-    }
-    _pushTrimWhitespaceCharChange(result, originalLineNumber, originalStartColumn, originalEndColumn, modifiedLineNumber, modifiedStartColumn, modifiedEndColumn) {
-      if (this._mergeTrimWhitespaceCharChange(result, originalLineNumber, originalStartColumn, originalEndColumn, modifiedLineNumber, modifiedStartColumn, modifiedEndColumn)) {
-        return;
-      }
-      let charChanges = void 0;
-      if (this.shouldComputeCharChanges) {
-        charChanges = [new CharChange(originalLineNumber, originalStartColumn, originalLineNumber, originalEndColumn, modifiedLineNumber, modifiedStartColumn, modifiedLineNumber, modifiedEndColumn)];
-      }
-      result.push(new LineChange(originalLineNumber, originalLineNumber, modifiedLineNumber, modifiedLineNumber, charChanges));
-    }
-    _mergeTrimWhitespaceCharChange(result, originalLineNumber, originalStartColumn, originalEndColumn, modifiedLineNumber, modifiedStartColumn, modifiedEndColumn) {
-      const len = result.length;
-      if (len === 0) {
-        return false;
-      }
-      const prevChange = result[len - 1];
-      if (prevChange.originalEndLineNumber === 0 || prevChange.modifiedEndLineNumber === 0) {
-        return false;
-      }
-      if (prevChange.originalEndLineNumber + 1 === originalLineNumber && prevChange.modifiedEndLineNumber + 1 === modifiedLineNumber) {
-        prevChange.originalEndLineNumber = originalLineNumber;
-        prevChange.modifiedEndLineNumber = modifiedLineNumber;
-        if (this.shouldComputeCharChanges && prevChange.charChanges) {
-          prevChange.charChanges.push(new CharChange(originalLineNumber, originalStartColumn, originalLineNumber, originalEndColumn, modifiedLineNumber, modifiedStartColumn, modifiedLineNumber, modifiedEndColumn));
-        }
-        return true;
-      }
-      return false;
-    }
-  };
-  function getFirstNonBlankColumn(txt, defaultValue) {
-    const r = firstNonWhitespaceIndex(txt);
-    if (r === -1) {
-      return defaultValue;
-    }
-    return r + 1;
-  }
-  function getLastNonBlankColumn(txt, defaultValue) {
-    const r = lastNonWhitespaceIndex(txt);
-    if (r === -1) {
-      return defaultValue;
-    }
-    return r + 2;
-  }
-  function createContinueProcessingPredicate(maximumRuntime) {
-    if (maximumRuntime === 0) {
-      return () => true;
-    }
-    const startTime = Date.now();
-    return () => {
-      return Date.now() - startTime < maximumRuntime;
-    };
-  }
 
   // node_modules/monaco-editor/esm/vs/base/common/arrays.js
   var CompareResult;
@@ -21455,6 +21709,49 @@ ${p.commentBefore}` : u;
     CompareResult2.lessThan = -1;
     CompareResult2.neitherLessOrGreaterThan = 0;
   })(CompareResult || (CompareResult = {}));
+  var CallbackIterable = class _CallbackIterable {
+    constructor(iterate) {
+      this.iterate = iterate;
+    }
+    toArray() {
+      const result = [];
+      this.iterate((item) => {
+        result.push(item);
+        return true;
+      });
+      return result;
+    }
+    filter(predicate) {
+      return new _CallbackIterable((cb) => this.iterate((item) => predicate(item) ? cb(item) : true));
+    }
+    map(mapFn) {
+      return new _CallbackIterable((cb) => this.iterate((item) => cb(mapFn(item))));
+    }
+    findLast(predicate) {
+      let result;
+      this.iterate((item) => {
+        if (predicate(item)) {
+          result = item;
+        }
+        return true;
+      });
+      return result;
+    }
+    findLastMaxBy(comparator) {
+      let result;
+      let first = true;
+      this.iterate((item) => {
+        if (first || CompareResult.isGreaterThan(comparator(item, result))) {
+          first = false;
+          result = item;
+        }
+        return true;
+      });
+      return result;
+    }
+  };
+  CallbackIterable.empty = new CallbackIterable((_callback) => {
+  });
 
   // node_modules/monaco-editor/esm/vs/base/common/uint.js
   function toUint8(v) {
@@ -21550,6 +21847,10 @@ ${p.commentBefore}` : u;
       }
       return this._getPrefixSum(this.values.length - 1);
     }
+    /**
+     * Returns the sum of the first `index + 1` many items.
+     * @returns `SUM(0 <= j <= index, values[j])`.
+     */
     getPrefixSum(index) {
       if (index < 0) {
         return 0;
@@ -21654,6 +21955,9 @@ ${p.commentBefore}` : u;
         this._lineStarts = new PrefixSumComputer(lineStartValues);
       }
     }
+    /**
+     * All changes to a line's text go through this method
+     */
     _setLineText(lineIndex, newValue) {
       this._lines[lineIndex] = newValue;
       if (this._lineStarts) {
@@ -21797,18 +22101,16 @@ ${p.commentBefore}` : u;
   }
 
   // node_modules/monaco-editor/esm/vs/editor/common/core/characterClassifier.js
-  var CharacterClassifier = class {
+  var CharacterClassifier = class _CharacterClassifier {
     constructor(_defaultValue) {
       const defaultValue = toUint8(_defaultValue);
       this._defaultValue = defaultValue;
-      this._asciiMap = CharacterClassifier._createAsciiMap(defaultValue);
+      this._asciiMap = _CharacterClassifier._createAsciiMap(defaultValue);
       this._map = /* @__PURE__ */ new Map();
     }
     static _createAsciiMap(defaultValue) {
       const asciiMap = new Uint8Array(256);
-      for (let i = 0; i < 256; i++) {
-        asciiMap[i] = defaultValue;
-      }
+      asciiMap.fill(defaultValue);
       return asciiMap;
     }
     set(charCode, _value) {
@@ -21825,6 +22127,10 @@ ${p.commentBefore}` : u;
       } else {
         return this._map.get(charCode) || this._defaultValue;
       }
+    }
+    clear() {
+      this._asciiMap.fill(this._defaultValue);
+      this._map.clear();
     }
   };
 
@@ -21864,7 +22170,12 @@ ${p.commentBefore}` : u;
       }
       maxCharCode++;
       maxState++;
-      const states = new Uint8Matrix(maxState, maxCharCode, 0);
+      const states = new Uint8Matrix(
+        maxState,
+        maxCharCode,
+        0
+        /* State.Invalid */
+      );
       for (let i = 0, len = edges.length; i < len; i++) {
         const [from, chCode, to] = edges[i];
         states.set(from, chCode, to);
@@ -21883,28 +22194,138 @@ ${p.commentBefore}` : u;
   function getStateMachine() {
     if (_stateMachine === null) {
       _stateMachine = new StateMachine([
-        [1, 104, 2],
-        [1, 72, 2],
-        [1, 102, 6],
-        [1, 70, 6],
-        [2, 116, 3],
-        [2, 84, 3],
-        [3, 116, 4],
-        [3, 84, 4],
-        [4, 112, 5],
-        [4, 80, 5],
-        [5, 115, 9],
-        [5, 83, 9],
-        [5, 58, 10],
-        [6, 105, 7],
-        [6, 73, 7],
-        [7, 108, 8],
-        [7, 76, 8],
-        [8, 101, 9],
-        [8, 69, 9],
-        [9, 58, 10],
-        [10, 47, 11],
-        [11, 47, 12]
+        [
+          1,
+          104,
+          2
+          /* State.H */
+        ],
+        [
+          1,
+          72,
+          2
+          /* State.H */
+        ],
+        [
+          1,
+          102,
+          6
+          /* State.F */
+        ],
+        [
+          1,
+          70,
+          6
+          /* State.F */
+        ],
+        [
+          2,
+          116,
+          3
+          /* State.HT */
+        ],
+        [
+          2,
+          84,
+          3
+          /* State.HT */
+        ],
+        [
+          3,
+          116,
+          4
+          /* State.HTT */
+        ],
+        [
+          3,
+          84,
+          4
+          /* State.HTT */
+        ],
+        [
+          4,
+          112,
+          5
+          /* State.HTTP */
+        ],
+        [
+          4,
+          80,
+          5
+          /* State.HTTP */
+        ],
+        [
+          5,
+          115,
+          9
+          /* State.BeforeColon */
+        ],
+        [
+          5,
+          83,
+          9
+          /* State.BeforeColon */
+        ],
+        [
+          5,
+          58,
+          10
+          /* State.AfterColon */
+        ],
+        [
+          6,
+          105,
+          7
+          /* State.FI */
+        ],
+        [
+          6,
+          73,
+          7
+          /* State.FI */
+        ],
+        [
+          7,
+          108,
+          8
+          /* State.FIL */
+        ],
+        [
+          7,
+          76,
+          8
+          /* State.FIL */
+        ],
+        [
+          8,
+          101,
+          9
+          /* State.BeforeColon */
+        ],
+        [
+          8,
+          69,
+          9
+          /* State.BeforeColon */
+        ],
+        [
+          9,
+          58,
+          10
+          /* State.AfterColon */
+        ],
+        [
+          10,
+          47,
+          11
+          /* State.AlmostThere */
+        ],
+        [
+          11,
+          47,
+          12
+          /* State.End */
+        ]
       ]);
     }
     return _stateMachine;
@@ -21912,19 +22333,30 @@ ${p.commentBefore}` : u;
   var _classifier = null;
   function getClassifier() {
     if (_classifier === null) {
-      _classifier = new CharacterClassifier(0);
+      _classifier = new CharacterClassifier(
+        0
+        /* CharacterClass.None */
+      );
       const FORCE_TERMINATION_CHARACTERS = ` 	<>'"\u3001\u3002\uFF61\uFF64\uFF0C\uFF0E\uFF1A\uFF1B\u2018\u3008\u300C\u300E\u3014\uFF08\uFF3B\uFF5B\uFF62\uFF63\uFF5D\uFF3D\uFF09\u3015\u300F\u300D\u3009\u2019\uFF40\uFF5E\u2026`;
       for (let i = 0; i < FORCE_TERMINATION_CHARACTERS.length; i++) {
-        _classifier.set(FORCE_TERMINATION_CHARACTERS.charCodeAt(i), 1);
+        _classifier.set(
+          FORCE_TERMINATION_CHARACTERS.charCodeAt(i),
+          1
+          /* CharacterClass.ForceTermination */
+        );
       }
       const CANNOT_END_WITH_CHARACTERS = ".,;:";
       for (let i = 0; i < CANNOT_END_WITH_CHARACTERS.length; i++) {
-        _classifier.set(CANNOT_END_WITH_CHARACTERS.charCodeAt(i), 2);
+        _classifier.set(
+          CANNOT_END_WITH_CHARACTERS.charCodeAt(i),
+          2
+          /* CharacterClass.CannotEndIn */
+        );
       }
     }
     return _classifier;
   }
-  var LinkComputer = class {
+  var LinkComputer = class _LinkComputer {
     static _createLink(classifier, line, lineNumber, linkBeginIndex, linkEndIndex) {
       let lastIncludedCharIndex = linkEndIndex - 1;
       do {
@@ -21996,13 +22428,15 @@ ${p.commentBefore}` : u;
                 chClass = hasOpenCurlyBracket ? 0 : 1;
                 break;
               case 39:
-                chClass = linkBeginChCode === 39 ? 1 : 0;
-                break;
               case 34:
-                chClass = linkBeginChCode === 34 ? 1 : 0;
-                break;
               case 96:
-                chClass = linkBeginChCode === 96 ? 1 : 0;
+                if (linkBeginChCode === chCode) {
+                  chClass = 1;
+                } else if (linkBeginChCode === 39 || linkBeginChCode === 34 || linkBeginChCode === 96) {
+                  chClass = 0;
+                } else {
+                  chClass = 1;
+                }
                 break;
               case 42:
                 chClass = linkBeginChCode === 42 ? 1 : 0;
@@ -22017,7 +22451,7 @@ ${p.commentBefore}` : u;
                 chClass = classifier.get(chCode);
             }
             if (chClass === 1) {
-              result.push(LinkComputer._createLink(classifier, line, i, linkBeginIndex, j));
+              result.push(_LinkComputer._createLink(classifier, line, i, linkBeginIndex, j));
               resetStateMachine = true;
             }
           } else if (state === 12) {
@@ -22050,7 +22484,7 @@ ${p.commentBefore}` : u;
           j++;
         }
         if (state === 13) {
-          result.push(LinkComputer._createLink(classifier, line, i, linkBeginIndex, len));
+          result.push(_LinkComputer._createLink(classifier, line, i, linkBeginIndex, len));
         }
       }
       return result;
@@ -22226,12 +22660,11 @@ ${p.commentBefore}` : u;
       }
     }
     dispose(cancel = false) {
+      var _a3;
       if (cancel) {
         this.cancel();
       }
-      if (this._parentListener) {
-        this._parentListener.dispose();
-      }
+      (_a3 = this._parentListener) === null || _a3 === void 0 ? void 0 : _a3.dispose();
       if (!this._token) {
         this._token = CancellationToken.None;
       } else if (this._token instanceof MutableToken) {
@@ -22270,246 +22703,249 @@ ${p.commentBefore}` : u;
   for (let i = 0; i <= 193; i++) {
     IMMUTABLE_CODE_TO_KEY_CODE[i] = -1;
   }
-  for (let i = 0; i <= 127; i++) {
+  for (let i = 0; i <= 132; i++) {
     IMMUTABLE_KEY_CODE_TO_CODE[i] = -1;
   }
   (function() {
     const empty = "";
     const mappings = [
-      [0, 1, 0, "None", 0, "unknown", 0, "VK_UNKNOWN", empty, empty],
-      [0, 1, 1, "Hyper", 0, empty, 0, empty, empty, empty],
-      [0, 1, 2, "Super", 0, empty, 0, empty, empty, empty],
-      [0, 1, 3, "Fn", 0, empty, 0, empty, empty, empty],
-      [0, 1, 4, "FnLock", 0, empty, 0, empty, empty, empty],
-      [0, 1, 5, "Suspend", 0, empty, 0, empty, empty, empty],
-      [0, 1, 6, "Resume", 0, empty, 0, empty, empty, empty],
-      [0, 1, 7, "Turbo", 0, empty, 0, empty, empty, empty],
-      [0, 1, 8, "Sleep", 0, empty, 0, "VK_SLEEP", empty, empty],
-      [0, 1, 9, "WakeUp", 0, empty, 0, empty, empty, empty],
-      [31, 0, 10, "KeyA", 31, "A", 65, "VK_A", empty, empty],
-      [32, 0, 11, "KeyB", 32, "B", 66, "VK_B", empty, empty],
-      [33, 0, 12, "KeyC", 33, "C", 67, "VK_C", empty, empty],
-      [34, 0, 13, "KeyD", 34, "D", 68, "VK_D", empty, empty],
-      [35, 0, 14, "KeyE", 35, "E", 69, "VK_E", empty, empty],
-      [36, 0, 15, "KeyF", 36, "F", 70, "VK_F", empty, empty],
-      [37, 0, 16, "KeyG", 37, "G", 71, "VK_G", empty, empty],
-      [38, 0, 17, "KeyH", 38, "H", 72, "VK_H", empty, empty],
-      [39, 0, 18, "KeyI", 39, "I", 73, "VK_I", empty, empty],
-      [40, 0, 19, "KeyJ", 40, "J", 74, "VK_J", empty, empty],
-      [41, 0, 20, "KeyK", 41, "K", 75, "VK_K", empty, empty],
-      [42, 0, 21, "KeyL", 42, "L", 76, "VK_L", empty, empty],
-      [43, 0, 22, "KeyM", 43, "M", 77, "VK_M", empty, empty],
-      [44, 0, 23, "KeyN", 44, "N", 78, "VK_N", empty, empty],
-      [45, 0, 24, "KeyO", 45, "O", 79, "VK_O", empty, empty],
-      [46, 0, 25, "KeyP", 46, "P", 80, "VK_P", empty, empty],
-      [47, 0, 26, "KeyQ", 47, "Q", 81, "VK_Q", empty, empty],
-      [48, 0, 27, "KeyR", 48, "R", 82, "VK_R", empty, empty],
-      [49, 0, 28, "KeyS", 49, "S", 83, "VK_S", empty, empty],
-      [50, 0, 29, "KeyT", 50, "T", 84, "VK_T", empty, empty],
-      [51, 0, 30, "KeyU", 51, "U", 85, "VK_U", empty, empty],
-      [52, 0, 31, "KeyV", 52, "V", 86, "VK_V", empty, empty],
-      [53, 0, 32, "KeyW", 53, "W", 87, "VK_W", empty, empty],
-      [54, 0, 33, "KeyX", 54, "X", 88, "VK_X", empty, empty],
-      [55, 0, 34, "KeyY", 55, "Y", 89, "VK_Y", empty, empty],
-      [56, 0, 35, "KeyZ", 56, "Z", 90, "VK_Z", empty, empty],
-      [22, 0, 36, "Digit1", 22, "1", 49, "VK_1", empty, empty],
-      [23, 0, 37, "Digit2", 23, "2", 50, "VK_2", empty, empty],
-      [24, 0, 38, "Digit3", 24, "3", 51, "VK_3", empty, empty],
-      [25, 0, 39, "Digit4", 25, "4", 52, "VK_4", empty, empty],
-      [26, 0, 40, "Digit5", 26, "5", 53, "VK_5", empty, empty],
-      [27, 0, 41, "Digit6", 27, "6", 54, "VK_6", empty, empty],
-      [28, 0, 42, "Digit7", 28, "7", 55, "VK_7", empty, empty],
-      [29, 0, 43, "Digit8", 29, "8", 56, "VK_8", empty, empty],
-      [30, 0, 44, "Digit9", 30, "9", 57, "VK_9", empty, empty],
-      [21, 0, 45, "Digit0", 21, "0", 48, "VK_0", empty, empty],
-      [3, 1, 46, "Enter", 3, "Enter", 13, "VK_RETURN", empty, empty],
-      [9, 1, 47, "Escape", 9, "Escape", 27, "VK_ESCAPE", empty, empty],
-      [1, 1, 48, "Backspace", 1, "Backspace", 8, "VK_BACK", empty, empty],
-      [2, 1, 49, "Tab", 2, "Tab", 9, "VK_TAB", empty, empty],
-      [10, 1, 50, "Space", 10, "Space", 32, "VK_SPACE", empty, empty],
-      [83, 0, 51, "Minus", 83, "-", 189, "VK_OEM_MINUS", "-", "OEM_MINUS"],
-      [81, 0, 52, "Equal", 81, "=", 187, "VK_OEM_PLUS", "=", "OEM_PLUS"],
-      [87, 0, 53, "BracketLeft", 87, "[", 219, "VK_OEM_4", "[", "OEM_4"],
-      [89, 0, 54, "BracketRight", 89, "]", 221, "VK_OEM_6", "]", "OEM_6"],
-      [88, 0, 55, "Backslash", 88, "\\", 220, "VK_OEM_5", "\\", "OEM_5"],
-      [0, 0, 56, "IntlHash", 0, empty, 0, empty, empty, empty],
-      [80, 0, 57, "Semicolon", 80, ";", 186, "VK_OEM_1", ";", "OEM_1"],
-      [90, 0, 58, "Quote", 90, "'", 222, "VK_OEM_7", "'", "OEM_7"],
-      [86, 0, 59, "Backquote", 86, "`", 192, "VK_OEM_3", "`", "OEM_3"],
-      [82, 0, 60, "Comma", 82, ",", 188, "VK_OEM_COMMA", ",", "OEM_COMMA"],
-      [84, 0, 61, "Period", 84, ".", 190, "VK_OEM_PERIOD", ".", "OEM_PERIOD"],
-      [85, 0, 62, "Slash", 85, "/", 191, "VK_OEM_2", "/", "OEM_2"],
-      [8, 1, 63, "CapsLock", 8, "CapsLock", 20, "VK_CAPITAL", empty, empty],
-      [59, 1, 64, "F1", 59, "F1", 112, "VK_F1", empty, empty],
-      [60, 1, 65, "F2", 60, "F2", 113, "VK_F2", empty, empty],
-      [61, 1, 66, "F3", 61, "F3", 114, "VK_F3", empty, empty],
-      [62, 1, 67, "F4", 62, "F4", 115, "VK_F4", empty, empty],
-      [63, 1, 68, "F5", 63, "F5", 116, "VK_F5", empty, empty],
-      [64, 1, 69, "F6", 64, "F6", 117, "VK_F6", empty, empty],
-      [65, 1, 70, "F7", 65, "F7", 118, "VK_F7", empty, empty],
-      [66, 1, 71, "F8", 66, "F8", 119, "VK_F8", empty, empty],
-      [67, 1, 72, "F9", 67, "F9", 120, "VK_F9", empty, empty],
-      [68, 1, 73, "F10", 68, "F10", 121, "VK_F10", empty, empty],
-      [69, 1, 74, "F11", 69, "F11", 122, "VK_F11", empty, empty],
-      [70, 1, 75, "F12", 70, "F12", 123, "VK_F12", empty, empty],
-      [0, 1, 76, "PrintScreen", 0, empty, 0, empty, empty, empty],
-      [79, 1, 77, "ScrollLock", 79, "ScrollLock", 145, "VK_SCROLL", empty, empty],
-      [7, 1, 78, "Pause", 7, "PauseBreak", 19, "VK_PAUSE", empty, empty],
-      [19, 1, 79, "Insert", 19, "Insert", 45, "VK_INSERT", empty, empty],
-      [14, 1, 80, "Home", 14, "Home", 36, "VK_HOME", empty, empty],
-      [11, 1, 81, "PageUp", 11, "PageUp", 33, "VK_PRIOR", empty, empty],
-      [20, 1, 82, "Delete", 20, "Delete", 46, "VK_DELETE", empty, empty],
-      [13, 1, 83, "End", 13, "End", 35, "VK_END", empty, empty],
-      [12, 1, 84, "PageDown", 12, "PageDown", 34, "VK_NEXT", empty, empty],
-      [17, 1, 85, "ArrowRight", 17, "RightArrow", 39, "VK_RIGHT", "Right", empty],
-      [15, 1, 86, "ArrowLeft", 15, "LeftArrow", 37, "VK_LEFT", "Left", empty],
-      [18, 1, 87, "ArrowDown", 18, "DownArrow", 40, "VK_DOWN", "Down", empty],
-      [16, 1, 88, "ArrowUp", 16, "UpArrow", 38, "VK_UP", "Up", empty],
-      [78, 1, 89, "NumLock", 78, "NumLock", 144, "VK_NUMLOCK", empty, empty],
-      [108, 1, 90, "NumpadDivide", 108, "NumPad_Divide", 111, "VK_DIVIDE", empty, empty],
-      [103, 1, 91, "NumpadMultiply", 103, "NumPad_Multiply", 106, "VK_MULTIPLY", empty, empty],
-      [106, 1, 92, "NumpadSubtract", 106, "NumPad_Subtract", 109, "VK_SUBTRACT", empty, empty],
-      [104, 1, 93, "NumpadAdd", 104, "NumPad_Add", 107, "VK_ADD", empty, empty],
-      [3, 1, 94, "NumpadEnter", 3, empty, 0, empty, empty, empty],
-      [94, 1, 95, "Numpad1", 94, "NumPad1", 97, "VK_NUMPAD1", empty, empty],
-      [95, 1, 96, "Numpad2", 95, "NumPad2", 98, "VK_NUMPAD2", empty, empty],
-      [96, 1, 97, "Numpad3", 96, "NumPad3", 99, "VK_NUMPAD3", empty, empty],
-      [97, 1, 98, "Numpad4", 97, "NumPad4", 100, "VK_NUMPAD4", empty, empty],
-      [98, 1, 99, "Numpad5", 98, "NumPad5", 101, "VK_NUMPAD5", empty, empty],
-      [99, 1, 100, "Numpad6", 99, "NumPad6", 102, "VK_NUMPAD6", empty, empty],
-      [100, 1, 101, "Numpad7", 100, "NumPad7", 103, "VK_NUMPAD7", empty, empty],
-      [101, 1, 102, "Numpad8", 101, "NumPad8", 104, "VK_NUMPAD8", empty, empty],
-      [102, 1, 103, "Numpad9", 102, "NumPad9", 105, "VK_NUMPAD9", empty, empty],
-      [93, 1, 104, "Numpad0", 93, "NumPad0", 96, "VK_NUMPAD0", empty, empty],
-      [107, 1, 105, "NumpadDecimal", 107, "NumPad_Decimal", 110, "VK_DECIMAL", empty, empty],
-      [92, 0, 106, "IntlBackslash", 92, "OEM_102", 226, "VK_OEM_102", empty, empty],
-      [58, 1, 107, "ContextMenu", 58, "ContextMenu", 93, empty, empty, empty],
-      [0, 1, 108, "Power", 0, empty, 0, empty, empty, empty],
-      [0, 1, 109, "NumpadEqual", 0, empty, 0, empty, empty, empty],
-      [71, 1, 110, "F13", 71, "F13", 124, "VK_F13", empty, empty],
-      [72, 1, 111, "F14", 72, "F14", 125, "VK_F14", empty, empty],
-      [73, 1, 112, "F15", 73, "F15", 126, "VK_F15", empty, empty],
-      [74, 1, 113, "F16", 74, "F16", 127, "VK_F16", empty, empty],
-      [75, 1, 114, "F17", 75, "F17", 128, "VK_F17", empty, empty],
-      [76, 1, 115, "F18", 76, "F18", 129, "VK_F18", empty, empty],
-      [77, 1, 116, "F19", 77, "F19", 130, "VK_F19", empty, empty],
-      [0, 1, 117, "F20", 0, empty, 0, "VK_F20", empty, empty],
-      [0, 1, 118, "F21", 0, empty, 0, "VK_F21", empty, empty],
-      [0, 1, 119, "F22", 0, empty, 0, "VK_F22", empty, empty],
-      [0, 1, 120, "F23", 0, empty, 0, "VK_F23", empty, empty],
-      [0, 1, 121, "F24", 0, empty, 0, "VK_F24", empty, empty],
-      [0, 1, 122, "Open", 0, empty, 0, empty, empty, empty],
-      [0, 1, 123, "Help", 0, empty, 0, empty, empty, empty],
-      [0, 1, 124, "Select", 0, empty, 0, empty, empty, empty],
-      [0, 1, 125, "Again", 0, empty, 0, empty, empty, empty],
-      [0, 1, 126, "Undo", 0, empty, 0, empty, empty, empty],
-      [0, 1, 127, "Cut", 0, empty, 0, empty, empty, empty],
-      [0, 1, 128, "Copy", 0, empty, 0, empty, empty, empty],
-      [0, 1, 129, "Paste", 0, empty, 0, empty, empty, empty],
-      [0, 1, 130, "Find", 0, empty, 0, empty, empty, empty],
-      [0, 1, 131, "AudioVolumeMute", 112, "AudioVolumeMute", 173, "VK_VOLUME_MUTE", empty, empty],
-      [0, 1, 132, "AudioVolumeUp", 113, "AudioVolumeUp", 175, "VK_VOLUME_UP", empty, empty],
-      [0, 1, 133, "AudioVolumeDown", 114, "AudioVolumeDown", 174, "VK_VOLUME_DOWN", empty, empty],
-      [105, 1, 134, "NumpadComma", 105, "NumPad_Separator", 108, "VK_SEPARATOR", empty, empty],
-      [110, 0, 135, "IntlRo", 110, "ABNT_C1", 193, "VK_ABNT_C1", empty, empty],
-      [0, 1, 136, "KanaMode", 0, empty, 0, empty, empty, empty],
-      [0, 0, 137, "IntlYen", 0, empty, 0, empty, empty, empty],
-      [0, 1, 138, "Convert", 0, empty, 0, empty, empty, empty],
-      [0, 1, 139, "NonConvert", 0, empty, 0, empty, empty, empty],
-      [0, 1, 140, "Lang1", 0, empty, 0, empty, empty, empty],
-      [0, 1, 141, "Lang2", 0, empty, 0, empty, empty, empty],
-      [0, 1, 142, "Lang3", 0, empty, 0, empty, empty, empty],
-      [0, 1, 143, "Lang4", 0, empty, 0, empty, empty, empty],
-      [0, 1, 144, "Lang5", 0, empty, 0, empty, empty, empty],
-      [0, 1, 145, "Abort", 0, empty, 0, empty, empty, empty],
-      [0, 1, 146, "Props", 0, empty, 0, empty, empty, empty],
-      [0, 1, 147, "NumpadParenLeft", 0, empty, 0, empty, empty, empty],
-      [0, 1, 148, "NumpadParenRight", 0, empty, 0, empty, empty, empty],
-      [0, 1, 149, "NumpadBackspace", 0, empty, 0, empty, empty, empty],
-      [0, 1, 150, "NumpadMemoryStore", 0, empty, 0, empty, empty, empty],
-      [0, 1, 151, "NumpadMemoryRecall", 0, empty, 0, empty, empty, empty],
-      [0, 1, 152, "NumpadMemoryClear", 0, empty, 0, empty, empty, empty],
-      [0, 1, 153, "NumpadMemoryAdd", 0, empty, 0, empty, empty, empty],
-      [0, 1, 154, "NumpadMemorySubtract", 0, empty, 0, empty, empty, empty],
-      [0, 1, 155, "NumpadClear", 126, "Clear", 12, "VK_CLEAR", empty, empty],
-      [0, 1, 156, "NumpadClearEntry", 0, empty, 0, empty, empty, empty],
-      [5, 1, 0, empty, 5, "Ctrl", 17, "VK_CONTROL", empty, empty],
-      [4, 1, 0, empty, 4, "Shift", 16, "VK_SHIFT", empty, empty],
-      [6, 1, 0, empty, 6, "Alt", 18, "VK_MENU", empty, empty],
-      [57, 1, 0, empty, 57, "Meta", 0, "VK_COMMAND", empty, empty],
-      [5, 1, 157, "ControlLeft", 5, empty, 0, "VK_LCONTROL", empty, empty],
-      [4, 1, 158, "ShiftLeft", 4, empty, 0, "VK_LSHIFT", empty, empty],
-      [6, 1, 159, "AltLeft", 6, empty, 0, "VK_LMENU", empty, empty],
-      [57, 1, 160, "MetaLeft", 57, empty, 0, "VK_LWIN", empty, empty],
-      [5, 1, 161, "ControlRight", 5, empty, 0, "VK_RCONTROL", empty, empty],
-      [4, 1, 162, "ShiftRight", 4, empty, 0, "VK_RSHIFT", empty, empty],
-      [6, 1, 163, "AltRight", 6, empty, 0, "VK_RMENU", empty, empty],
-      [57, 1, 164, "MetaRight", 57, empty, 0, "VK_RWIN", empty, empty],
-      [0, 1, 165, "BrightnessUp", 0, empty, 0, empty, empty, empty],
-      [0, 1, 166, "BrightnessDown", 0, empty, 0, empty, empty, empty],
-      [0, 1, 167, "MediaPlay", 0, empty, 0, empty, empty, empty],
-      [0, 1, 168, "MediaRecord", 0, empty, 0, empty, empty, empty],
-      [0, 1, 169, "MediaFastForward", 0, empty, 0, empty, empty, empty],
-      [0, 1, 170, "MediaRewind", 0, empty, 0, empty, empty, empty],
-      [114, 1, 171, "MediaTrackNext", 119, "MediaTrackNext", 176, "VK_MEDIA_NEXT_TRACK", empty, empty],
-      [115, 1, 172, "MediaTrackPrevious", 120, "MediaTrackPrevious", 177, "VK_MEDIA_PREV_TRACK", empty, empty],
-      [116, 1, 173, "MediaStop", 121, "MediaStop", 178, "VK_MEDIA_STOP", empty, empty],
-      [0, 1, 174, "Eject", 0, empty, 0, empty, empty, empty],
-      [117, 1, 175, "MediaPlayPause", 122, "MediaPlayPause", 179, "VK_MEDIA_PLAY_PAUSE", empty, empty],
-      [0, 1, 176, "MediaSelect", 123, "LaunchMediaPlayer", 181, "VK_MEDIA_LAUNCH_MEDIA_SELECT", empty, empty],
-      [0, 1, 177, "LaunchMail", 124, "LaunchMail", 180, "VK_MEDIA_LAUNCH_MAIL", empty, empty],
-      [0, 1, 178, "LaunchApp2", 125, "LaunchApp2", 183, "VK_MEDIA_LAUNCH_APP2", empty, empty],
-      [0, 1, 179, "LaunchApp1", 0, empty, 0, "VK_MEDIA_LAUNCH_APP1", empty, empty],
-      [0, 1, 180, "SelectTask", 0, empty, 0, empty, empty, empty],
-      [0, 1, 181, "LaunchScreenSaver", 0, empty, 0, empty, empty, empty],
-      [0, 1, 182, "BrowserSearch", 115, "BrowserSearch", 170, "VK_BROWSER_SEARCH", empty, empty],
-      [0, 1, 183, "BrowserHome", 116, "BrowserHome", 172, "VK_BROWSER_HOME", empty, empty],
-      [112, 1, 184, "BrowserBack", 117, "BrowserBack", 166, "VK_BROWSER_BACK", empty, empty],
-      [113, 1, 185, "BrowserForward", 118, "BrowserForward", 167, "VK_BROWSER_FORWARD", empty, empty],
-      [0, 1, 186, "BrowserStop", 0, empty, 0, "VK_BROWSER_STOP", empty, empty],
-      [0, 1, 187, "BrowserRefresh", 0, empty, 0, "VK_BROWSER_REFRESH", empty, empty],
-      [0, 1, 188, "BrowserFavorites", 0, empty, 0, "VK_BROWSER_FAVORITES", empty, empty],
-      [0, 1, 189, "ZoomToggle", 0, empty, 0, empty, empty, empty],
-      [0, 1, 190, "MailReply", 0, empty, 0, empty, empty, empty],
-      [0, 1, 191, "MailForward", 0, empty, 0, empty, empty, empty],
-      [0, 1, 192, "MailSend", 0, empty, 0, empty, empty, empty],
-      [109, 1, 0, empty, 109, "KeyInComposition", 229, empty, empty, empty],
-      [111, 1, 0, empty, 111, "ABNT_C2", 194, "VK_ABNT_C2", empty, empty],
-      [91, 1, 0, empty, 91, "OEM_8", 223, "VK_OEM_8", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_KANA", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_HANGUL", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_JUNJA", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_FINAL", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_HANJA", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_KANJI", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_CONVERT", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_NONCONVERT", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_ACCEPT", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_MODECHANGE", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_SELECT", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_PRINT", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_EXECUTE", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_SNAPSHOT", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_HELP", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_APPS", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_PROCESSKEY", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_PACKET", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_DBE_SBCSCHAR", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_DBE_DBCSCHAR", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_ATTN", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_CRSEL", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_EXSEL", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_EREOF", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_PLAY", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_ZOOM", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_NONAME", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_PA1", empty, empty],
-      [0, 1, 0, empty, 0, empty, 0, "VK_OEM_CLEAR", empty, empty]
+      // immutable, scanCode, scanCodeStr, keyCode, keyCodeStr, eventKeyCode, vkey, usUserSettingsLabel, generalUserSettingsLabel
+      [1, 0, "None", 0, "unknown", 0, "VK_UNKNOWN", empty, empty],
+      [1, 1, "Hyper", 0, empty, 0, empty, empty, empty],
+      [1, 2, "Super", 0, empty, 0, empty, empty, empty],
+      [1, 3, "Fn", 0, empty, 0, empty, empty, empty],
+      [1, 4, "FnLock", 0, empty, 0, empty, empty, empty],
+      [1, 5, "Suspend", 0, empty, 0, empty, empty, empty],
+      [1, 6, "Resume", 0, empty, 0, empty, empty, empty],
+      [1, 7, "Turbo", 0, empty, 0, empty, empty, empty],
+      [1, 8, "Sleep", 0, empty, 0, "VK_SLEEP", empty, empty],
+      [1, 9, "WakeUp", 0, empty, 0, empty, empty, empty],
+      [0, 10, "KeyA", 31, "A", 65, "VK_A", empty, empty],
+      [0, 11, "KeyB", 32, "B", 66, "VK_B", empty, empty],
+      [0, 12, "KeyC", 33, "C", 67, "VK_C", empty, empty],
+      [0, 13, "KeyD", 34, "D", 68, "VK_D", empty, empty],
+      [0, 14, "KeyE", 35, "E", 69, "VK_E", empty, empty],
+      [0, 15, "KeyF", 36, "F", 70, "VK_F", empty, empty],
+      [0, 16, "KeyG", 37, "G", 71, "VK_G", empty, empty],
+      [0, 17, "KeyH", 38, "H", 72, "VK_H", empty, empty],
+      [0, 18, "KeyI", 39, "I", 73, "VK_I", empty, empty],
+      [0, 19, "KeyJ", 40, "J", 74, "VK_J", empty, empty],
+      [0, 20, "KeyK", 41, "K", 75, "VK_K", empty, empty],
+      [0, 21, "KeyL", 42, "L", 76, "VK_L", empty, empty],
+      [0, 22, "KeyM", 43, "M", 77, "VK_M", empty, empty],
+      [0, 23, "KeyN", 44, "N", 78, "VK_N", empty, empty],
+      [0, 24, "KeyO", 45, "O", 79, "VK_O", empty, empty],
+      [0, 25, "KeyP", 46, "P", 80, "VK_P", empty, empty],
+      [0, 26, "KeyQ", 47, "Q", 81, "VK_Q", empty, empty],
+      [0, 27, "KeyR", 48, "R", 82, "VK_R", empty, empty],
+      [0, 28, "KeyS", 49, "S", 83, "VK_S", empty, empty],
+      [0, 29, "KeyT", 50, "T", 84, "VK_T", empty, empty],
+      [0, 30, "KeyU", 51, "U", 85, "VK_U", empty, empty],
+      [0, 31, "KeyV", 52, "V", 86, "VK_V", empty, empty],
+      [0, 32, "KeyW", 53, "W", 87, "VK_W", empty, empty],
+      [0, 33, "KeyX", 54, "X", 88, "VK_X", empty, empty],
+      [0, 34, "KeyY", 55, "Y", 89, "VK_Y", empty, empty],
+      [0, 35, "KeyZ", 56, "Z", 90, "VK_Z", empty, empty],
+      [0, 36, "Digit1", 22, "1", 49, "VK_1", empty, empty],
+      [0, 37, "Digit2", 23, "2", 50, "VK_2", empty, empty],
+      [0, 38, "Digit3", 24, "3", 51, "VK_3", empty, empty],
+      [0, 39, "Digit4", 25, "4", 52, "VK_4", empty, empty],
+      [0, 40, "Digit5", 26, "5", 53, "VK_5", empty, empty],
+      [0, 41, "Digit6", 27, "6", 54, "VK_6", empty, empty],
+      [0, 42, "Digit7", 28, "7", 55, "VK_7", empty, empty],
+      [0, 43, "Digit8", 29, "8", 56, "VK_8", empty, empty],
+      [0, 44, "Digit9", 30, "9", 57, "VK_9", empty, empty],
+      [0, 45, "Digit0", 21, "0", 48, "VK_0", empty, empty],
+      [1, 46, "Enter", 3, "Enter", 13, "VK_RETURN", empty, empty],
+      [1, 47, "Escape", 9, "Escape", 27, "VK_ESCAPE", empty, empty],
+      [1, 48, "Backspace", 1, "Backspace", 8, "VK_BACK", empty, empty],
+      [1, 49, "Tab", 2, "Tab", 9, "VK_TAB", empty, empty],
+      [1, 50, "Space", 10, "Space", 32, "VK_SPACE", empty, empty],
+      [0, 51, "Minus", 88, "-", 189, "VK_OEM_MINUS", "-", "OEM_MINUS"],
+      [0, 52, "Equal", 86, "=", 187, "VK_OEM_PLUS", "=", "OEM_PLUS"],
+      [0, 53, "BracketLeft", 92, "[", 219, "VK_OEM_4", "[", "OEM_4"],
+      [0, 54, "BracketRight", 94, "]", 221, "VK_OEM_6", "]", "OEM_6"],
+      [0, 55, "Backslash", 93, "\\", 220, "VK_OEM_5", "\\", "OEM_5"],
+      [0, 56, "IntlHash", 0, empty, 0, empty, empty, empty],
+      [0, 57, "Semicolon", 85, ";", 186, "VK_OEM_1", ";", "OEM_1"],
+      [0, 58, "Quote", 95, "'", 222, "VK_OEM_7", "'", "OEM_7"],
+      [0, 59, "Backquote", 91, "`", 192, "VK_OEM_3", "`", "OEM_3"],
+      [0, 60, "Comma", 87, ",", 188, "VK_OEM_COMMA", ",", "OEM_COMMA"],
+      [0, 61, "Period", 89, ".", 190, "VK_OEM_PERIOD", ".", "OEM_PERIOD"],
+      [0, 62, "Slash", 90, "/", 191, "VK_OEM_2", "/", "OEM_2"],
+      [1, 63, "CapsLock", 8, "CapsLock", 20, "VK_CAPITAL", empty, empty],
+      [1, 64, "F1", 59, "F1", 112, "VK_F1", empty, empty],
+      [1, 65, "F2", 60, "F2", 113, "VK_F2", empty, empty],
+      [1, 66, "F3", 61, "F3", 114, "VK_F3", empty, empty],
+      [1, 67, "F4", 62, "F4", 115, "VK_F4", empty, empty],
+      [1, 68, "F5", 63, "F5", 116, "VK_F5", empty, empty],
+      [1, 69, "F6", 64, "F6", 117, "VK_F6", empty, empty],
+      [1, 70, "F7", 65, "F7", 118, "VK_F7", empty, empty],
+      [1, 71, "F8", 66, "F8", 119, "VK_F8", empty, empty],
+      [1, 72, "F9", 67, "F9", 120, "VK_F9", empty, empty],
+      [1, 73, "F10", 68, "F10", 121, "VK_F10", empty, empty],
+      [1, 74, "F11", 69, "F11", 122, "VK_F11", empty, empty],
+      [1, 75, "F12", 70, "F12", 123, "VK_F12", empty, empty],
+      [1, 76, "PrintScreen", 0, empty, 0, empty, empty, empty],
+      [1, 77, "ScrollLock", 84, "ScrollLock", 145, "VK_SCROLL", empty, empty],
+      [1, 78, "Pause", 7, "PauseBreak", 19, "VK_PAUSE", empty, empty],
+      [1, 79, "Insert", 19, "Insert", 45, "VK_INSERT", empty, empty],
+      [1, 80, "Home", 14, "Home", 36, "VK_HOME", empty, empty],
+      [1, 81, "PageUp", 11, "PageUp", 33, "VK_PRIOR", empty, empty],
+      [1, 82, "Delete", 20, "Delete", 46, "VK_DELETE", empty, empty],
+      [1, 83, "End", 13, "End", 35, "VK_END", empty, empty],
+      [1, 84, "PageDown", 12, "PageDown", 34, "VK_NEXT", empty, empty],
+      [1, 85, "ArrowRight", 17, "RightArrow", 39, "VK_RIGHT", "Right", empty],
+      [1, 86, "ArrowLeft", 15, "LeftArrow", 37, "VK_LEFT", "Left", empty],
+      [1, 87, "ArrowDown", 18, "DownArrow", 40, "VK_DOWN", "Down", empty],
+      [1, 88, "ArrowUp", 16, "UpArrow", 38, "VK_UP", "Up", empty],
+      [1, 89, "NumLock", 83, "NumLock", 144, "VK_NUMLOCK", empty, empty],
+      [1, 90, "NumpadDivide", 113, "NumPad_Divide", 111, "VK_DIVIDE", empty, empty],
+      [1, 91, "NumpadMultiply", 108, "NumPad_Multiply", 106, "VK_MULTIPLY", empty, empty],
+      [1, 92, "NumpadSubtract", 111, "NumPad_Subtract", 109, "VK_SUBTRACT", empty, empty],
+      [1, 93, "NumpadAdd", 109, "NumPad_Add", 107, "VK_ADD", empty, empty],
+      [1, 94, "NumpadEnter", 3, empty, 0, empty, empty, empty],
+      [1, 95, "Numpad1", 99, "NumPad1", 97, "VK_NUMPAD1", empty, empty],
+      [1, 96, "Numpad2", 100, "NumPad2", 98, "VK_NUMPAD2", empty, empty],
+      [1, 97, "Numpad3", 101, "NumPad3", 99, "VK_NUMPAD3", empty, empty],
+      [1, 98, "Numpad4", 102, "NumPad4", 100, "VK_NUMPAD4", empty, empty],
+      [1, 99, "Numpad5", 103, "NumPad5", 101, "VK_NUMPAD5", empty, empty],
+      [1, 100, "Numpad6", 104, "NumPad6", 102, "VK_NUMPAD6", empty, empty],
+      [1, 101, "Numpad7", 105, "NumPad7", 103, "VK_NUMPAD7", empty, empty],
+      [1, 102, "Numpad8", 106, "NumPad8", 104, "VK_NUMPAD8", empty, empty],
+      [1, 103, "Numpad9", 107, "NumPad9", 105, "VK_NUMPAD9", empty, empty],
+      [1, 104, "Numpad0", 98, "NumPad0", 96, "VK_NUMPAD0", empty, empty],
+      [1, 105, "NumpadDecimal", 112, "NumPad_Decimal", 110, "VK_DECIMAL", empty, empty],
+      [0, 106, "IntlBackslash", 97, "OEM_102", 226, "VK_OEM_102", empty, empty],
+      [1, 107, "ContextMenu", 58, "ContextMenu", 93, empty, empty, empty],
+      [1, 108, "Power", 0, empty, 0, empty, empty, empty],
+      [1, 109, "NumpadEqual", 0, empty, 0, empty, empty, empty],
+      [1, 110, "F13", 71, "F13", 124, "VK_F13", empty, empty],
+      [1, 111, "F14", 72, "F14", 125, "VK_F14", empty, empty],
+      [1, 112, "F15", 73, "F15", 126, "VK_F15", empty, empty],
+      [1, 113, "F16", 74, "F16", 127, "VK_F16", empty, empty],
+      [1, 114, "F17", 75, "F17", 128, "VK_F17", empty, empty],
+      [1, 115, "F18", 76, "F18", 129, "VK_F18", empty, empty],
+      [1, 116, "F19", 77, "F19", 130, "VK_F19", empty, empty],
+      [1, 117, "F20", 78, "F20", 131, "VK_F20", empty, empty],
+      [1, 118, "F21", 79, "F21", 132, "VK_F21", empty, empty],
+      [1, 119, "F22", 80, "F22", 133, "VK_F22", empty, empty],
+      [1, 120, "F23", 81, "F23", 134, "VK_F23", empty, empty],
+      [1, 121, "F24", 82, "F24", 135, "VK_F24", empty, empty],
+      [1, 122, "Open", 0, empty, 0, empty, empty, empty],
+      [1, 123, "Help", 0, empty, 0, empty, empty, empty],
+      [1, 124, "Select", 0, empty, 0, empty, empty, empty],
+      [1, 125, "Again", 0, empty, 0, empty, empty, empty],
+      [1, 126, "Undo", 0, empty, 0, empty, empty, empty],
+      [1, 127, "Cut", 0, empty, 0, empty, empty, empty],
+      [1, 128, "Copy", 0, empty, 0, empty, empty, empty],
+      [1, 129, "Paste", 0, empty, 0, empty, empty, empty],
+      [1, 130, "Find", 0, empty, 0, empty, empty, empty],
+      [1, 131, "AudioVolumeMute", 117, "AudioVolumeMute", 173, "VK_VOLUME_MUTE", empty, empty],
+      [1, 132, "AudioVolumeUp", 118, "AudioVolumeUp", 175, "VK_VOLUME_UP", empty, empty],
+      [1, 133, "AudioVolumeDown", 119, "AudioVolumeDown", 174, "VK_VOLUME_DOWN", empty, empty],
+      [1, 134, "NumpadComma", 110, "NumPad_Separator", 108, "VK_SEPARATOR", empty, empty],
+      [0, 135, "IntlRo", 115, "ABNT_C1", 193, "VK_ABNT_C1", empty, empty],
+      [1, 136, "KanaMode", 0, empty, 0, empty, empty, empty],
+      [0, 137, "IntlYen", 0, empty, 0, empty, empty, empty],
+      [1, 138, "Convert", 0, empty, 0, empty, empty, empty],
+      [1, 139, "NonConvert", 0, empty, 0, empty, empty, empty],
+      [1, 140, "Lang1", 0, empty, 0, empty, empty, empty],
+      [1, 141, "Lang2", 0, empty, 0, empty, empty, empty],
+      [1, 142, "Lang3", 0, empty, 0, empty, empty, empty],
+      [1, 143, "Lang4", 0, empty, 0, empty, empty, empty],
+      [1, 144, "Lang5", 0, empty, 0, empty, empty, empty],
+      [1, 145, "Abort", 0, empty, 0, empty, empty, empty],
+      [1, 146, "Props", 0, empty, 0, empty, empty, empty],
+      [1, 147, "NumpadParenLeft", 0, empty, 0, empty, empty, empty],
+      [1, 148, "NumpadParenRight", 0, empty, 0, empty, empty, empty],
+      [1, 149, "NumpadBackspace", 0, empty, 0, empty, empty, empty],
+      [1, 150, "NumpadMemoryStore", 0, empty, 0, empty, empty, empty],
+      [1, 151, "NumpadMemoryRecall", 0, empty, 0, empty, empty, empty],
+      [1, 152, "NumpadMemoryClear", 0, empty, 0, empty, empty, empty],
+      [1, 153, "NumpadMemoryAdd", 0, empty, 0, empty, empty, empty],
+      [1, 154, "NumpadMemorySubtract", 0, empty, 0, empty, empty, empty],
+      [1, 155, "NumpadClear", 131, "Clear", 12, "VK_CLEAR", empty, empty],
+      [1, 156, "NumpadClearEntry", 0, empty, 0, empty, empty, empty],
+      [1, 0, empty, 5, "Ctrl", 17, "VK_CONTROL", empty, empty],
+      [1, 0, empty, 4, "Shift", 16, "VK_SHIFT", empty, empty],
+      [1, 0, empty, 6, "Alt", 18, "VK_MENU", empty, empty],
+      [1, 0, empty, 57, "Meta", 91, "VK_COMMAND", empty, empty],
+      [1, 157, "ControlLeft", 5, empty, 0, "VK_LCONTROL", empty, empty],
+      [1, 158, "ShiftLeft", 4, empty, 0, "VK_LSHIFT", empty, empty],
+      [1, 159, "AltLeft", 6, empty, 0, "VK_LMENU", empty, empty],
+      [1, 160, "MetaLeft", 57, empty, 0, "VK_LWIN", empty, empty],
+      [1, 161, "ControlRight", 5, empty, 0, "VK_RCONTROL", empty, empty],
+      [1, 162, "ShiftRight", 4, empty, 0, "VK_RSHIFT", empty, empty],
+      [1, 163, "AltRight", 6, empty, 0, "VK_RMENU", empty, empty],
+      [1, 164, "MetaRight", 57, empty, 0, "VK_RWIN", empty, empty],
+      [1, 165, "BrightnessUp", 0, empty, 0, empty, empty, empty],
+      [1, 166, "BrightnessDown", 0, empty, 0, empty, empty, empty],
+      [1, 167, "MediaPlay", 0, empty, 0, empty, empty, empty],
+      [1, 168, "MediaRecord", 0, empty, 0, empty, empty, empty],
+      [1, 169, "MediaFastForward", 0, empty, 0, empty, empty, empty],
+      [1, 170, "MediaRewind", 0, empty, 0, empty, empty, empty],
+      [1, 171, "MediaTrackNext", 124, "MediaTrackNext", 176, "VK_MEDIA_NEXT_TRACK", empty, empty],
+      [1, 172, "MediaTrackPrevious", 125, "MediaTrackPrevious", 177, "VK_MEDIA_PREV_TRACK", empty, empty],
+      [1, 173, "MediaStop", 126, "MediaStop", 178, "VK_MEDIA_STOP", empty, empty],
+      [1, 174, "Eject", 0, empty, 0, empty, empty, empty],
+      [1, 175, "MediaPlayPause", 127, "MediaPlayPause", 179, "VK_MEDIA_PLAY_PAUSE", empty, empty],
+      [1, 176, "MediaSelect", 128, "LaunchMediaPlayer", 181, "VK_MEDIA_LAUNCH_MEDIA_SELECT", empty, empty],
+      [1, 177, "LaunchMail", 129, "LaunchMail", 180, "VK_MEDIA_LAUNCH_MAIL", empty, empty],
+      [1, 178, "LaunchApp2", 130, "LaunchApp2", 183, "VK_MEDIA_LAUNCH_APP2", empty, empty],
+      [1, 179, "LaunchApp1", 0, empty, 0, "VK_MEDIA_LAUNCH_APP1", empty, empty],
+      [1, 180, "SelectTask", 0, empty, 0, empty, empty, empty],
+      [1, 181, "LaunchScreenSaver", 0, empty, 0, empty, empty, empty],
+      [1, 182, "BrowserSearch", 120, "BrowserSearch", 170, "VK_BROWSER_SEARCH", empty, empty],
+      [1, 183, "BrowserHome", 121, "BrowserHome", 172, "VK_BROWSER_HOME", empty, empty],
+      [1, 184, "BrowserBack", 122, "BrowserBack", 166, "VK_BROWSER_BACK", empty, empty],
+      [1, 185, "BrowserForward", 123, "BrowserForward", 167, "VK_BROWSER_FORWARD", empty, empty],
+      [1, 186, "BrowserStop", 0, empty, 0, "VK_BROWSER_STOP", empty, empty],
+      [1, 187, "BrowserRefresh", 0, empty, 0, "VK_BROWSER_REFRESH", empty, empty],
+      [1, 188, "BrowserFavorites", 0, empty, 0, "VK_BROWSER_FAVORITES", empty, empty],
+      [1, 189, "ZoomToggle", 0, empty, 0, empty, empty, empty],
+      [1, 190, "MailReply", 0, empty, 0, empty, empty, empty],
+      [1, 191, "MailForward", 0, empty, 0, empty, empty, empty],
+      [1, 192, "MailSend", 0, empty, 0, empty, empty, empty],
+      // See https://lists.w3.org/Archives/Public/www-dom/2010JulSep/att-0182/keyCode-spec.html
+      // If an Input Method Editor is processing key input and the event is keydown, return 229.
+      [1, 0, empty, 114, "KeyInComposition", 229, empty, empty, empty],
+      [1, 0, empty, 116, "ABNT_C2", 194, "VK_ABNT_C2", empty, empty],
+      [1, 0, empty, 96, "OEM_8", 223, "VK_OEM_8", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_KANA", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_HANGUL", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_JUNJA", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_FINAL", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_HANJA", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_KANJI", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_CONVERT", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_NONCONVERT", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_ACCEPT", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_MODECHANGE", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_SELECT", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_PRINT", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_EXECUTE", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_SNAPSHOT", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_HELP", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_APPS", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_PROCESSKEY", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_PACKET", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_DBE_SBCSCHAR", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_DBE_DBCSCHAR", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_ATTN", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_CRSEL", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_EXSEL", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_EREOF", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_PLAY", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_ZOOM", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_NONAME", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_PA1", empty, empty],
+      [1, 0, empty, 0, empty, 0, "VK_OEM_CLEAR", empty, empty]
     ];
     const seenKeyCode = [];
     const seenScanCode = [];
     for (const mapping of mappings) {
-      const [_keyCodeOrd, immutable, scanCode, scanCodeStr, keyCode, keyCodeStr, eventKeyCode, vkey, usUserSettingsLabel, generalUserSettingsLabel] = mapping;
+      const [immutable, scanCode, scanCodeStr, keyCode, keyCodeStr, eventKeyCode, vkey, usUserSettingsLabel, generalUserSettingsLabel] = mapping;
       if (!seenScanCode[scanCode]) {
         seenScanCode[scanCode] = true;
         scanCodeIntToStr[scanCode] = scanCodeStr;
@@ -22538,7 +22974,10 @@ ${p.commentBefore}` : u;
         NATIVE_WINDOWS_KEY_CODE_TO_KEY_CODE[vkey] = keyCode;
       }
     }
-    IMMUTABLE_KEY_CODE_TO_CODE[3] = 46;
+    IMMUTABLE_KEY_CODE_TO_CODE[
+      3
+      /* KeyCode.Enter */
+    ] = 46;
   })();
   var KeyCodeUtils;
   (function(KeyCodeUtils2) {
@@ -22563,7 +23002,7 @@ ${p.commentBefore}` : u;
     }
     KeyCodeUtils2.fromUserSettings = fromUserSettings;
     function toElectronAccelerator(keyCode) {
-      if (keyCode >= 93 && keyCode <= 108) {
+      if (keyCode >= 98 && keyCode <= 113) {
         return null;
       }
       switch (keyCode) {
@@ -22586,7 +23025,7 @@ ${p.commentBefore}` : u;
   }
 
   // node_modules/monaco-editor/esm/vs/editor/common/core/selection.js
-  var Selection = class extends Range {
+  var Selection = class _Selection extends Range {
     constructor(selectionStartLineNumber, selectionStartColumn, positionLineNumber, positionColumn) {
       super(selectionStartLineNumber, selectionStartColumn, positionLineNumber, positionColumn);
       this.selectionStartLineNumber = selectionStartLineNumber;
@@ -22594,52 +23033,89 @@ ${p.commentBefore}` : u;
       this.positionLineNumber = positionLineNumber;
       this.positionColumn = positionColumn;
     }
+    /**
+     * Transform to a human-readable representation.
+     */
     toString() {
       return "[" + this.selectionStartLineNumber + "," + this.selectionStartColumn + " -> " + this.positionLineNumber + "," + this.positionColumn + "]";
     }
+    /**
+     * Test if equals other selection.
+     */
     equalsSelection(other) {
-      return Selection.selectionsEqual(this, other);
+      return _Selection.selectionsEqual(this, other);
     }
+    /**
+     * Test if the two selections are equal.
+     */
     static selectionsEqual(a2, b) {
       return a2.selectionStartLineNumber === b.selectionStartLineNumber && a2.selectionStartColumn === b.selectionStartColumn && a2.positionLineNumber === b.positionLineNumber && a2.positionColumn === b.positionColumn;
     }
+    /**
+     * Get directions (LTR or RTL).
+     */
     getDirection() {
       if (this.selectionStartLineNumber === this.startLineNumber && this.selectionStartColumn === this.startColumn) {
         return 0;
       }
       return 1;
     }
+    /**
+     * Create a new selection with a different `positionLineNumber` and `positionColumn`.
+     */
     setEndPosition(endLineNumber, endColumn) {
       if (this.getDirection() === 0) {
-        return new Selection(this.startLineNumber, this.startColumn, endLineNumber, endColumn);
+        return new _Selection(this.startLineNumber, this.startColumn, endLineNumber, endColumn);
       }
-      return new Selection(endLineNumber, endColumn, this.startLineNumber, this.startColumn);
+      return new _Selection(endLineNumber, endColumn, this.startLineNumber, this.startColumn);
     }
+    /**
+     * Get the position at `positionLineNumber` and `positionColumn`.
+     */
     getPosition() {
       return new Position(this.positionLineNumber, this.positionColumn);
     }
+    /**
+     * Get the position at the start of the selection.
+    */
     getSelectionStart() {
       return new Position(this.selectionStartLineNumber, this.selectionStartColumn);
     }
+    /**
+     * Create a new selection with a different `selectionStartLineNumber` and `selectionStartColumn`.
+     */
     setStartPosition(startLineNumber, startColumn) {
       if (this.getDirection() === 0) {
-        return new Selection(startLineNumber, startColumn, this.endLineNumber, this.endColumn);
+        return new _Selection(startLineNumber, startColumn, this.endLineNumber, this.endColumn);
       }
-      return new Selection(this.endLineNumber, this.endColumn, startLineNumber, startColumn);
+      return new _Selection(this.endLineNumber, this.endColumn, startLineNumber, startColumn);
     }
+    // ----
+    /**
+     * Create a `Selection` from one or two positions
+     */
     static fromPositions(start, end = start) {
-      return new Selection(start.lineNumber, start.column, end.lineNumber, end.column);
+      return new _Selection(start.lineNumber, start.column, end.lineNumber, end.column);
     }
+    /**
+     * Creates a `Selection` from a range, given a direction.
+     */
     static fromRange(range, direction) {
       if (direction === 0) {
-        return new Selection(range.startLineNumber, range.startColumn, range.endLineNumber, range.endColumn);
+        return new _Selection(range.startLineNumber, range.startColumn, range.endLineNumber, range.endColumn);
       } else {
-        return new Selection(range.endLineNumber, range.endColumn, range.startLineNumber, range.startColumn);
+        return new _Selection(range.endLineNumber, range.endColumn, range.startLineNumber, range.startColumn);
       }
     }
+    /**
+     * Create a `Selection` from an `ISelection`.
+     */
     static liftSelection(sel) {
-      return new Selection(sel.selectionStartLineNumber, sel.selectionStartColumn, sel.positionLineNumber, sel.positionColumn);
+      return new _Selection(sel.selectionStartLineNumber, sel.selectionStartColumn, sel.positionLineNumber, sel.positionColumn);
     }
+    /**
+     * `a` equals `b`.
+     */
     static selectionsArrEqual(a2, b) {
       if (a2 && !b || !a2 && b) {
         return false;
@@ -22657,602 +23133,578 @@ ${p.commentBefore}` : u;
       }
       return true;
     }
+    /**
+     * Test if `obj` is an `ISelection`.
+     */
     static isISelection(obj) {
       return obj && typeof obj.selectionStartLineNumber === "number" && typeof obj.selectionStartColumn === "number" && typeof obj.positionLineNumber === "number" && typeof obj.positionColumn === "number";
     }
+    /**
+     * Create with a direction.
+     */
     static createWithDirection(startLineNumber, startColumn, endLineNumber, endColumn, direction) {
       if (direction === 0) {
-        return new Selection(startLineNumber, startColumn, endLineNumber, endColumn);
+        return new _Selection(startLineNumber, startColumn, endLineNumber, endColumn);
       }
-      return new Selection(endLineNumber, endColumn, startLineNumber, startColumn);
+      return new _Selection(endLineNumber, endColumn, startLineNumber, startColumn);
     }
   };
 
   // node_modules/monaco-editor/esm/vs/base/common/codicons.js
-  var Codicon = class {
-    constructor(id, definition, description2) {
-      this.id = id;
-      this.definition = definition;
-      this.description = description2;
-      Codicon._allCodicons.push(this);
+  var _codiconFontCharacters = /* @__PURE__ */ Object.create(null);
+  function register(id, fontCharacter) {
+    if (isString(fontCharacter)) {
+      const val = _codiconFontCharacters[fontCharacter];
+      if (val === void 0) {
+        throw new Error(`${id} references an unknown codicon: ${fontCharacter}`);
+      }
+      fontCharacter = val;
     }
-    get classNames() {
-      return "codicon codicon-" + this.id;
-    }
-    get classNamesArray() {
-      return ["codicon", "codicon-" + this.id];
-    }
-    get cssSelector() {
-      return ".codicon.codicon-" + this.id;
-    }
-    static getAll() {
-      return Codicon._allCodicons;
-    }
+    _codiconFontCharacters[id] = fontCharacter;
+    return { id };
+  }
+  var Codicon = {
+    // built-in icons, with image name
+    add: register("add", 6e4),
+    plus: register("plus", 6e4),
+    gistNew: register("gist-new", 6e4),
+    repoCreate: register("repo-create", 6e4),
+    lightbulb: register("lightbulb", 60001),
+    lightBulb: register("light-bulb", 60001),
+    repo: register("repo", 60002),
+    repoDelete: register("repo-delete", 60002),
+    gistFork: register("gist-fork", 60003),
+    repoForked: register("repo-forked", 60003),
+    gitPullRequest: register("git-pull-request", 60004),
+    gitPullRequestAbandoned: register("git-pull-request-abandoned", 60004),
+    recordKeys: register("record-keys", 60005),
+    keyboard: register("keyboard", 60005),
+    tag: register("tag", 60006),
+    tagAdd: register("tag-add", 60006),
+    tagRemove: register("tag-remove", 60006),
+    person: register("person", 60007),
+    personFollow: register("person-follow", 60007),
+    personOutline: register("person-outline", 60007),
+    personFilled: register("person-filled", 60007),
+    gitBranch: register("git-branch", 60008),
+    gitBranchCreate: register("git-branch-create", 60008),
+    gitBranchDelete: register("git-branch-delete", 60008),
+    sourceControl: register("source-control", 60008),
+    mirror: register("mirror", 60009),
+    mirrorPublic: register("mirror-public", 60009),
+    star: register("star", 60010),
+    starAdd: register("star-add", 60010),
+    starDelete: register("star-delete", 60010),
+    starEmpty: register("star-empty", 60010),
+    comment: register("comment", 60011),
+    commentAdd: register("comment-add", 60011),
+    alert: register("alert", 60012),
+    warning: register("warning", 60012),
+    search: register("search", 60013),
+    searchSave: register("search-save", 60013),
+    logOut: register("log-out", 60014),
+    signOut: register("sign-out", 60014),
+    logIn: register("log-in", 60015),
+    signIn: register("sign-in", 60015),
+    eye: register("eye", 60016),
+    eyeUnwatch: register("eye-unwatch", 60016),
+    eyeWatch: register("eye-watch", 60016),
+    circleFilled: register("circle-filled", 60017),
+    primitiveDot: register("primitive-dot", 60017),
+    closeDirty: register("close-dirty", 60017),
+    debugBreakpoint: register("debug-breakpoint", 60017),
+    debugBreakpointDisabled: register("debug-breakpoint-disabled", 60017),
+    debugHint: register("debug-hint", 60017),
+    primitiveSquare: register("primitive-square", 60018),
+    edit: register("edit", 60019),
+    pencil: register("pencil", 60019),
+    info: register("info", 60020),
+    issueOpened: register("issue-opened", 60020),
+    gistPrivate: register("gist-private", 60021),
+    gitForkPrivate: register("git-fork-private", 60021),
+    lock: register("lock", 60021),
+    mirrorPrivate: register("mirror-private", 60021),
+    close: register("close", 60022),
+    removeClose: register("remove-close", 60022),
+    x: register("x", 60022),
+    repoSync: register("repo-sync", 60023),
+    sync: register("sync", 60023),
+    clone: register("clone", 60024),
+    desktopDownload: register("desktop-download", 60024),
+    beaker: register("beaker", 60025),
+    microscope: register("microscope", 60025),
+    vm: register("vm", 60026),
+    deviceDesktop: register("device-desktop", 60026),
+    file: register("file", 60027),
+    fileText: register("file-text", 60027),
+    more: register("more", 60028),
+    ellipsis: register("ellipsis", 60028),
+    kebabHorizontal: register("kebab-horizontal", 60028),
+    mailReply: register("mail-reply", 60029),
+    reply: register("reply", 60029),
+    organization: register("organization", 60030),
+    organizationFilled: register("organization-filled", 60030),
+    organizationOutline: register("organization-outline", 60030),
+    newFile: register("new-file", 60031),
+    fileAdd: register("file-add", 60031),
+    newFolder: register("new-folder", 60032),
+    fileDirectoryCreate: register("file-directory-create", 60032),
+    trash: register("trash", 60033),
+    trashcan: register("trashcan", 60033),
+    history: register("history", 60034),
+    clock: register("clock", 60034),
+    folder: register("folder", 60035),
+    fileDirectory: register("file-directory", 60035),
+    symbolFolder: register("symbol-folder", 60035),
+    logoGithub: register("logo-github", 60036),
+    markGithub: register("mark-github", 60036),
+    github: register("github", 60036),
+    terminal: register("terminal", 60037),
+    console: register("console", 60037),
+    repl: register("repl", 60037),
+    zap: register("zap", 60038),
+    symbolEvent: register("symbol-event", 60038),
+    error: register("error", 60039),
+    stop: register("stop", 60039),
+    variable: register("variable", 60040),
+    symbolVariable: register("symbol-variable", 60040),
+    array: register("array", 60042),
+    symbolArray: register("symbol-array", 60042),
+    symbolModule: register("symbol-module", 60043),
+    symbolPackage: register("symbol-package", 60043),
+    symbolNamespace: register("symbol-namespace", 60043),
+    symbolObject: register("symbol-object", 60043),
+    symbolMethod: register("symbol-method", 60044),
+    symbolFunction: register("symbol-function", 60044),
+    symbolConstructor: register("symbol-constructor", 60044),
+    symbolBoolean: register("symbol-boolean", 60047),
+    symbolNull: register("symbol-null", 60047),
+    symbolNumeric: register("symbol-numeric", 60048),
+    symbolNumber: register("symbol-number", 60048),
+    symbolStructure: register("symbol-structure", 60049),
+    symbolStruct: register("symbol-struct", 60049),
+    symbolParameter: register("symbol-parameter", 60050),
+    symbolTypeParameter: register("symbol-type-parameter", 60050),
+    symbolKey: register("symbol-key", 60051),
+    symbolText: register("symbol-text", 60051),
+    symbolReference: register("symbol-reference", 60052),
+    goToFile: register("go-to-file", 60052),
+    symbolEnum: register("symbol-enum", 60053),
+    symbolValue: register("symbol-value", 60053),
+    symbolRuler: register("symbol-ruler", 60054),
+    symbolUnit: register("symbol-unit", 60054),
+    activateBreakpoints: register("activate-breakpoints", 60055),
+    archive: register("archive", 60056),
+    arrowBoth: register("arrow-both", 60057),
+    arrowDown: register("arrow-down", 60058),
+    arrowLeft: register("arrow-left", 60059),
+    arrowRight: register("arrow-right", 60060),
+    arrowSmallDown: register("arrow-small-down", 60061),
+    arrowSmallLeft: register("arrow-small-left", 60062),
+    arrowSmallRight: register("arrow-small-right", 60063),
+    arrowSmallUp: register("arrow-small-up", 60064),
+    arrowUp: register("arrow-up", 60065),
+    bell: register("bell", 60066),
+    bold: register("bold", 60067),
+    book: register("book", 60068),
+    bookmark: register("bookmark", 60069),
+    debugBreakpointConditionalUnverified: register("debug-breakpoint-conditional-unverified", 60070),
+    debugBreakpointConditional: register("debug-breakpoint-conditional", 60071),
+    debugBreakpointConditionalDisabled: register("debug-breakpoint-conditional-disabled", 60071),
+    debugBreakpointDataUnverified: register("debug-breakpoint-data-unverified", 60072),
+    debugBreakpointData: register("debug-breakpoint-data", 60073),
+    debugBreakpointDataDisabled: register("debug-breakpoint-data-disabled", 60073),
+    debugBreakpointLogUnverified: register("debug-breakpoint-log-unverified", 60074),
+    debugBreakpointLog: register("debug-breakpoint-log", 60075),
+    debugBreakpointLogDisabled: register("debug-breakpoint-log-disabled", 60075),
+    briefcase: register("briefcase", 60076),
+    broadcast: register("broadcast", 60077),
+    browser: register("browser", 60078),
+    bug: register("bug", 60079),
+    calendar: register("calendar", 60080),
+    caseSensitive: register("case-sensitive", 60081),
+    check: register("check", 60082),
+    checklist: register("checklist", 60083),
+    chevronDown: register("chevron-down", 60084),
+    dropDownButton: register("drop-down-button", 60084),
+    chevronLeft: register("chevron-left", 60085),
+    chevronRight: register("chevron-right", 60086),
+    chevronUp: register("chevron-up", 60087),
+    chromeClose: register("chrome-close", 60088),
+    chromeMaximize: register("chrome-maximize", 60089),
+    chromeMinimize: register("chrome-minimize", 60090),
+    chromeRestore: register("chrome-restore", 60091),
+    circle: register("circle", 60092),
+    circleOutline: register("circle-outline", 60092),
+    debugBreakpointUnverified: register("debug-breakpoint-unverified", 60092),
+    circleSlash: register("circle-slash", 60093),
+    circuitBoard: register("circuit-board", 60094),
+    clearAll: register("clear-all", 60095),
+    clippy: register("clippy", 60096),
+    closeAll: register("close-all", 60097),
+    cloudDownload: register("cloud-download", 60098),
+    cloudUpload: register("cloud-upload", 60099),
+    code: register("code", 60100),
+    collapseAll: register("collapse-all", 60101),
+    colorMode: register("color-mode", 60102),
+    commentDiscussion: register("comment-discussion", 60103),
+    compareChanges: register("compare-changes", 60157),
+    creditCard: register("credit-card", 60105),
+    dash: register("dash", 60108),
+    dashboard: register("dashboard", 60109),
+    database: register("database", 60110),
+    debugContinue: register("debug-continue", 60111),
+    debugDisconnect: register("debug-disconnect", 60112),
+    debugPause: register("debug-pause", 60113),
+    debugRestart: register("debug-restart", 60114),
+    debugStart: register("debug-start", 60115),
+    debugStepInto: register("debug-step-into", 60116),
+    debugStepOut: register("debug-step-out", 60117),
+    debugStepOver: register("debug-step-over", 60118),
+    debugStop: register("debug-stop", 60119),
+    debug: register("debug", 60120),
+    deviceCameraVideo: register("device-camera-video", 60121),
+    deviceCamera: register("device-camera", 60122),
+    deviceMobile: register("device-mobile", 60123),
+    diffAdded: register("diff-added", 60124),
+    diffIgnored: register("diff-ignored", 60125),
+    diffModified: register("diff-modified", 60126),
+    diffRemoved: register("diff-removed", 60127),
+    diffRenamed: register("diff-renamed", 60128),
+    diff: register("diff", 60129),
+    discard: register("discard", 60130),
+    editorLayout: register("editor-layout", 60131),
+    emptyWindow: register("empty-window", 60132),
+    exclude: register("exclude", 60133),
+    extensions: register("extensions", 60134),
+    eyeClosed: register("eye-closed", 60135),
+    fileBinary: register("file-binary", 60136),
+    fileCode: register("file-code", 60137),
+    fileMedia: register("file-media", 60138),
+    filePdf: register("file-pdf", 60139),
+    fileSubmodule: register("file-submodule", 60140),
+    fileSymlinkDirectory: register("file-symlink-directory", 60141),
+    fileSymlinkFile: register("file-symlink-file", 60142),
+    fileZip: register("file-zip", 60143),
+    files: register("files", 60144),
+    filter: register("filter", 60145),
+    flame: register("flame", 60146),
+    foldDown: register("fold-down", 60147),
+    foldUp: register("fold-up", 60148),
+    fold: register("fold", 60149),
+    folderActive: register("folder-active", 60150),
+    folderOpened: register("folder-opened", 60151),
+    gear: register("gear", 60152),
+    gift: register("gift", 60153),
+    gistSecret: register("gist-secret", 60154),
+    gist: register("gist", 60155),
+    gitCommit: register("git-commit", 60156),
+    gitCompare: register("git-compare", 60157),
+    gitMerge: register("git-merge", 60158),
+    githubAction: register("github-action", 60159),
+    githubAlt: register("github-alt", 60160),
+    globe: register("globe", 60161),
+    grabber: register("grabber", 60162),
+    graph: register("graph", 60163),
+    gripper: register("gripper", 60164),
+    heart: register("heart", 60165),
+    home: register("home", 60166),
+    horizontalRule: register("horizontal-rule", 60167),
+    hubot: register("hubot", 60168),
+    inbox: register("inbox", 60169),
+    issueClosed: register("issue-closed", 60324),
+    issueReopened: register("issue-reopened", 60171),
+    issues: register("issues", 60172),
+    italic: register("italic", 60173),
+    jersey: register("jersey", 60174),
+    json: register("json", 60175),
+    bracket: register("bracket", 60175),
+    kebabVertical: register("kebab-vertical", 60176),
+    key: register("key", 60177),
+    law: register("law", 60178),
+    lightbulbAutofix: register("lightbulb-autofix", 60179),
+    linkExternal: register("link-external", 60180),
+    link: register("link", 60181),
+    listOrdered: register("list-ordered", 60182),
+    listUnordered: register("list-unordered", 60183),
+    liveShare: register("live-share", 60184),
+    loading: register("loading", 60185),
+    location: register("location", 60186),
+    mailRead: register("mail-read", 60187),
+    mail: register("mail", 60188),
+    markdown: register("markdown", 60189),
+    megaphone: register("megaphone", 60190),
+    mention: register("mention", 60191),
+    milestone: register("milestone", 60192),
+    mortarBoard: register("mortar-board", 60193),
+    move: register("move", 60194),
+    multipleWindows: register("multiple-windows", 60195),
+    mute: register("mute", 60196),
+    noNewline: register("no-newline", 60197),
+    note: register("note", 60198),
+    octoface: register("octoface", 60199),
+    openPreview: register("open-preview", 60200),
+    package_: register("package", 60201),
+    paintcan: register("paintcan", 60202),
+    pin: register("pin", 60203),
+    play: register("play", 60204),
+    run: register("run", 60204),
+    plug: register("plug", 60205),
+    preserveCase: register("preserve-case", 60206),
+    preview: register("preview", 60207),
+    project: register("project", 60208),
+    pulse: register("pulse", 60209),
+    question: register("question", 60210),
+    quote: register("quote", 60211),
+    radioTower: register("radio-tower", 60212),
+    reactions: register("reactions", 60213),
+    references: register("references", 60214),
+    refresh: register("refresh", 60215),
+    regex: register("regex", 60216),
+    remoteExplorer: register("remote-explorer", 60217),
+    remote: register("remote", 60218),
+    remove: register("remove", 60219),
+    replaceAll: register("replace-all", 60220),
+    replace: register("replace", 60221),
+    repoClone: register("repo-clone", 60222),
+    repoForcePush: register("repo-force-push", 60223),
+    repoPull: register("repo-pull", 60224),
+    repoPush: register("repo-push", 60225),
+    report: register("report", 60226),
+    requestChanges: register("request-changes", 60227),
+    rocket: register("rocket", 60228),
+    rootFolderOpened: register("root-folder-opened", 60229),
+    rootFolder: register("root-folder", 60230),
+    rss: register("rss", 60231),
+    ruby: register("ruby", 60232),
+    saveAll: register("save-all", 60233),
+    saveAs: register("save-as", 60234),
+    save: register("save", 60235),
+    screenFull: register("screen-full", 60236),
+    screenNormal: register("screen-normal", 60237),
+    searchStop: register("search-stop", 60238),
+    server: register("server", 60240),
+    settingsGear: register("settings-gear", 60241),
+    settings: register("settings", 60242),
+    shield: register("shield", 60243),
+    smiley: register("smiley", 60244),
+    sortPrecedence: register("sort-precedence", 60245),
+    splitHorizontal: register("split-horizontal", 60246),
+    splitVertical: register("split-vertical", 60247),
+    squirrel: register("squirrel", 60248),
+    starFull: register("star-full", 60249),
+    starHalf: register("star-half", 60250),
+    symbolClass: register("symbol-class", 60251),
+    symbolColor: register("symbol-color", 60252),
+    symbolCustomColor: register("symbol-customcolor", 60252),
+    symbolConstant: register("symbol-constant", 60253),
+    symbolEnumMember: register("symbol-enum-member", 60254),
+    symbolField: register("symbol-field", 60255),
+    symbolFile: register("symbol-file", 60256),
+    symbolInterface: register("symbol-interface", 60257),
+    symbolKeyword: register("symbol-keyword", 60258),
+    symbolMisc: register("symbol-misc", 60259),
+    symbolOperator: register("symbol-operator", 60260),
+    symbolProperty: register("symbol-property", 60261),
+    wrench: register("wrench", 60261),
+    wrenchSubaction: register("wrench-subaction", 60261),
+    symbolSnippet: register("symbol-snippet", 60262),
+    tasklist: register("tasklist", 60263),
+    telescope: register("telescope", 60264),
+    textSize: register("text-size", 60265),
+    threeBars: register("three-bars", 60266),
+    thumbsdown: register("thumbsdown", 60267),
+    thumbsup: register("thumbsup", 60268),
+    tools: register("tools", 60269),
+    triangleDown: register("triangle-down", 60270),
+    triangleLeft: register("triangle-left", 60271),
+    triangleRight: register("triangle-right", 60272),
+    triangleUp: register("triangle-up", 60273),
+    twitter: register("twitter", 60274),
+    unfold: register("unfold", 60275),
+    unlock: register("unlock", 60276),
+    unmute: register("unmute", 60277),
+    unverified: register("unverified", 60278),
+    verified: register("verified", 60279),
+    versions: register("versions", 60280),
+    vmActive: register("vm-active", 60281),
+    vmOutline: register("vm-outline", 60282),
+    vmRunning: register("vm-running", 60283),
+    watch: register("watch", 60284),
+    whitespace: register("whitespace", 60285),
+    wholeWord: register("whole-word", 60286),
+    window: register("window", 60287),
+    wordWrap: register("word-wrap", 60288),
+    zoomIn: register("zoom-in", 60289),
+    zoomOut: register("zoom-out", 60290),
+    listFilter: register("list-filter", 60291),
+    listFlat: register("list-flat", 60292),
+    listSelection: register("list-selection", 60293),
+    selection: register("selection", 60293),
+    listTree: register("list-tree", 60294),
+    debugBreakpointFunctionUnverified: register("debug-breakpoint-function-unverified", 60295),
+    debugBreakpointFunction: register("debug-breakpoint-function", 60296),
+    debugBreakpointFunctionDisabled: register("debug-breakpoint-function-disabled", 60296),
+    debugStackframeActive: register("debug-stackframe-active", 60297),
+    circleSmallFilled: register("circle-small-filled", 60298),
+    debugStackframeDot: register("debug-stackframe-dot", 60298),
+    debugStackframe: register("debug-stackframe", 60299),
+    debugStackframeFocused: register("debug-stackframe-focused", 60299),
+    debugBreakpointUnsupported: register("debug-breakpoint-unsupported", 60300),
+    symbolString: register("symbol-string", 60301),
+    debugReverseContinue: register("debug-reverse-continue", 60302),
+    debugStepBack: register("debug-step-back", 60303),
+    debugRestartFrame: register("debug-restart-frame", 60304),
+    callIncoming: register("call-incoming", 60306),
+    callOutgoing: register("call-outgoing", 60307),
+    menu: register("menu", 60308),
+    expandAll: register("expand-all", 60309),
+    feedback: register("feedback", 60310),
+    groupByRefType: register("group-by-ref-type", 60311),
+    ungroupByRefType: register("ungroup-by-ref-type", 60312),
+    account: register("account", 60313),
+    bellDot: register("bell-dot", 60314),
+    debugConsole: register("debug-console", 60315),
+    library: register("library", 60316),
+    output: register("output", 60317),
+    runAll: register("run-all", 60318),
+    syncIgnored: register("sync-ignored", 60319),
+    pinned: register("pinned", 60320),
+    githubInverted: register("github-inverted", 60321),
+    debugAlt: register("debug-alt", 60305),
+    serverProcess: register("server-process", 60322),
+    serverEnvironment: register("server-environment", 60323),
+    pass: register("pass", 60324),
+    stopCircle: register("stop-circle", 60325),
+    playCircle: register("play-circle", 60326),
+    record: register("record", 60327),
+    debugAltSmall: register("debug-alt-small", 60328),
+    vmConnect: register("vm-connect", 60329),
+    cloud: register("cloud", 60330),
+    merge: register("merge", 60331),
+    exportIcon: register("export", 60332),
+    graphLeft: register("graph-left", 60333),
+    magnet: register("magnet", 60334),
+    notebook: register("notebook", 60335),
+    redo: register("redo", 60336),
+    checkAll: register("check-all", 60337),
+    pinnedDirty: register("pinned-dirty", 60338),
+    passFilled: register("pass-filled", 60339),
+    circleLargeFilled: register("circle-large-filled", 60340),
+    circleLarge: register("circle-large", 60341),
+    circleLargeOutline: register("circle-large-outline", 60341),
+    combine: register("combine", 60342),
+    gather: register("gather", 60342),
+    table: register("table", 60343),
+    variableGroup: register("variable-group", 60344),
+    typeHierarchy: register("type-hierarchy", 60345),
+    typeHierarchySub: register("type-hierarchy-sub", 60346),
+    typeHierarchySuper: register("type-hierarchy-super", 60347),
+    gitPullRequestCreate: register("git-pull-request-create", 60348),
+    runAbove: register("run-above", 60349),
+    runBelow: register("run-below", 60350),
+    notebookTemplate: register("notebook-template", 60351),
+    debugRerun: register("debug-rerun", 60352),
+    workspaceTrusted: register("workspace-trusted", 60353),
+    workspaceUntrusted: register("workspace-untrusted", 60354),
+    workspaceUnspecified: register("workspace-unspecified", 60355),
+    terminalCmd: register("terminal-cmd", 60356),
+    terminalDebian: register("terminal-debian", 60357),
+    terminalLinux: register("terminal-linux", 60358),
+    terminalPowershell: register("terminal-powershell", 60359),
+    terminalTmux: register("terminal-tmux", 60360),
+    terminalUbuntu: register("terminal-ubuntu", 60361),
+    terminalBash: register("terminal-bash", 60362),
+    arrowSwap: register("arrow-swap", 60363),
+    copy: register("copy", 60364),
+    personAdd: register("person-add", 60365),
+    filterFilled: register("filter-filled", 60366),
+    wand: register("wand", 60367),
+    debugLineByLine: register("debug-line-by-line", 60368),
+    inspect: register("inspect", 60369),
+    layers: register("layers", 60370),
+    layersDot: register("layers-dot", 60371),
+    layersActive: register("layers-active", 60372),
+    compass: register("compass", 60373),
+    compassDot: register("compass-dot", 60374),
+    compassActive: register("compass-active", 60375),
+    azure: register("azure", 60376),
+    issueDraft: register("issue-draft", 60377),
+    gitPullRequestClosed: register("git-pull-request-closed", 60378),
+    gitPullRequestDraft: register("git-pull-request-draft", 60379),
+    debugAll: register("debug-all", 60380),
+    debugCoverage: register("debug-coverage", 60381),
+    runErrors: register("run-errors", 60382),
+    folderLibrary: register("folder-library", 60383),
+    debugContinueSmall: register("debug-continue-small", 60384),
+    beakerStop: register("beaker-stop", 60385),
+    graphLine: register("graph-line", 60386),
+    graphScatter: register("graph-scatter", 60387),
+    pieChart: register("pie-chart", 60388),
+    bracketDot: register("bracket-dot", 60389),
+    bracketError: register("bracket-error", 60390),
+    lockSmall: register("lock-small", 60391),
+    azureDevops: register("azure-devops", 60392),
+    verifiedFilled: register("verified-filled", 60393),
+    newLine: register("newline", 60394),
+    layout: register("layout", 60395),
+    layoutActivitybarLeft: register("layout-activitybar-left", 60396),
+    layoutActivitybarRight: register("layout-activitybar-right", 60397),
+    layoutPanelLeft: register("layout-panel-left", 60398),
+    layoutPanelCenter: register("layout-panel-center", 60399),
+    layoutPanelJustify: register("layout-panel-justify", 60400),
+    layoutPanelRight: register("layout-panel-right", 60401),
+    layoutPanel: register("layout-panel", 60402),
+    layoutSidebarLeft: register("layout-sidebar-left", 60403),
+    layoutSidebarRight: register("layout-sidebar-right", 60404),
+    layoutStatusbar: register("layout-statusbar", 60405),
+    layoutMenubar: register("layout-menubar", 60406),
+    layoutCentered: register("layout-centered", 60407),
+    layoutSidebarRightOff: register("layout-sidebar-right-off", 60416),
+    layoutPanelOff: register("layout-panel-off", 60417),
+    layoutSidebarLeftOff: register("layout-sidebar-left-off", 60418),
+    target: register("target", 60408),
+    indent: register("indent", 60409),
+    recordSmall: register("record-small", 60410),
+    errorSmall: register("error-small", 60411),
+    arrowCircleDown: register("arrow-circle-down", 60412),
+    arrowCircleLeft: register("arrow-circle-left", 60413),
+    arrowCircleRight: register("arrow-circle-right", 60414),
+    arrowCircleUp: register("arrow-circle-up", 60415),
+    heartFilled: register("heart-filled", 60420),
+    map: register("map", 60421),
+    mapFilled: register("map-filled", 60422),
+    circleSmall: register("circle-small", 60423),
+    bellSlash: register("bell-slash", 60424),
+    bellSlashDot: register("bell-slash-dot", 60425),
+    commentUnresolved: register("comment-unresolved", 60426),
+    gitPullRequestGoToChanges: register("git-pull-request-go-to-changes", 60427),
+    gitPullRequestNewChanges: register("git-pull-request-new-changes", 60428),
+    searchFuzzy: register("search-fuzzy", 60429),
+    commentDraft: register("comment-draft", 60430),
+    send: register("send", 60431),
+    sparkle: register("sparkle", 60432),
+    insert: register("insert", 60433),
+    // derived icons, that could become separate icons
+    dialogError: register("dialog-error", "error"),
+    dialogWarning: register("dialog-warning", "warning"),
+    dialogInfo: register("dialog-info", "info"),
+    dialogClose: register("dialog-close", "close"),
+    treeItemExpanded: register("tree-item-expanded", "chevron-down"),
+    treeFilterOnTypeOn: register("tree-filter-on-type-on", "list-filter"),
+    treeFilterOnTypeOff: register("tree-filter-on-type-off", "list-selection"),
+    treeFilterClear: register("tree-filter-clear", "close"),
+    treeItemLoading: register("tree-item-loading", "loading"),
+    menuSelection: register("menu-selection", "check"),
+    menuSubmenu: register("menu-submenu", "chevron-right"),
+    menuBarMore: register("menubar-more", "more"),
+    scrollbarButtonLeft: register("scrollbar-button-left", "triangle-left"),
+    scrollbarButtonRight: register("scrollbar-button-right", "triangle-right"),
+    scrollbarButtonUp: register("scrollbar-button-up", "triangle-up"),
+    scrollbarButtonDown: register("scrollbar-button-down", "triangle-down"),
+    toolBarMore: register("toolbar-more", "more"),
+    quickInputBack: register("quick-input-back", "arrow-left")
   };
-  Codicon._allCodicons = [];
-  Codicon.add = new Codicon("add", { fontCharacter: "\\ea60" });
-  Codicon.plus = new Codicon("plus", Codicon.add.definition);
-  Codicon.gistNew = new Codicon("gist-new", Codicon.add.definition);
-  Codicon.repoCreate = new Codicon("repo-create", Codicon.add.definition);
-  Codicon.lightbulb = new Codicon("lightbulb", { fontCharacter: "\\ea61" });
-  Codicon.lightBulb = new Codicon("light-bulb", { fontCharacter: "\\ea61" });
-  Codicon.repo = new Codicon("repo", { fontCharacter: "\\ea62" });
-  Codicon.repoDelete = new Codicon("repo-delete", { fontCharacter: "\\ea62" });
-  Codicon.gistFork = new Codicon("gist-fork", { fontCharacter: "\\ea63" });
-  Codicon.repoForked = new Codicon("repo-forked", { fontCharacter: "\\ea63" });
-  Codicon.gitPullRequest = new Codicon("git-pull-request", { fontCharacter: "\\ea64" });
-  Codicon.gitPullRequestAbandoned = new Codicon("git-pull-request-abandoned", { fontCharacter: "\\ea64" });
-  Codicon.recordKeys = new Codicon("record-keys", { fontCharacter: "\\ea65" });
-  Codicon.keyboard = new Codicon("keyboard", { fontCharacter: "\\ea65" });
-  Codicon.tag = new Codicon("tag", { fontCharacter: "\\ea66" });
-  Codicon.tagAdd = new Codicon("tag-add", { fontCharacter: "\\ea66" });
-  Codicon.tagRemove = new Codicon("tag-remove", { fontCharacter: "\\ea66" });
-  Codicon.person = new Codicon("person", { fontCharacter: "\\ea67" });
-  Codicon.personFollow = new Codicon("person-follow", { fontCharacter: "\\ea67" });
-  Codicon.personOutline = new Codicon("person-outline", { fontCharacter: "\\ea67" });
-  Codicon.personFilled = new Codicon("person-filled", { fontCharacter: "\\ea67" });
-  Codicon.gitBranch = new Codicon("git-branch", { fontCharacter: "\\ea68" });
-  Codicon.gitBranchCreate = new Codicon("git-branch-create", { fontCharacter: "\\ea68" });
-  Codicon.gitBranchDelete = new Codicon("git-branch-delete", { fontCharacter: "\\ea68" });
-  Codicon.sourceControl = new Codicon("source-control", { fontCharacter: "\\ea68" });
-  Codicon.mirror = new Codicon("mirror", { fontCharacter: "\\ea69" });
-  Codicon.mirrorPublic = new Codicon("mirror-public", { fontCharacter: "\\ea69" });
-  Codicon.star = new Codicon("star", { fontCharacter: "\\ea6a" });
-  Codicon.starAdd = new Codicon("star-add", { fontCharacter: "\\ea6a" });
-  Codicon.starDelete = new Codicon("star-delete", { fontCharacter: "\\ea6a" });
-  Codicon.starEmpty = new Codicon("star-empty", { fontCharacter: "\\ea6a" });
-  Codicon.comment = new Codicon("comment", { fontCharacter: "\\ea6b" });
-  Codicon.commentAdd = new Codicon("comment-add", { fontCharacter: "\\ea6b" });
-  Codicon.alert = new Codicon("alert", { fontCharacter: "\\ea6c" });
-  Codicon.warning = new Codicon("warning", { fontCharacter: "\\ea6c" });
-  Codicon.search = new Codicon("search", { fontCharacter: "\\ea6d" });
-  Codicon.searchSave = new Codicon("search-save", { fontCharacter: "\\ea6d" });
-  Codicon.logOut = new Codicon("log-out", { fontCharacter: "\\ea6e" });
-  Codicon.signOut = new Codicon("sign-out", { fontCharacter: "\\ea6e" });
-  Codicon.logIn = new Codicon("log-in", { fontCharacter: "\\ea6f" });
-  Codicon.signIn = new Codicon("sign-in", { fontCharacter: "\\ea6f" });
-  Codicon.eye = new Codicon("eye", { fontCharacter: "\\ea70" });
-  Codicon.eyeUnwatch = new Codicon("eye-unwatch", { fontCharacter: "\\ea70" });
-  Codicon.eyeWatch = new Codicon("eye-watch", { fontCharacter: "\\ea70" });
-  Codicon.circleFilled = new Codicon("circle-filled", { fontCharacter: "\\ea71" });
-  Codicon.primitiveDot = new Codicon("primitive-dot", { fontCharacter: "\\ea71" });
-  Codicon.closeDirty = new Codicon("close-dirty", { fontCharacter: "\\ea71" });
-  Codicon.debugBreakpoint = new Codicon("debug-breakpoint", { fontCharacter: "\\ea71" });
-  Codicon.debugBreakpointDisabled = new Codicon("debug-breakpoint-disabled", { fontCharacter: "\\ea71" });
-  Codicon.debugHint = new Codicon("debug-hint", { fontCharacter: "\\ea71" });
-  Codicon.primitiveSquare = new Codicon("primitive-square", { fontCharacter: "\\ea72" });
-  Codicon.edit = new Codicon("edit", { fontCharacter: "\\ea73" });
-  Codicon.pencil = new Codicon("pencil", { fontCharacter: "\\ea73" });
-  Codicon.info = new Codicon("info", { fontCharacter: "\\ea74" });
-  Codicon.issueOpened = new Codicon("issue-opened", { fontCharacter: "\\ea74" });
-  Codicon.gistPrivate = new Codicon("gist-private", { fontCharacter: "\\ea75" });
-  Codicon.gitForkPrivate = new Codicon("git-fork-private", { fontCharacter: "\\ea75" });
-  Codicon.lock = new Codicon("lock", { fontCharacter: "\\ea75" });
-  Codicon.mirrorPrivate = new Codicon("mirror-private", { fontCharacter: "\\ea75" });
-  Codicon.close = new Codicon("close", { fontCharacter: "\\ea76" });
-  Codicon.removeClose = new Codicon("remove-close", { fontCharacter: "\\ea76" });
-  Codicon.x = new Codicon("x", { fontCharacter: "\\ea76" });
-  Codicon.repoSync = new Codicon("repo-sync", { fontCharacter: "\\ea77" });
-  Codicon.sync = new Codicon("sync", { fontCharacter: "\\ea77" });
-  Codicon.clone = new Codicon("clone", { fontCharacter: "\\ea78" });
-  Codicon.desktopDownload = new Codicon("desktop-download", { fontCharacter: "\\ea78" });
-  Codicon.beaker = new Codicon("beaker", { fontCharacter: "\\ea79" });
-  Codicon.microscope = new Codicon("microscope", { fontCharacter: "\\ea79" });
-  Codicon.vm = new Codicon("vm", { fontCharacter: "\\ea7a" });
-  Codicon.deviceDesktop = new Codicon("device-desktop", { fontCharacter: "\\ea7a" });
-  Codicon.file = new Codicon("file", { fontCharacter: "\\ea7b" });
-  Codicon.fileText = new Codicon("file-text", { fontCharacter: "\\ea7b" });
-  Codicon.more = new Codicon("more", { fontCharacter: "\\ea7c" });
-  Codicon.ellipsis = new Codicon("ellipsis", { fontCharacter: "\\ea7c" });
-  Codicon.kebabHorizontal = new Codicon("kebab-horizontal", { fontCharacter: "\\ea7c" });
-  Codicon.mailReply = new Codicon("mail-reply", { fontCharacter: "\\ea7d" });
-  Codicon.reply = new Codicon("reply", { fontCharacter: "\\ea7d" });
-  Codicon.organization = new Codicon("organization", { fontCharacter: "\\ea7e" });
-  Codicon.organizationFilled = new Codicon("organization-filled", { fontCharacter: "\\ea7e" });
-  Codicon.organizationOutline = new Codicon("organization-outline", { fontCharacter: "\\ea7e" });
-  Codicon.newFile = new Codicon("new-file", { fontCharacter: "\\ea7f" });
-  Codicon.fileAdd = new Codicon("file-add", { fontCharacter: "\\ea7f" });
-  Codicon.newFolder = new Codicon("new-folder", { fontCharacter: "\\ea80" });
-  Codicon.fileDirectoryCreate = new Codicon("file-directory-create", { fontCharacter: "\\ea80" });
-  Codicon.trash = new Codicon("trash", { fontCharacter: "\\ea81" });
-  Codicon.trashcan = new Codicon("trashcan", { fontCharacter: "\\ea81" });
-  Codicon.history = new Codicon("history", { fontCharacter: "\\ea82" });
-  Codicon.clock = new Codicon("clock", { fontCharacter: "\\ea82" });
-  Codicon.folder = new Codicon("folder", { fontCharacter: "\\ea83" });
-  Codicon.fileDirectory = new Codicon("file-directory", { fontCharacter: "\\ea83" });
-  Codicon.symbolFolder = new Codicon("symbol-folder", { fontCharacter: "\\ea83" });
-  Codicon.logoGithub = new Codicon("logo-github", { fontCharacter: "\\ea84" });
-  Codicon.markGithub = new Codicon("mark-github", { fontCharacter: "\\ea84" });
-  Codicon.github = new Codicon("github", { fontCharacter: "\\ea84" });
-  Codicon.terminal = new Codicon("terminal", { fontCharacter: "\\ea85" });
-  Codicon.console = new Codicon("console", { fontCharacter: "\\ea85" });
-  Codicon.repl = new Codicon("repl", { fontCharacter: "\\ea85" });
-  Codicon.zap = new Codicon("zap", { fontCharacter: "\\ea86" });
-  Codicon.symbolEvent = new Codicon("symbol-event", { fontCharacter: "\\ea86" });
-  Codicon.error = new Codicon("error", { fontCharacter: "\\ea87" });
-  Codicon.stop = new Codicon("stop", { fontCharacter: "\\ea87" });
-  Codicon.variable = new Codicon("variable", { fontCharacter: "\\ea88" });
-  Codicon.symbolVariable = new Codicon("symbol-variable", { fontCharacter: "\\ea88" });
-  Codicon.array = new Codicon("array", { fontCharacter: "\\ea8a" });
-  Codicon.symbolArray = new Codicon("symbol-array", { fontCharacter: "\\ea8a" });
-  Codicon.symbolModule = new Codicon("symbol-module", { fontCharacter: "\\ea8b" });
-  Codicon.symbolPackage = new Codicon("symbol-package", { fontCharacter: "\\ea8b" });
-  Codicon.symbolNamespace = new Codicon("symbol-namespace", { fontCharacter: "\\ea8b" });
-  Codicon.symbolObject = new Codicon("symbol-object", { fontCharacter: "\\ea8b" });
-  Codicon.symbolMethod = new Codicon("symbol-method", { fontCharacter: "\\ea8c" });
-  Codicon.symbolFunction = new Codicon("symbol-function", { fontCharacter: "\\ea8c" });
-  Codicon.symbolConstructor = new Codicon("symbol-constructor", { fontCharacter: "\\ea8c" });
-  Codicon.symbolBoolean = new Codicon("symbol-boolean", { fontCharacter: "\\ea8f" });
-  Codicon.symbolNull = new Codicon("symbol-null", { fontCharacter: "\\ea8f" });
-  Codicon.symbolNumeric = new Codicon("symbol-numeric", { fontCharacter: "\\ea90" });
-  Codicon.symbolNumber = new Codicon("symbol-number", { fontCharacter: "\\ea90" });
-  Codicon.symbolStructure = new Codicon("symbol-structure", { fontCharacter: "\\ea91" });
-  Codicon.symbolStruct = new Codicon("symbol-struct", { fontCharacter: "\\ea91" });
-  Codicon.symbolParameter = new Codicon("symbol-parameter", { fontCharacter: "\\ea92" });
-  Codicon.symbolTypeParameter = new Codicon("symbol-type-parameter", { fontCharacter: "\\ea92" });
-  Codicon.symbolKey = new Codicon("symbol-key", { fontCharacter: "\\ea93" });
-  Codicon.symbolText = new Codicon("symbol-text", { fontCharacter: "\\ea93" });
-  Codicon.symbolReference = new Codicon("symbol-reference", { fontCharacter: "\\ea94" });
-  Codicon.goToFile = new Codicon("go-to-file", { fontCharacter: "\\ea94" });
-  Codicon.symbolEnum = new Codicon("symbol-enum", { fontCharacter: "\\ea95" });
-  Codicon.symbolValue = new Codicon("symbol-value", { fontCharacter: "\\ea95" });
-  Codicon.symbolRuler = new Codicon("symbol-ruler", { fontCharacter: "\\ea96" });
-  Codicon.symbolUnit = new Codicon("symbol-unit", { fontCharacter: "\\ea96" });
-  Codicon.activateBreakpoints = new Codicon("activate-breakpoints", { fontCharacter: "\\ea97" });
-  Codicon.archive = new Codicon("archive", { fontCharacter: "\\ea98" });
-  Codicon.arrowBoth = new Codicon("arrow-both", { fontCharacter: "\\ea99" });
-  Codicon.arrowDown = new Codicon("arrow-down", { fontCharacter: "\\ea9a" });
-  Codicon.arrowLeft = new Codicon("arrow-left", { fontCharacter: "\\ea9b" });
-  Codicon.arrowRight = new Codicon("arrow-right", { fontCharacter: "\\ea9c" });
-  Codicon.arrowSmallDown = new Codicon("arrow-small-down", { fontCharacter: "\\ea9d" });
-  Codicon.arrowSmallLeft = new Codicon("arrow-small-left", { fontCharacter: "\\ea9e" });
-  Codicon.arrowSmallRight = new Codicon("arrow-small-right", { fontCharacter: "\\ea9f" });
-  Codicon.arrowSmallUp = new Codicon("arrow-small-up", { fontCharacter: "\\eaa0" });
-  Codicon.arrowUp = new Codicon("arrow-up", { fontCharacter: "\\eaa1" });
-  Codicon.bell = new Codicon("bell", { fontCharacter: "\\eaa2" });
-  Codicon.bold = new Codicon("bold", { fontCharacter: "\\eaa3" });
-  Codicon.book = new Codicon("book", { fontCharacter: "\\eaa4" });
-  Codicon.bookmark = new Codicon("bookmark", { fontCharacter: "\\eaa5" });
-  Codicon.debugBreakpointConditionalUnverified = new Codicon("debug-breakpoint-conditional-unverified", { fontCharacter: "\\eaa6" });
-  Codicon.debugBreakpointConditional = new Codicon("debug-breakpoint-conditional", { fontCharacter: "\\eaa7" });
-  Codicon.debugBreakpointConditionalDisabled = new Codicon("debug-breakpoint-conditional-disabled", { fontCharacter: "\\eaa7" });
-  Codicon.debugBreakpointDataUnverified = new Codicon("debug-breakpoint-data-unverified", { fontCharacter: "\\eaa8" });
-  Codicon.debugBreakpointData = new Codicon("debug-breakpoint-data", { fontCharacter: "\\eaa9" });
-  Codicon.debugBreakpointDataDisabled = new Codicon("debug-breakpoint-data-disabled", { fontCharacter: "\\eaa9" });
-  Codicon.debugBreakpointLogUnverified = new Codicon("debug-breakpoint-log-unverified", { fontCharacter: "\\eaaa" });
-  Codicon.debugBreakpointLog = new Codicon("debug-breakpoint-log", { fontCharacter: "\\eaab" });
-  Codicon.debugBreakpointLogDisabled = new Codicon("debug-breakpoint-log-disabled", { fontCharacter: "\\eaab" });
-  Codicon.briefcase = new Codicon("briefcase", { fontCharacter: "\\eaac" });
-  Codicon.broadcast = new Codicon("broadcast", { fontCharacter: "\\eaad" });
-  Codicon.browser = new Codicon("browser", { fontCharacter: "\\eaae" });
-  Codicon.bug = new Codicon("bug", { fontCharacter: "\\eaaf" });
-  Codicon.calendar = new Codicon("calendar", { fontCharacter: "\\eab0" });
-  Codicon.caseSensitive = new Codicon("case-sensitive", { fontCharacter: "\\eab1" });
-  Codicon.check = new Codicon("check", { fontCharacter: "\\eab2" });
-  Codicon.checklist = new Codicon("checklist", { fontCharacter: "\\eab3" });
-  Codicon.chevronDown = new Codicon("chevron-down", { fontCharacter: "\\eab4" });
-  Codicon.dropDownButton = new Codicon("drop-down-button", Codicon.chevronDown.definition);
-  Codicon.chevronLeft = new Codicon("chevron-left", { fontCharacter: "\\eab5" });
-  Codicon.chevronRight = new Codicon("chevron-right", { fontCharacter: "\\eab6" });
-  Codicon.chevronUp = new Codicon("chevron-up", { fontCharacter: "\\eab7" });
-  Codicon.chromeClose = new Codicon("chrome-close", { fontCharacter: "\\eab8" });
-  Codicon.chromeMaximize = new Codicon("chrome-maximize", { fontCharacter: "\\eab9" });
-  Codicon.chromeMinimize = new Codicon("chrome-minimize", { fontCharacter: "\\eaba" });
-  Codicon.chromeRestore = new Codicon("chrome-restore", { fontCharacter: "\\eabb" });
-  Codicon.circleOutline = new Codicon("circle-outline", { fontCharacter: "\\eabc" });
-  Codicon.debugBreakpointUnverified = new Codicon("debug-breakpoint-unverified", { fontCharacter: "\\eabc" });
-  Codicon.circleSlash = new Codicon("circle-slash", { fontCharacter: "\\eabd" });
-  Codicon.circuitBoard = new Codicon("circuit-board", { fontCharacter: "\\eabe" });
-  Codicon.clearAll = new Codicon("clear-all", { fontCharacter: "\\eabf" });
-  Codicon.clippy = new Codicon("clippy", { fontCharacter: "\\eac0" });
-  Codicon.closeAll = new Codicon("close-all", { fontCharacter: "\\eac1" });
-  Codicon.cloudDownload = new Codicon("cloud-download", { fontCharacter: "\\eac2" });
-  Codicon.cloudUpload = new Codicon("cloud-upload", { fontCharacter: "\\eac3" });
-  Codicon.code = new Codicon("code", { fontCharacter: "\\eac4" });
-  Codicon.collapseAll = new Codicon("collapse-all", { fontCharacter: "\\eac5" });
-  Codicon.colorMode = new Codicon("color-mode", { fontCharacter: "\\eac6" });
-  Codicon.commentDiscussion = new Codicon("comment-discussion", { fontCharacter: "\\eac7" });
-  Codicon.compareChanges = new Codicon("compare-changes", { fontCharacter: "\\eafd" });
-  Codicon.creditCard = new Codicon("credit-card", { fontCharacter: "\\eac9" });
-  Codicon.dash = new Codicon("dash", { fontCharacter: "\\eacc" });
-  Codicon.dashboard = new Codicon("dashboard", { fontCharacter: "\\eacd" });
-  Codicon.database = new Codicon("database", { fontCharacter: "\\eace" });
-  Codicon.debugContinue = new Codicon("debug-continue", { fontCharacter: "\\eacf" });
-  Codicon.debugDisconnect = new Codicon("debug-disconnect", { fontCharacter: "\\ead0" });
-  Codicon.debugPause = new Codicon("debug-pause", { fontCharacter: "\\ead1" });
-  Codicon.debugRestart = new Codicon("debug-restart", { fontCharacter: "\\ead2" });
-  Codicon.debugStart = new Codicon("debug-start", { fontCharacter: "\\ead3" });
-  Codicon.debugStepInto = new Codicon("debug-step-into", { fontCharacter: "\\ead4" });
-  Codicon.debugStepOut = new Codicon("debug-step-out", { fontCharacter: "\\ead5" });
-  Codicon.debugStepOver = new Codicon("debug-step-over", { fontCharacter: "\\ead6" });
-  Codicon.debugStop = new Codicon("debug-stop", { fontCharacter: "\\ead7" });
-  Codicon.debug = new Codicon("debug", { fontCharacter: "\\ead8" });
-  Codicon.deviceCameraVideo = new Codicon("device-camera-video", { fontCharacter: "\\ead9" });
-  Codicon.deviceCamera = new Codicon("device-camera", { fontCharacter: "\\eada" });
-  Codicon.deviceMobile = new Codicon("device-mobile", { fontCharacter: "\\eadb" });
-  Codicon.diffAdded = new Codicon("diff-added", { fontCharacter: "\\eadc" });
-  Codicon.diffIgnored = new Codicon("diff-ignored", { fontCharacter: "\\eadd" });
-  Codicon.diffModified = new Codicon("diff-modified", { fontCharacter: "\\eade" });
-  Codicon.diffRemoved = new Codicon("diff-removed", { fontCharacter: "\\eadf" });
-  Codicon.diffRenamed = new Codicon("diff-renamed", { fontCharacter: "\\eae0" });
-  Codicon.diff = new Codicon("diff", { fontCharacter: "\\eae1" });
-  Codicon.discard = new Codicon("discard", { fontCharacter: "\\eae2" });
-  Codicon.editorLayout = new Codicon("editor-layout", { fontCharacter: "\\eae3" });
-  Codicon.emptyWindow = new Codicon("empty-window", { fontCharacter: "\\eae4" });
-  Codicon.exclude = new Codicon("exclude", { fontCharacter: "\\eae5" });
-  Codicon.extensions = new Codicon("extensions", { fontCharacter: "\\eae6" });
-  Codicon.eyeClosed = new Codicon("eye-closed", { fontCharacter: "\\eae7" });
-  Codicon.fileBinary = new Codicon("file-binary", { fontCharacter: "\\eae8" });
-  Codicon.fileCode = new Codicon("file-code", { fontCharacter: "\\eae9" });
-  Codicon.fileMedia = new Codicon("file-media", { fontCharacter: "\\eaea" });
-  Codicon.filePdf = new Codicon("file-pdf", { fontCharacter: "\\eaeb" });
-  Codicon.fileSubmodule = new Codicon("file-submodule", { fontCharacter: "\\eaec" });
-  Codicon.fileSymlinkDirectory = new Codicon("file-symlink-directory", { fontCharacter: "\\eaed" });
-  Codicon.fileSymlinkFile = new Codicon("file-symlink-file", { fontCharacter: "\\eaee" });
-  Codicon.fileZip = new Codicon("file-zip", { fontCharacter: "\\eaef" });
-  Codicon.files = new Codicon("files", { fontCharacter: "\\eaf0" });
-  Codicon.filter = new Codicon("filter", { fontCharacter: "\\eaf1" });
-  Codicon.flame = new Codicon("flame", { fontCharacter: "\\eaf2" });
-  Codicon.foldDown = new Codicon("fold-down", { fontCharacter: "\\eaf3" });
-  Codicon.foldUp = new Codicon("fold-up", { fontCharacter: "\\eaf4" });
-  Codicon.fold = new Codicon("fold", { fontCharacter: "\\eaf5" });
-  Codicon.folderActive = new Codicon("folder-active", { fontCharacter: "\\eaf6" });
-  Codicon.folderOpened = new Codicon("folder-opened", { fontCharacter: "\\eaf7" });
-  Codicon.gear = new Codicon("gear", { fontCharacter: "\\eaf8" });
-  Codicon.gift = new Codicon("gift", { fontCharacter: "\\eaf9" });
-  Codicon.gistSecret = new Codicon("gist-secret", { fontCharacter: "\\eafa" });
-  Codicon.gist = new Codicon("gist", { fontCharacter: "\\eafb" });
-  Codicon.gitCommit = new Codicon("git-commit", { fontCharacter: "\\eafc" });
-  Codicon.gitCompare = new Codicon("git-compare", { fontCharacter: "\\eafd" });
-  Codicon.gitMerge = new Codicon("git-merge", { fontCharacter: "\\eafe" });
-  Codicon.githubAction = new Codicon("github-action", { fontCharacter: "\\eaff" });
-  Codicon.githubAlt = new Codicon("github-alt", { fontCharacter: "\\eb00" });
-  Codicon.globe = new Codicon("globe", { fontCharacter: "\\eb01" });
-  Codicon.grabber = new Codicon("grabber", { fontCharacter: "\\eb02" });
-  Codicon.graph = new Codicon("graph", { fontCharacter: "\\eb03" });
-  Codicon.gripper = new Codicon("gripper", { fontCharacter: "\\eb04" });
-  Codicon.heart = new Codicon("heart", { fontCharacter: "\\eb05" });
-  Codicon.home = new Codicon("home", { fontCharacter: "\\eb06" });
-  Codicon.horizontalRule = new Codicon("horizontal-rule", { fontCharacter: "\\eb07" });
-  Codicon.hubot = new Codicon("hubot", { fontCharacter: "\\eb08" });
-  Codicon.inbox = new Codicon("inbox", { fontCharacter: "\\eb09" });
-  Codicon.issueClosed = new Codicon("issue-closed", { fontCharacter: "\\eba4" });
-  Codicon.issueReopened = new Codicon("issue-reopened", { fontCharacter: "\\eb0b" });
-  Codicon.issues = new Codicon("issues", { fontCharacter: "\\eb0c" });
-  Codicon.italic = new Codicon("italic", { fontCharacter: "\\eb0d" });
-  Codicon.jersey = new Codicon("jersey", { fontCharacter: "\\eb0e" });
-  Codicon.json = new Codicon("json", { fontCharacter: "\\eb0f" });
-  Codicon.kebabVertical = new Codicon("kebab-vertical", { fontCharacter: "\\eb10" });
-  Codicon.key = new Codicon("key", { fontCharacter: "\\eb11" });
-  Codicon.law = new Codicon("law", { fontCharacter: "\\eb12" });
-  Codicon.lightbulbAutofix = new Codicon("lightbulb-autofix", { fontCharacter: "\\eb13" });
-  Codicon.linkExternal = new Codicon("link-external", { fontCharacter: "\\eb14" });
-  Codicon.link = new Codicon("link", { fontCharacter: "\\eb15" });
-  Codicon.listOrdered = new Codicon("list-ordered", { fontCharacter: "\\eb16" });
-  Codicon.listUnordered = new Codicon("list-unordered", { fontCharacter: "\\eb17" });
-  Codicon.liveShare = new Codicon("live-share", { fontCharacter: "\\eb18" });
-  Codicon.loading = new Codicon("loading", { fontCharacter: "\\eb19" });
-  Codicon.location = new Codicon("location", { fontCharacter: "\\eb1a" });
-  Codicon.mailRead = new Codicon("mail-read", { fontCharacter: "\\eb1b" });
-  Codicon.mail = new Codicon("mail", { fontCharacter: "\\eb1c" });
-  Codicon.markdown = new Codicon("markdown", { fontCharacter: "\\eb1d" });
-  Codicon.megaphone = new Codicon("megaphone", { fontCharacter: "\\eb1e" });
-  Codicon.mention = new Codicon("mention", { fontCharacter: "\\eb1f" });
-  Codicon.milestone = new Codicon("milestone", { fontCharacter: "\\eb20" });
-  Codicon.mortarBoard = new Codicon("mortar-board", { fontCharacter: "\\eb21" });
-  Codicon.move = new Codicon("move", { fontCharacter: "\\eb22" });
-  Codicon.multipleWindows = new Codicon("multiple-windows", { fontCharacter: "\\eb23" });
-  Codicon.mute = new Codicon("mute", { fontCharacter: "\\eb24" });
-  Codicon.noNewline = new Codicon("no-newline", { fontCharacter: "\\eb25" });
-  Codicon.note = new Codicon("note", { fontCharacter: "\\eb26" });
-  Codicon.octoface = new Codicon("octoface", { fontCharacter: "\\eb27" });
-  Codicon.openPreview = new Codicon("open-preview", { fontCharacter: "\\eb28" });
-  Codicon.package_ = new Codicon("package", { fontCharacter: "\\eb29" });
-  Codicon.paintcan = new Codicon("paintcan", { fontCharacter: "\\eb2a" });
-  Codicon.pin = new Codicon("pin", { fontCharacter: "\\eb2b" });
-  Codicon.play = new Codicon("play", { fontCharacter: "\\eb2c" });
-  Codicon.run = new Codicon("run", { fontCharacter: "\\eb2c" });
-  Codicon.plug = new Codicon("plug", { fontCharacter: "\\eb2d" });
-  Codicon.preserveCase = new Codicon("preserve-case", { fontCharacter: "\\eb2e" });
-  Codicon.preview = new Codicon("preview", { fontCharacter: "\\eb2f" });
-  Codicon.project = new Codicon("project", { fontCharacter: "\\eb30" });
-  Codicon.pulse = new Codicon("pulse", { fontCharacter: "\\eb31" });
-  Codicon.question = new Codicon("question", { fontCharacter: "\\eb32" });
-  Codicon.quote = new Codicon("quote", { fontCharacter: "\\eb33" });
-  Codicon.radioTower = new Codicon("radio-tower", { fontCharacter: "\\eb34" });
-  Codicon.reactions = new Codicon("reactions", { fontCharacter: "\\eb35" });
-  Codicon.references = new Codicon("references", { fontCharacter: "\\eb36" });
-  Codicon.refresh = new Codicon("refresh", { fontCharacter: "\\eb37" });
-  Codicon.regex = new Codicon("regex", { fontCharacter: "\\eb38" });
-  Codicon.remoteExplorer = new Codicon("remote-explorer", { fontCharacter: "\\eb39" });
-  Codicon.remote = new Codicon("remote", { fontCharacter: "\\eb3a" });
-  Codicon.remove = new Codicon("remove", { fontCharacter: "\\eb3b" });
-  Codicon.replaceAll = new Codicon("replace-all", { fontCharacter: "\\eb3c" });
-  Codicon.replace = new Codicon("replace", { fontCharacter: "\\eb3d" });
-  Codicon.repoClone = new Codicon("repo-clone", { fontCharacter: "\\eb3e" });
-  Codicon.repoForcePush = new Codicon("repo-force-push", { fontCharacter: "\\eb3f" });
-  Codicon.repoPull = new Codicon("repo-pull", { fontCharacter: "\\eb40" });
-  Codicon.repoPush = new Codicon("repo-push", { fontCharacter: "\\eb41" });
-  Codicon.report = new Codicon("report", { fontCharacter: "\\eb42" });
-  Codicon.requestChanges = new Codicon("request-changes", { fontCharacter: "\\eb43" });
-  Codicon.rocket = new Codicon("rocket", { fontCharacter: "\\eb44" });
-  Codicon.rootFolderOpened = new Codicon("root-folder-opened", { fontCharacter: "\\eb45" });
-  Codicon.rootFolder = new Codicon("root-folder", { fontCharacter: "\\eb46" });
-  Codicon.rss = new Codicon("rss", { fontCharacter: "\\eb47" });
-  Codicon.ruby = new Codicon("ruby", { fontCharacter: "\\eb48" });
-  Codicon.saveAll = new Codicon("save-all", { fontCharacter: "\\eb49" });
-  Codicon.saveAs = new Codicon("save-as", { fontCharacter: "\\eb4a" });
-  Codicon.save = new Codicon("save", { fontCharacter: "\\eb4b" });
-  Codicon.screenFull = new Codicon("screen-full", { fontCharacter: "\\eb4c" });
-  Codicon.screenNormal = new Codicon("screen-normal", { fontCharacter: "\\eb4d" });
-  Codicon.searchStop = new Codicon("search-stop", { fontCharacter: "\\eb4e" });
-  Codicon.server = new Codicon("server", { fontCharacter: "\\eb50" });
-  Codicon.settingsGear = new Codicon("settings-gear", { fontCharacter: "\\eb51" });
-  Codicon.settings = new Codicon("settings", { fontCharacter: "\\eb52" });
-  Codicon.shield = new Codicon("shield", { fontCharacter: "\\eb53" });
-  Codicon.smiley = new Codicon("smiley", { fontCharacter: "\\eb54" });
-  Codicon.sortPrecedence = new Codicon("sort-precedence", { fontCharacter: "\\eb55" });
-  Codicon.splitHorizontal = new Codicon("split-horizontal", { fontCharacter: "\\eb56" });
-  Codicon.splitVertical = new Codicon("split-vertical", { fontCharacter: "\\eb57" });
-  Codicon.squirrel = new Codicon("squirrel", { fontCharacter: "\\eb58" });
-  Codicon.starFull = new Codicon("star-full", { fontCharacter: "\\eb59" });
-  Codicon.starHalf = new Codicon("star-half", { fontCharacter: "\\eb5a" });
-  Codicon.symbolClass = new Codicon("symbol-class", { fontCharacter: "\\eb5b" });
-  Codicon.symbolColor = new Codicon("symbol-color", { fontCharacter: "\\eb5c" });
-  Codicon.symbolCustomColor = new Codicon("symbol-customcolor", { fontCharacter: "\\eb5c" });
-  Codicon.symbolConstant = new Codicon("symbol-constant", { fontCharacter: "\\eb5d" });
-  Codicon.symbolEnumMember = new Codicon("symbol-enum-member", { fontCharacter: "\\eb5e" });
-  Codicon.symbolField = new Codicon("symbol-field", { fontCharacter: "\\eb5f" });
-  Codicon.symbolFile = new Codicon("symbol-file", { fontCharacter: "\\eb60" });
-  Codicon.symbolInterface = new Codicon("symbol-interface", { fontCharacter: "\\eb61" });
-  Codicon.symbolKeyword = new Codicon("symbol-keyword", { fontCharacter: "\\eb62" });
-  Codicon.symbolMisc = new Codicon("symbol-misc", { fontCharacter: "\\eb63" });
-  Codicon.symbolOperator = new Codicon("symbol-operator", { fontCharacter: "\\eb64" });
-  Codicon.symbolProperty = new Codicon("symbol-property", { fontCharacter: "\\eb65" });
-  Codicon.wrench = new Codicon("wrench", { fontCharacter: "\\eb65" });
-  Codicon.wrenchSubaction = new Codicon("wrench-subaction", { fontCharacter: "\\eb65" });
-  Codicon.symbolSnippet = new Codicon("symbol-snippet", { fontCharacter: "\\eb66" });
-  Codicon.tasklist = new Codicon("tasklist", { fontCharacter: "\\eb67" });
-  Codicon.telescope = new Codicon("telescope", { fontCharacter: "\\eb68" });
-  Codicon.textSize = new Codicon("text-size", { fontCharacter: "\\eb69" });
-  Codicon.threeBars = new Codicon("three-bars", { fontCharacter: "\\eb6a" });
-  Codicon.thumbsdown = new Codicon("thumbsdown", { fontCharacter: "\\eb6b" });
-  Codicon.thumbsup = new Codicon("thumbsup", { fontCharacter: "\\eb6c" });
-  Codicon.tools = new Codicon("tools", { fontCharacter: "\\eb6d" });
-  Codicon.triangleDown = new Codicon("triangle-down", { fontCharacter: "\\eb6e" });
-  Codicon.triangleLeft = new Codicon("triangle-left", { fontCharacter: "\\eb6f" });
-  Codicon.triangleRight = new Codicon("triangle-right", { fontCharacter: "\\eb70" });
-  Codicon.triangleUp = new Codicon("triangle-up", { fontCharacter: "\\eb71" });
-  Codicon.twitter = new Codicon("twitter", { fontCharacter: "\\eb72" });
-  Codicon.unfold = new Codicon("unfold", { fontCharacter: "\\eb73" });
-  Codicon.unlock = new Codicon("unlock", { fontCharacter: "\\eb74" });
-  Codicon.unmute = new Codicon("unmute", { fontCharacter: "\\eb75" });
-  Codicon.unverified = new Codicon("unverified", { fontCharacter: "\\eb76" });
-  Codicon.verified = new Codicon("verified", { fontCharacter: "\\eb77" });
-  Codicon.versions = new Codicon("versions", { fontCharacter: "\\eb78" });
-  Codicon.vmActive = new Codicon("vm-active", { fontCharacter: "\\eb79" });
-  Codicon.vmOutline = new Codicon("vm-outline", { fontCharacter: "\\eb7a" });
-  Codicon.vmRunning = new Codicon("vm-running", { fontCharacter: "\\eb7b" });
-  Codicon.watch = new Codicon("watch", { fontCharacter: "\\eb7c" });
-  Codicon.whitespace = new Codicon("whitespace", { fontCharacter: "\\eb7d" });
-  Codicon.wholeWord = new Codicon("whole-word", { fontCharacter: "\\eb7e" });
-  Codicon.window = new Codicon("window", { fontCharacter: "\\eb7f" });
-  Codicon.wordWrap = new Codicon("word-wrap", { fontCharacter: "\\eb80" });
-  Codicon.zoomIn = new Codicon("zoom-in", { fontCharacter: "\\eb81" });
-  Codicon.zoomOut = new Codicon("zoom-out", { fontCharacter: "\\eb82" });
-  Codicon.listFilter = new Codicon("list-filter", { fontCharacter: "\\eb83" });
-  Codicon.listFlat = new Codicon("list-flat", { fontCharacter: "\\eb84" });
-  Codicon.listSelection = new Codicon("list-selection", { fontCharacter: "\\eb85" });
-  Codicon.selection = new Codicon("selection", { fontCharacter: "\\eb85" });
-  Codicon.listTree = new Codicon("list-tree", { fontCharacter: "\\eb86" });
-  Codicon.debugBreakpointFunctionUnverified = new Codicon("debug-breakpoint-function-unverified", { fontCharacter: "\\eb87" });
-  Codicon.debugBreakpointFunction = new Codicon("debug-breakpoint-function", { fontCharacter: "\\eb88" });
-  Codicon.debugBreakpointFunctionDisabled = new Codicon("debug-breakpoint-function-disabled", { fontCharacter: "\\eb88" });
-  Codicon.debugStackframeActive = new Codicon("debug-stackframe-active", { fontCharacter: "\\eb89" });
-  Codicon.circleSmallFilled = new Codicon("circle-small-filled", { fontCharacter: "\\eb8a" });
-  Codicon.debugStackframeDot = new Codicon("debug-stackframe-dot", Codicon.circleSmallFilled.definition);
-  Codicon.debugStackframe = new Codicon("debug-stackframe", { fontCharacter: "\\eb8b" });
-  Codicon.debugStackframeFocused = new Codicon("debug-stackframe-focused", { fontCharacter: "\\eb8b" });
-  Codicon.debugBreakpointUnsupported = new Codicon("debug-breakpoint-unsupported", { fontCharacter: "\\eb8c" });
-  Codicon.symbolString = new Codicon("symbol-string", { fontCharacter: "\\eb8d" });
-  Codicon.debugReverseContinue = new Codicon("debug-reverse-continue", { fontCharacter: "\\eb8e" });
-  Codicon.debugStepBack = new Codicon("debug-step-back", { fontCharacter: "\\eb8f" });
-  Codicon.debugRestartFrame = new Codicon("debug-restart-frame", { fontCharacter: "\\eb90" });
-  Codicon.callIncoming = new Codicon("call-incoming", { fontCharacter: "\\eb92" });
-  Codicon.callOutgoing = new Codicon("call-outgoing", { fontCharacter: "\\eb93" });
-  Codicon.menu = new Codicon("menu", { fontCharacter: "\\eb94" });
-  Codicon.expandAll = new Codicon("expand-all", { fontCharacter: "\\eb95" });
-  Codicon.feedback = new Codicon("feedback", { fontCharacter: "\\eb96" });
-  Codicon.groupByRefType = new Codicon("group-by-ref-type", { fontCharacter: "\\eb97" });
-  Codicon.ungroupByRefType = new Codicon("ungroup-by-ref-type", { fontCharacter: "\\eb98" });
-  Codicon.account = new Codicon("account", { fontCharacter: "\\eb99" });
-  Codicon.bellDot = new Codicon("bell-dot", { fontCharacter: "\\eb9a" });
-  Codicon.debugConsole = new Codicon("debug-console", { fontCharacter: "\\eb9b" });
-  Codicon.library = new Codicon("library", { fontCharacter: "\\eb9c" });
-  Codicon.output = new Codicon("output", { fontCharacter: "\\eb9d" });
-  Codicon.runAll = new Codicon("run-all", { fontCharacter: "\\eb9e" });
-  Codicon.syncIgnored = new Codicon("sync-ignored", { fontCharacter: "\\eb9f" });
-  Codicon.pinned = new Codicon("pinned", { fontCharacter: "\\eba0" });
-  Codicon.githubInverted = new Codicon("github-inverted", { fontCharacter: "\\eba1" });
-  Codicon.debugAlt = new Codicon("debug-alt", { fontCharacter: "\\eb91" });
-  Codicon.serverProcess = new Codicon("server-process", { fontCharacter: "\\eba2" });
-  Codicon.serverEnvironment = new Codicon("server-environment", { fontCharacter: "\\eba3" });
-  Codicon.pass = new Codicon("pass", { fontCharacter: "\\eba4" });
-  Codicon.stopCircle = new Codicon("stop-circle", { fontCharacter: "\\eba5" });
-  Codicon.playCircle = new Codicon("play-circle", { fontCharacter: "\\eba6" });
-  Codicon.record = new Codicon("record", { fontCharacter: "\\eba7" });
-  Codicon.debugAltSmall = new Codicon("debug-alt-small", { fontCharacter: "\\eba8" });
-  Codicon.vmConnect = new Codicon("vm-connect", { fontCharacter: "\\eba9" });
-  Codicon.cloud = new Codicon("cloud", { fontCharacter: "\\ebaa" });
-  Codicon.merge = new Codicon("merge", { fontCharacter: "\\ebab" });
-  Codicon.exportIcon = new Codicon("export", { fontCharacter: "\\ebac" });
-  Codicon.graphLeft = new Codicon("graph-left", { fontCharacter: "\\ebad" });
-  Codicon.magnet = new Codicon("magnet", { fontCharacter: "\\ebae" });
-  Codicon.notebook = new Codicon("notebook", { fontCharacter: "\\ebaf" });
-  Codicon.redo = new Codicon("redo", { fontCharacter: "\\ebb0" });
-  Codicon.checkAll = new Codicon("check-all", { fontCharacter: "\\ebb1" });
-  Codicon.pinnedDirty = new Codicon("pinned-dirty", { fontCharacter: "\\ebb2" });
-  Codicon.passFilled = new Codicon("pass-filled", { fontCharacter: "\\ebb3" });
-  Codicon.circleLargeFilled = new Codicon("circle-large-filled", { fontCharacter: "\\ebb4" });
-  Codicon.circleLargeOutline = new Codicon("circle-large-outline", { fontCharacter: "\\ebb5" });
-  Codicon.combine = new Codicon("combine", { fontCharacter: "\\ebb6" });
-  Codicon.gather = new Codicon("gather", { fontCharacter: "\\ebb6" });
-  Codicon.table = new Codicon("table", { fontCharacter: "\\ebb7" });
-  Codicon.variableGroup = new Codicon("variable-group", { fontCharacter: "\\ebb8" });
-  Codicon.typeHierarchy = new Codicon("type-hierarchy", { fontCharacter: "\\ebb9" });
-  Codicon.typeHierarchySub = new Codicon("type-hierarchy-sub", { fontCharacter: "\\ebba" });
-  Codicon.typeHierarchySuper = new Codicon("type-hierarchy-super", { fontCharacter: "\\ebbb" });
-  Codicon.gitPullRequestCreate = new Codicon("git-pull-request-create", { fontCharacter: "\\ebbc" });
-  Codicon.runAbove = new Codicon("run-above", { fontCharacter: "\\ebbd" });
-  Codicon.runBelow = new Codicon("run-below", { fontCharacter: "\\ebbe" });
-  Codicon.notebookTemplate = new Codicon("notebook-template", { fontCharacter: "\\ebbf" });
-  Codicon.debugRerun = new Codicon("debug-rerun", { fontCharacter: "\\ebc0" });
-  Codicon.workspaceTrusted = new Codicon("workspace-trusted", { fontCharacter: "\\ebc1" });
-  Codicon.workspaceUntrusted = new Codicon("workspace-untrusted", { fontCharacter: "\\ebc2" });
-  Codicon.workspaceUnspecified = new Codicon("workspace-unspecified", { fontCharacter: "\\ebc3" });
-  Codicon.terminalCmd = new Codicon("terminal-cmd", { fontCharacter: "\\ebc4" });
-  Codicon.terminalDebian = new Codicon("terminal-debian", { fontCharacter: "\\ebc5" });
-  Codicon.terminalLinux = new Codicon("terminal-linux", { fontCharacter: "\\ebc6" });
-  Codicon.terminalPowershell = new Codicon("terminal-powershell", { fontCharacter: "\\ebc7" });
-  Codicon.terminalTmux = new Codicon("terminal-tmux", { fontCharacter: "\\ebc8" });
-  Codicon.terminalUbuntu = new Codicon("terminal-ubuntu", { fontCharacter: "\\ebc9" });
-  Codicon.terminalBash = new Codicon("terminal-bash", { fontCharacter: "\\ebca" });
-  Codicon.arrowSwap = new Codicon("arrow-swap", { fontCharacter: "\\ebcb" });
-  Codicon.copy = new Codicon("copy", { fontCharacter: "\\ebcc" });
-  Codicon.personAdd = new Codicon("person-add", { fontCharacter: "\\ebcd" });
-  Codicon.filterFilled = new Codicon("filter-filled", { fontCharacter: "\\ebce" });
-  Codicon.wand = new Codicon("wand", { fontCharacter: "\\ebcf" });
-  Codicon.debugLineByLine = new Codicon("debug-line-by-line", { fontCharacter: "\\ebd0" });
-  Codicon.inspect = new Codicon("inspect", { fontCharacter: "\\ebd1" });
-  Codicon.layers = new Codicon("layers", { fontCharacter: "\\ebd2" });
-  Codicon.layersDot = new Codicon("layers-dot", { fontCharacter: "\\ebd3" });
-  Codicon.layersActive = new Codicon("layers-active", { fontCharacter: "\\ebd4" });
-  Codicon.compass = new Codicon("compass", { fontCharacter: "\\ebd5" });
-  Codicon.compassDot = new Codicon("compass-dot", { fontCharacter: "\\ebd6" });
-  Codicon.compassActive = new Codicon("compass-active", { fontCharacter: "\\ebd7" });
-  Codicon.azure = new Codicon("azure", { fontCharacter: "\\ebd8" });
-  Codicon.issueDraft = new Codicon("issue-draft", { fontCharacter: "\\ebd9" });
-  Codicon.gitPullRequestClosed = new Codicon("git-pull-request-closed", { fontCharacter: "\\ebda" });
-  Codicon.gitPullRequestDraft = new Codicon("git-pull-request-draft", { fontCharacter: "\\ebdb" });
-  Codicon.debugAll = new Codicon("debug-all", { fontCharacter: "\\ebdc" });
-  Codicon.debugCoverage = new Codicon("debug-coverage", { fontCharacter: "\\ebdd" });
-  Codicon.runErrors = new Codicon("run-errors", { fontCharacter: "\\ebde" });
-  Codicon.folderLibrary = new Codicon("folder-library", { fontCharacter: "\\ebdf" });
-  Codicon.debugContinueSmall = new Codicon("debug-continue-small", { fontCharacter: "\\ebe0" });
-  Codicon.beakerStop = new Codicon("beaker-stop", { fontCharacter: "\\ebe1" });
-  Codicon.graphLine = new Codicon("graph-line", { fontCharacter: "\\ebe2" });
-  Codicon.graphScatter = new Codicon("graph-scatter", { fontCharacter: "\\ebe3" });
-  Codicon.pieChart = new Codicon("pie-chart", { fontCharacter: "\\ebe4" });
-  Codicon.bracket = new Codicon("bracket", Codicon.json.definition);
-  Codicon.bracketDot = new Codicon("bracket-dot", { fontCharacter: "\\ebe5" });
-  Codicon.bracketError = new Codicon("bracket-error", { fontCharacter: "\\ebe6" });
-  Codicon.lockSmall = new Codicon("lock-small", { fontCharacter: "\\ebe7" });
-  Codicon.azureDevops = new Codicon("azure-devops", { fontCharacter: "\\ebe8" });
-  Codicon.verifiedFilled = new Codicon("verified-filled", { fontCharacter: "\\ebe9" });
-  Codicon.newLine = new Codicon("newline", { fontCharacter: "\\ebea" });
-  Codicon.layout = new Codicon("layout", { fontCharacter: "\\ebeb" });
-  Codicon.layoutActivitybarLeft = new Codicon("layout-activitybar-left", { fontCharacter: "\\ebec" });
-  Codicon.layoutActivitybarRight = new Codicon("layout-activitybar-right", { fontCharacter: "\\ebed" });
-  Codicon.layoutPanelLeft = new Codicon("layout-panel-left", { fontCharacter: "\\ebee" });
-  Codicon.layoutPanelCenter = new Codicon("layout-panel-center", { fontCharacter: "\\ebef" });
-  Codicon.layoutPanelJustify = new Codicon("layout-panel-justify", { fontCharacter: "\\ebf0" });
-  Codicon.layoutPanelRight = new Codicon("layout-panel-right", { fontCharacter: "\\ebf1" });
-  Codicon.layoutPanel = new Codicon("layout-panel", { fontCharacter: "\\ebf2" });
-  Codicon.layoutSidebarLeft = new Codicon("layout-sidebar-left", { fontCharacter: "\\ebf3" });
-  Codicon.layoutSidebarRight = new Codicon("layout-sidebar-right", { fontCharacter: "\\ebf4" });
-  Codicon.layoutStatusbar = new Codicon("layout-statusbar", { fontCharacter: "\\ebf5" });
-  Codicon.layoutMenubar = new Codicon("layout-menubar", { fontCharacter: "\\ebf6" });
-  Codicon.layoutCentered = new Codicon("layout-centered", { fontCharacter: "\\ebf7" });
-  Codicon.layoutSidebarRightOff = new Codicon("layout-sidebar-right-off", { fontCharacter: "\\ec00" });
-  Codicon.layoutPanelOff = new Codicon("layout-panel-off", { fontCharacter: "\\ec01" });
-  Codicon.layoutSidebarLeftOff = new Codicon("layout-sidebar-left-off", { fontCharacter: "\\ec02" });
-  Codicon.target = new Codicon("target", { fontCharacter: "\\ebf8" });
-  Codicon.indent = new Codicon("indent", { fontCharacter: "\\ebf9" });
-  Codicon.recordSmall = new Codicon("record-small", { fontCharacter: "\\ebfa" });
-  Codicon.errorSmall = new Codicon("error-small", { fontCharacter: "\\ebfb" });
-  Codicon.arrowCircleDown = new Codicon("arrow-circle-down", { fontCharacter: "\\ebfc" });
-  Codicon.arrowCircleLeft = new Codicon("arrow-circle-left", { fontCharacter: "\\ebfd" });
-  Codicon.arrowCircleRight = new Codicon("arrow-circle-right", { fontCharacter: "\\ebfe" });
-  Codicon.arrowCircleUp = new Codicon("arrow-circle-up", { fontCharacter: "\\ebff" });
-  Codicon.heartFilled = new Codicon("heart-filled", { fontCharacter: "\\ec04" });
-  Codicon.map = new Codicon("map", { fontCharacter: "\\ec05" });
-  Codicon.mapFilled = new Codicon("map-filled", { fontCharacter: "\\ec06" });
-  Codicon.circleSmall = new Codicon("circle-small", { fontCharacter: "\\ec07" });
-  Codicon.bellSlash = new Codicon("bell-slash", { fontCharacter: "\\ec08" });
-  Codicon.bellSlashDot = new Codicon("bell-slash-dot", { fontCharacter: "\\ec09" });
-  Codicon.commentUnresolved = new Codicon("comment-unresolved", { fontCharacter: "\\ec0a" });
-  Codicon.gitPullRequestGoToChanges = new Codicon("git-pull-request-go-to-changes", { fontCharacter: "\\ec0b" });
-  Codicon.gitPullRequestNewChanges = new Codicon("git-pull-request-new-changes", { fontCharacter: "\\ec0c" });
-  Codicon.dialogError = new Codicon("dialog-error", Codicon.error.definition);
-  Codicon.dialogWarning = new Codicon("dialog-warning", Codicon.warning.definition);
-  Codicon.dialogInfo = new Codicon("dialog-info", Codicon.info.definition);
-  Codicon.dialogClose = new Codicon("dialog-close", Codicon.close.definition);
-  Codicon.treeItemExpanded = new Codicon("tree-item-expanded", Codicon.chevronDown.definition);
-  Codicon.treeFilterOnTypeOn = new Codicon("tree-filter-on-type-on", Codicon.listFilter.definition);
-  Codicon.treeFilterOnTypeOff = new Codicon("tree-filter-on-type-off", Codicon.listSelection.definition);
-  Codicon.treeFilterClear = new Codicon("tree-filter-clear", Codicon.close.definition);
-  Codicon.treeItemLoading = new Codicon("tree-item-loading", Codicon.loading.definition);
-  Codicon.menuSelection = new Codicon("menu-selection", Codicon.check.definition);
-  Codicon.menuSubmenu = new Codicon("menu-submenu", Codicon.chevronRight.definition);
-  Codicon.menuBarMore = new Codicon("menubar-more", Codicon.more.definition);
-  Codicon.scrollbarButtonLeft = new Codicon("scrollbar-button-left", Codicon.triangleLeft.definition);
-  Codicon.scrollbarButtonRight = new Codicon("scrollbar-button-right", Codicon.triangleRight.definition);
-  Codicon.scrollbarButtonUp = new Codicon("scrollbar-button-up", Codicon.triangleUp.definition);
-  Codicon.scrollbarButtonDown = new Codicon("scrollbar-button-down", Codicon.triangleDown.definition);
-  Codicon.toolBarMore = new Codicon("toolbar-more", Codicon.more.definition);
-  Codicon.quickInputBack = new Codicon("quick-input-back", Codicon.arrowLeft.definition);
-  var CSSIcon;
-  (function(CSSIcon2) {
-    CSSIcon2.iconNameSegment = "[A-Za-z0-9]+";
-    CSSIcon2.iconNameExpression = "[A-Za-z0-9-]+";
-    CSSIcon2.iconModifierExpression = "~[A-Za-z]+";
-    CSSIcon2.iconNameCharacter = "[A-Za-z0-9~-]";
-    const cssIconIdRegex = new RegExp(`^(${CSSIcon2.iconNameExpression})(${CSSIcon2.iconModifierExpression})?$`);
-    function asClassNameArray(icon) {
-      if (icon instanceof Codicon) {
-        return ["codicon", "codicon-" + icon.id];
-      }
-      const match = cssIconIdRegex.exec(icon.id);
-      if (!match) {
-        return asClassNameArray(Codicon.error);
-      }
-      const [, id, modifier] = match;
-      const classNames = ["codicon", "codicon-" + id];
-      if (modifier) {
-        classNames.push("codicon-modifier-" + modifier.substr(1));
-      }
-      return classNames;
-    }
-    CSSIcon2.asClassNameArray = asClassNameArray;
-    function asClassName(icon) {
-      return asClassNameArray(icon).join(" ");
-    }
-    CSSIcon2.asClassName = asClassName;
-    function asCSSSelector(icon) {
-      return "." + asClassNameArray(icon).join(".");
-    }
-    CSSIcon2.asCSSSelector = asCSSSelector;
-  })(CSSIcon || (CSSIcon = {}));
 
   // node_modules/monaco-editor/esm/vs/editor/common/tokenizationRegistry.js
   var __awaiter = function(thisArg, _arguments, P, generator) {
@@ -23284,28 +23736,31 @@ ${p.commentBefore}` : u;
   };
   var TokenizationRegistry = class {
     constructor() {
-      this._map = /* @__PURE__ */ new Map();
+      this._tokenizationSupports = /* @__PURE__ */ new Map();
       this._factories = /* @__PURE__ */ new Map();
       this._onDidChange = new Emitter();
       this.onDidChange = this._onDidChange.event;
       this._colorMap = null;
     }
-    fire(languages) {
+    handleChange(languageIds) {
       this._onDidChange.fire({
-        changedLanguages: languages,
+        changedLanguages: languageIds,
         changedColorMap: false
       });
     }
-    register(language, support) {
-      this._map.set(language, support);
-      this.fire([language]);
+    register(languageId2, support) {
+      this._tokenizationSupports.set(languageId2, support);
+      this.handleChange([languageId2]);
       return toDisposable(() => {
-        if (this._map.get(language) !== support) {
+        if (this._tokenizationSupports.get(languageId2) !== support) {
           return;
         }
-        this._map.delete(language);
-        this.fire([language]);
+        this._tokenizationSupports.delete(languageId2);
+        this.handleChange([languageId2]);
       });
+    }
+    get(languageId2) {
+      return this._tokenizationSupports.get(languageId2) || null;
     }
     registerFactory(languageId2, factory) {
       var _a3;
@@ -23335,9 +23790,6 @@ ${p.commentBefore}` : u;
         return this.get(languageId2);
       });
     }
-    get(language) {
-      return this._map.get(language) || null;
-    }
     isResolved(languageId2) {
       const tokenizationSupport = this.get(languageId2);
       if (tokenizationSupport) {
@@ -23352,7 +23804,7 @@ ${p.commentBefore}` : u;
     setColorMap(colorMap) {
       this._colorMap = colorMap;
       this._onDidChange.fire({
-        changedLanguages: Array.from(this._map.keys()),
+        changedLanguages: Array.from(this._tokenizationSupports.keys()),
         changedColorMap: true
       });
     }
@@ -23361,12 +23813,18 @@ ${p.commentBefore}` : u;
     }
     getDefaultBackground() {
       if (this._colorMap && this._colorMap.length > 2) {
-        return this._colorMap[2];
+        return this._colorMap[
+          2
+          /* ColorId.DefaultBackground */
+        ];
       }
       return null;
     }
   };
   var TokenizationSupportFactoryData = class extends Disposable {
+    get isResolved() {
+      return this._isResolved;
+    }
     constructor(_registry, _languageId, _factory) {
       super();
       this._registry = _registry;
@@ -23375,9 +23833,6 @@ ${p.commentBefore}` : u;
       this._isDisposed = false;
       this._resolvePromise = null;
       this._isResolved = false;
-    }
-    get isResolved() {
-      return this._isResolved;
     }
     dispose() {
       this._isDisposed = true;
@@ -23393,7 +23848,7 @@ ${p.commentBefore}` : u;
     }
     _create() {
       return __awaiter(this, void 0, void 0, function* () {
-        const value = yield Promise.resolve(this._factory.createTokenizationSupport());
+        const value = yield this._factory.tokenizationSupport;
         this._isResolved = true;
         if (value && !this._isDisposed) {
           this._register(this._registry.register(this._languageId, value));
@@ -23405,10 +23860,10 @@ ${p.commentBefore}` : u;
   // node_modules/monaco-editor/esm/vs/editor/common/languages.js
   var Token = class {
     constructor(offset, type, language) {
-      this._tokenBrand = void 0;
       this.offset = offset;
       this.type = type;
       this.language = language;
+      this._tokenBrand = void 0;
     }
     toString() {
       return "(" + this.offset + ", " + this.type + ")";
@@ -23456,36 +23911,156 @@ ${p.commentBefore}` : u;
     }
     CompletionItemKinds2.toIcon = toIcon;
     const data = /* @__PURE__ */ new Map();
-    data.set("method", 0);
-    data.set("function", 1);
-    data.set("constructor", 2);
-    data.set("field", 3);
-    data.set("variable", 4);
-    data.set("class", 5);
-    data.set("struct", 6);
-    data.set("interface", 7);
-    data.set("module", 8);
-    data.set("property", 9);
-    data.set("event", 10);
-    data.set("operator", 11);
-    data.set("unit", 12);
-    data.set("value", 13);
-    data.set("constant", 14);
-    data.set("enum", 15);
-    data.set("enum-member", 16);
-    data.set("enumMember", 16);
-    data.set("keyword", 17);
-    data.set("snippet", 27);
-    data.set("text", 18);
-    data.set("color", 19);
-    data.set("file", 20);
-    data.set("reference", 21);
-    data.set("customcolor", 22);
-    data.set("folder", 23);
-    data.set("type-parameter", 24);
-    data.set("typeParameter", 24);
-    data.set("account", 25);
-    data.set("issue", 26);
+    data.set(
+      "method",
+      0
+      /* CompletionItemKind.Method */
+    );
+    data.set(
+      "function",
+      1
+      /* CompletionItemKind.Function */
+    );
+    data.set(
+      "constructor",
+      2
+      /* CompletionItemKind.Constructor */
+    );
+    data.set(
+      "field",
+      3
+      /* CompletionItemKind.Field */
+    );
+    data.set(
+      "variable",
+      4
+      /* CompletionItemKind.Variable */
+    );
+    data.set(
+      "class",
+      5
+      /* CompletionItemKind.Class */
+    );
+    data.set(
+      "struct",
+      6
+      /* CompletionItemKind.Struct */
+    );
+    data.set(
+      "interface",
+      7
+      /* CompletionItemKind.Interface */
+    );
+    data.set(
+      "module",
+      8
+      /* CompletionItemKind.Module */
+    );
+    data.set(
+      "property",
+      9
+      /* CompletionItemKind.Property */
+    );
+    data.set(
+      "event",
+      10
+      /* CompletionItemKind.Event */
+    );
+    data.set(
+      "operator",
+      11
+      /* CompletionItemKind.Operator */
+    );
+    data.set(
+      "unit",
+      12
+      /* CompletionItemKind.Unit */
+    );
+    data.set(
+      "value",
+      13
+      /* CompletionItemKind.Value */
+    );
+    data.set(
+      "constant",
+      14
+      /* CompletionItemKind.Constant */
+    );
+    data.set(
+      "enum",
+      15
+      /* CompletionItemKind.Enum */
+    );
+    data.set(
+      "enum-member",
+      16
+      /* CompletionItemKind.EnumMember */
+    );
+    data.set(
+      "enumMember",
+      16
+      /* CompletionItemKind.EnumMember */
+    );
+    data.set(
+      "keyword",
+      17
+      /* CompletionItemKind.Keyword */
+    );
+    data.set(
+      "snippet",
+      27
+      /* CompletionItemKind.Snippet */
+    );
+    data.set(
+      "text",
+      18
+      /* CompletionItemKind.Text */
+    );
+    data.set(
+      "color",
+      19
+      /* CompletionItemKind.Color */
+    );
+    data.set(
+      "file",
+      20
+      /* CompletionItemKind.File */
+    );
+    data.set(
+      "reference",
+      21
+      /* CompletionItemKind.Reference */
+    );
+    data.set(
+      "customcolor",
+      22
+      /* CompletionItemKind.Customcolor */
+    );
+    data.set(
+      "folder",
+      23
+      /* CompletionItemKind.Folder */
+    );
+    data.set(
+      "type-parameter",
+      24
+      /* CompletionItemKind.TypeParameter */
+    );
+    data.set(
+      "typeParameter",
+      24
+      /* CompletionItemKind.TypeParameter */
+    );
+    data.set(
+      "account",
+      25
+      /* CompletionItemKind.User */
+    );
+    data.set(
+      "issue",
+      26
+      /* CompletionItemKind.Issue */
+    );
     function fromString(value, strict) {
       let res = data.get(value);
       if (typeof res === "undefined" && !strict) {
@@ -23551,7 +24126,28 @@ ${p.commentBefore}` : u;
     }
     SymbolKinds2.toIcon = toIcon;
   })(SymbolKinds || (SymbolKinds = {}));
-  var FoldingRangeKind = class {
+  var FoldingRangeKind = class _FoldingRangeKind {
+    /**
+     * Returns a {@link FoldingRangeKind} for the given value.
+     *
+     * @param value of the kind.
+     */
+    static fromValue(value) {
+      switch (value) {
+        case "comment":
+          return _FoldingRangeKind.Comment;
+        case "imports":
+          return _FoldingRangeKind.Imports;
+        case "region":
+          return _FoldingRangeKind.Region;
+      }
+      return new _FoldingRangeKind(value);
+    }
+    /**
+     * Creates a new {@link FoldingRangeKind}.
+     *
+     * @param value of the kind.
+     */
     constructor(value) {
       this.value = value;
     }
@@ -23590,6 +24186,7 @@ ${p.commentBefore}` : u;
   })(CodeActionTriggerType || (CodeActionTriggerType = {}));
   var CompletionItemInsertTextRule;
   (function(CompletionItemInsertTextRule2) {
+    CompletionItemInsertTextRule2[CompletionItemInsertTextRule2["None"] = 0] = "None";
     CompletionItemInsertTextRule2[CompletionItemInsertTextRule2["KeepWhitespace"] = 1] = "KeepWhitespace";
     CompletionItemInsertTextRule2[CompletionItemInsertTextRule2["InsertAsSnippet"] = 4] = "InsertAsSnippet";
   })(CompletionItemInsertTextRule || (CompletionItemInsertTextRule = {}));
@@ -23677,135 +24274,145 @@ ${p.commentBefore}` : u;
     EditorOption2[EditorOption2["accessibilityPageSize"] = 3] = "accessibilityPageSize";
     EditorOption2[EditorOption2["ariaLabel"] = 4] = "ariaLabel";
     EditorOption2[EditorOption2["autoClosingBrackets"] = 5] = "autoClosingBrackets";
-    EditorOption2[EditorOption2["autoClosingDelete"] = 6] = "autoClosingDelete";
-    EditorOption2[EditorOption2["autoClosingOvertype"] = 7] = "autoClosingOvertype";
-    EditorOption2[EditorOption2["autoClosingQuotes"] = 8] = "autoClosingQuotes";
-    EditorOption2[EditorOption2["autoIndent"] = 9] = "autoIndent";
-    EditorOption2[EditorOption2["automaticLayout"] = 10] = "automaticLayout";
-    EditorOption2[EditorOption2["autoSurround"] = 11] = "autoSurround";
-    EditorOption2[EditorOption2["bracketPairColorization"] = 12] = "bracketPairColorization";
-    EditorOption2[EditorOption2["guides"] = 13] = "guides";
-    EditorOption2[EditorOption2["codeLens"] = 14] = "codeLens";
-    EditorOption2[EditorOption2["codeLensFontFamily"] = 15] = "codeLensFontFamily";
-    EditorOption2[EditorOption2["codeLensFontSize"] = 16] = "codeLensFontSize";
-    EditorOption2[EditorOption2["colorDecorators"] = 17] = "colorDecorators";
-    EditorOption2[EditorOption2["columnSelection"] = 18] = "columnSelection";
-    EditorOption2[EditorOption2["comments"] = 19] = "comments";
-    EditorOption2[EditorOption2["contextmenu"] = 20] = "contextmenu";
-    EditorOption2[EditorOption2["copyWithSyntaxHighlighting"] = 21] = "copyWithSyntaxHighlighting";
-    EditorOption2[EditorOption2["cursorBlinking"] = 22] = "cursorBlinking";
-    EditorOption2[EditorOption2["cursorSmoothCaretAnimation"] = 23] = "cursorSmoothCaretAnimation";
-    EditorOption2[EditorOption2["cursorStyle"] = 24] = "cursorStyle";
-    EditorOption2[EditorOption2["cursorSurroundingLines"] = 25] = "cursorSurroundingLines";
-    EditorOption2[EditorOption2["cursorSurroundingLinesStyle"] = 26] = "cursorSurroundingLinesStyle";
-    EditorOption2[EditorOption2["cursorWidth"] = 27] = "cursorWidth";
-    EditorOption2[EditorOption2["disableLayerHinting"] = 28] = "disableLayerHinting";
-    EditorOption2[EditorOption2["disableMonospaceOptimizations"] = 29] = "disableMonospaceOptimizations";
-    EditorOption2[EditorOption2["domReadOnly"] = 30] = "domReadOnly";
-    EditorOption2[EditorOption2["dragAndDrop"] = 31] = "dragAndDrop";
-    EditorOption2[EditorOption2["dropIntoEditor"] = 32] = "dropIntoEditor";
-    EditorOption2[EditorOption2["emptySelectionClipboard"] = 33] = "emptySelectionClipboard";
-    EditorOption2[EditorOption2["experimental"] = 34] = "experimental";
-    EditorOption2[EditorOption2["extraEditorClassName"] = 35] = "extraEditorClassName";
-    EditorOption2[EditorOption2["fastScrollSensitivity"] = 36] = "fastScrollSensitivity";
-    EditorOption2[EditorOption2["find"] = 37] = "find";
-    EditorOption2[EditorOption2["fixedOverflowWidgets"] = 38] = "fixedOverflowWidgets";
-    EditorOption2[EditorOption2["folding"] = 39] = "folding";
-    EditorOption2[EditorOption2["foldingStrategy"] = 40] = "foldingStrategy";
-    EditorOption2[EditorOption2["foldingHighlight"] = 41] = "foldingHighlight";
-    EditorOption2[EditorOption2["foldingImportsByDefault"] = 42] = "foldingImportsByDefault";
-    EditorOption2[EditorOption2["foldingMaximumRegions"] = 43] = "foldingMaximumRegions";
-    EditorOption2[EditorOption2["unfoldOnClickAfterEndOfLine"] = 44] = "unfoldOnClickAfterEndOfLine";
-    EditorOption2[EditorOption2["fontFamily"] = 45] = "fontFamily";
-    EditorOption2[EditorOption2["fontInfo"] = 46] = "fontInfo";
-    EditorOption2[EditorOption2["fontLigatures"] = 47] = "fontLigatures";
-    EditorOption2[EditorOption2["fontSize"] = 48] = "fontSize";
-    EditorOption2[EditorOption2["fontWeight"] = 49] = "fontWeight";
-    EditorOption2[EditorOption2["formatOnPaste"] = 50] = "formatOnPaste";
-    EditorOption2[EditorOption2["formatOnType"] = 51] = "formatOnType";
-    EditorOption2[EditorOption2["glyphMargin"] = 52] = "glyphMargin";
-    EditorOption2[EditorOption2["gotoLocation"] = 53] = "gotoLocation";
-    EditorOption2[EditorOption2["hideCursorInOverviewRuler"] = 54] = "hideCursorInOverviewRuler";
-    EditorOption2[EditorOption2["hover"] = 55] = "hover";
-    EditorOption2[EditorOption2["inDiffEditor"] = 56] = "inDiffEditor";
-    EditorOption2[EditorOption2["inlineSuggest"] = 57] = "inlineSuggest";
-    EditorOption2[EditorOption2["letterSpacing"] = 58] = "letterSpacing";
-    EditorOption2[EditorOption2["lightbulb"] = 59] = "lightbulb";
-    EditorOption2[EditorOption2["lineDecorationsWidth"] = 60] = "lineDecorationsWidth";
-    EditorOption2[EditorOption2["lineHeight"] = 61] = "lineHeight";
-    EditorOption2[EditorOption2["lineNumbers"] = 62] = "lineNumbers";
-    EditorOption2[EditorOption2["lineNumbersMinChars"] = 63] = "lineNumbersMinChars";
-    EditorOption2[EditorOption2["linkedEditing"] = 64] = "linkedEditing";
-    EditorOption2[EditorOption2["links"] = 65] = "links";
-    EditorOption2[EditorOption2["matchBrackets"] = 66] = "matchBrackets";
-    EditorOption2[EditorOption2["minimap"] = 67] = "minimap";
-    EditorOption2[EditorOption2["mouseStyle"] = 68] = "mouseStyle";
-    EditorOption2[EditorOption2["mouseWheelScrollSensitivity"] = 69] = "mouseWheelScrollSensitivity";
-    EditorOption2[EditorOption2["mouseWheelZoom"] = 70] = "mouseWheelZoom";
-    EditorOption2[EditorOption2["multiCursorMergeOverlapping"] = 71] = "multiCursorMergeOverlapping";
-    EditorOption2[EditorOption2["multiCursorModifier"] = 72] = "multiCursorModifier";
-    EditorOption2[EditorOption2["multiCursorPaste"] = 73] = "multiCursorPaste";
-    EditorOption2[EditorOption2["occurrencesHighlight"] = 74] = "occurrencesHighlight";
-    EditorOption2[EditorOption2["overviewRulerBorder"] = 75] = "overviewRulerBorder";
-    EditorOption2[EditorOption2["overviewRulerLanes"] = 76] = "overviewRulerLanes";
-    EditorOption2[EditorOption2["padding"] = 77] = "padding";
-    EditorOption2[EditorOption2["parameterHints"] = 78] = "parameterHints";
-    EditorOption2[EditorOption2["peekWidgetDefaultFocus"] = 79] = "peekWidgetDefaultFocus";
-    EditorOption2[EditorOption2["definitionLinkOpensInPeek"] = 80] = "definitionLinkOpensInPeek";
-    EditorOption2[EditorOption2["quickSuggestions"] = 81] = "quickSuggestions";
-    EditorOption2[EditorOption2["quickSuggestionsDelay"] = 82] = "quickSuggestionsDelay";
-    EditorOption2[EditorOption2["readOnly"] = 83] = "readOnly";
-    EditorOption2[EditorOption2["renameOnType"] = 84] = "renameOnType";
-    EditorOption2[EditorOption2["renderControlCharacters"] = 85] = "renderControlCharacters";
-    EditorOption2[EditorOption2["renderFinalNewline"] = 86] = "renderFinalNewline";
-    EditorOption2[EditorOption2["renderLineHighlight"] = 87] = "renderLineHighlight";
-    EditorOption2[EditorOption2["renderLineHighlightOnlyWhenFocus"] = 88] = "renderLineHighlightOnlyWhenFocus";
-    EditorOption2[EditorOption2["renderValidationDecorations"] = 89] = "renderValidationDecorations";
-    EditorOption2[EditorOption2["renderWhitespace"] = 90] = "renderWhitespace";
-    EditorOption2[EditorOption2["revealHorizontalRightPadding"] = 91] = "revealHorizontalRightPadding";
-    EditorOption2[EditorOption2["roundedSelection"] = 92] = "roundedSelection";
-    EditorOption2[EditorOption2["rulers"] = 93] = "rulers";
-    EditorOption2[EditorOption2["scrollbar"] = 94] = "scrollbar";
-    EditorOption2[EditorOption2["scrollBeyondLastColumn"] = 95] = "scrollBeyondLastColumn";
-    EditorOption2[EditorOption2["scrollBeyondLastLine"] = 96] = "scrollBeyondLastLine";
-    EditorOption2[EditorOption2["scrollPredominantAxis"] = 97] = "scrollPredominantAxis";
-    EditorOption2[EditorOption2["selectionClipboard"] = 98] = "selectionClipboard";
-    EditorOption2[EditorOption2["selectionHighlight"] = 99] = "selectionHighlight";
-    EditorOption2[EditorOption2["selectOnLineNumbers"] = 100] = "selectOnLineNumbers";
-    EditorOption2[EditorOption2["showFoldingControls"] = 101] = "showFoldingControls";
-    EditorOption2[EditorOption2["showUnused"] = 102] = "showUnused";
-    EditorOption2[EditorOption2["snippetSuggestions"] = 103] = "snippetSuggestions";
-    EditorOption2[EditorOption2["smartSelect"] = 104] = "smartSelect";
-    EditorOption2[EditorOption2["smoothScrolling"] = 105] = "smoothScrolling";
-    EditorOption2[EditorOption2["stickyTabStops"] = 106] = "stickyTabStops";
-    EditorOption2[EditorOption2["stopRenderingLineAfter"] = 107] = "stopRenderingLineAfter";
-    EditorOption2[EditorOption2["suggest"] = 108] = "suggest";
-    EditorOption2[EditorOption2["suggestFontSize"] = 109] = "suggestFontSize";
-    EditorOption2[EditorOption2["suggestLineHeight"] = 110] = "suggestLineHeight";
-    EditorOption2[EditorOption2["suggestOnTriggerCharacters"] = 111] = "suggestOnTriggerCharacters";
-    EditorOption2[EditorOption2["suggestSelection"] = 112] = "suggestSelection";
-    EditorOption2[EditorOption2["tabCompletion"] = 113] = "tabCompletion";
-    EditorOption2[EditorOption2["tabIndex"] = 114] = "tabIndex";
-    EditorOption2[EditorOption2["unicodeHighlighting"] = 115] = "unicodeHighlighting";
-    EditorOption2[EditorOption2["unusualLineTerminators"] = 116] = "unusualLineTerminators";
-    EditorOption2[EditorOption2["useShadowDOM"] = 117] = "useShadowDOM";
-    EditorOption2[EditorOption2["useTabStops"] = 118] = "useTabStops";
-    EditorOption2[EditorOption2["wordSeparators"] = 119] = "wordSeparators";
-    EditorOption2[EditorOption2["wordWrap"] = 120] = "wordWrap";
-    EditorOption2[EditorOption2["wordWrapBreakAfterCharacters"] = 121] = "wordWrapBreakAfterCharacters";
-    EditorOption2[EditorOption2["wordWrapBreakBeforeCharacters"] = 122] = "wordWrapBreakBeforeCharacters";
-    EditorOption2[EditorOption2["wordWrapColumn"] = 123] = "wordWrapColumn";
-    EditorOption2[EditorOption2["wordWrapOverride1"] = 124] = "wordWrapOverride1";
-    EditorOption2[EditorOption2["wordWrapOverride2"] = 125] = "wordWrapOverride2";
-    EditorOption2[EditorOption2["wrappingIndent"] = 126] = "wrappingIndent";
-    EditorOption2[EditorOption2["wrappingStrategy"] = 127] = "wrappingStrategy";
-    EditorOption2[EditorOption2["showDeprecated"] = 128] = "showDeprecated";
-    EditorOption2[EditorOption2["inlayHints"] = 129] = "inlayHints";
-    EditorOption2[EditorOption2["editorClassName"] = 130] = "editorClassName";
-    EditorOption2[EditorOption2["pixelRatio"] = 131] = "pixelRatio";
-    EditorOption2[EditorOption2["tabFocusMode"] = 132] = "tabFocusMode";
-    EditorOption2[EditorOption2["layoutInfo"] = 133] = "layoutInfo";
-    EditorOption2[EditorOption2["wrappingInfo"] = 134] = "wrappingInfo";
+    EditorOption2[EditorOption2["screenReaderAnnounceInlineSuggestion"] = 6] = "screenReaderAnnounceInlineSuggestion";
+    EditorOption2[EditorOption2["autoClosingDelete"] = 7] = "autoClosingDelete";
+    EditorOption2[EditorOption2["autoClosingOvertype"] = 8] = "autoClosingOvertype";
+    EditorOption2[EditorOption2["autoClosingQuotes"] = 9] = "autoClosingQuotes";
+    EditorOption2[EditorOption2["autoIndent"] = 10] = "autoIndent";
+    EditorOption2[EditorOption2["automaticLayout"] = 11] = "automaticLayout";
+    EditorOption2[EditorOption2["autoSurround"] = 12] = "autoSurround";
+    EditorOption2[EditorOption2["bracketPairColorization"] = 13] = "bracketPairColorization";
+    EditorOption2[EditorOption2["guides"] = 14] = "guides";
+    EditorOption2[EditorOption2["codeLens"] = 15] = "codeLens";
+    EditorOption2[EditorOption2["codeLensFontFamily"] = 16] = "codeLensFontFamily";
+    EditorOption2[EditorOption2["codeLensFontSize"] = 17] = "codeLensFontSize";
+    EditorOption2[EditorOption2["colorDecorators"] = 18] = "colorDecorators";
+    EditorOption2[EditorOption2["colorDecoratorsLimit"] = 19] = "colorDecoratorsLimit";
+    EditorOption2[EditorOption2["columnSelection"] = 20] = "columnSelection";
+    EditorOption2[EditorOption2["comments"] = 21] = "comments";
+    EditorOption2[EditorOption2["contextmenu"] = 22] = "contextmenu";
+    EditorOption2[EditorOption2["copyWithSyntaxHighlighting"] = 23] = "copyWithSyntaxHighlighting";
+    EditorOption2[EditorOption2["cursorBlinking"] = 24] = "cursorBlinking";
+    EditorOption2[EditorOption2["cursorSmoothCaretAnimation"] = 25] = "cursorSmoothCaretAnimation";
+    EditorOption2[EditorOption2["cursorStyle"] = 26] = "cursorStyle";
+    EditorOption2[EditorOption2["cursorSurroundingLines"] = 27] = "cursorSurroundingLines";
+    EditorOption2[EditorOption2["cursorSurroundingLinesStyle"] = 28] = "cursorSurroundingLinesStyle";
+    EditorOption2[EditorOption2["cursorWidth"] = 29] = "cursorWidth";
+    EditorOption2[EditorOption2["disableLayerHinting"] = 30] = "disableLayerHinting";
+    EditorOption2[EditorOption2["disableMonospaceOptimizations"] = 31] = "disableMonospaceOptimizations";
+    EditorOption2[EditorOption2["domReadOnly"] = 32] = "domReadOnly";
+    EditorOption2[EditorOption2["dragAndDrop"] = 33] = "dragAndDrop";
+    EditorOption2[EditorOption2["dropIntoEditor"] = 34] = "dropIntoEditor";
+    EditorOption2[EditorOption2["emptySelectionClipboard"] = 35] = "emptySelectionClipboard";
+    EditorOption2[EditorOption2["experimentalWhitespaceRendering"] = 36] = "experimentalWhitespaceRendering";
+    EditorOption2[EditorOption2["extraEditorClassName"] = 37] = "extraEditorClassName";
+    EditorOption2[EditorOption2["fastScrollSensitivity"] = 38] = "fastScrollSensitivity";
+    EditorOption2[EditorOption2["find"] = 39] = "find";
+    EditorOption2[EditorOption2["fixedOverflowWidgets"] = 40] = "fixedOverflowWidgets";
+    EditorOption2[EditorOption2["folding"] = 41] = "folding";
+    EditorOption2[EditorOption2["foldingStrategy"] = 42] = "foldingStrategy";
+    EditorOption2[EditorOption2["foldingHighlight"] = 43] = "foldingHighlight";
+    EditorOption2[EditorOption2["foldingImportsByDefault"] = 44] = "foldingImportsByDefault";
+    EditorOption2[EditorOption2["foldingMaximumRegions"] = 45] = "foldingMaximumRegions";
+    EditorOption2[EditorOption2["unfoldOnClickAfterEndOfLine"] = 46] = "unfoldOnClickAfterEndOfLine";
+    EditorOption2[EditorOption2["fontFamily"] = 47] = "fontFamily";
+    EditorOption2[EditorOption2["fontInfo"] = 48] = "fontInfo";
+    EditorOption2[EditorOption2["fontLigatures"] = 49] = "fontLigatures";
+    EditorOption2[EditorOption2["fontSize"] = 50] = "fontSize";
+    EditorOption2[EditorOption2["fontWeight"] = 51] = "fontWeight";
+    EditorOption2[EditorOption2["fontVariations"] = 52] = "fontVariations";
+    EditorOption2[EditorOption2["formatOnPaste"] = 53] = "formatOnPaste";
+    EditorOption2[EditorOption2["formatOnType"] = 54] = "formatOnType";
+    EditorOption2[EditorOption2["glyphMargin"] = 55] = "glyphMargin";
+    EditorOption2[EditorOption2["gotoLocation"] = 56] = "gotoLocation";
+    EditorOption2[EditorOption2["hideCursorInOverviewRuler"] = 57] = "hideCursorInOverviewRuler";
+    EditorOption2[EditorOption2["hover"] = 58] = "hover";
+    EditorOption2[EditorOption2["inDiffEditor"] = 59] = "inDiffEditor";
+    EditorOption2[EditorOption2["inlineSuggest"] = 60] = "inlineSuggest";
+    EditorOption2[EditorOption2["letterSpacing"] = 61] = "letterSpacing";
+    EditorOption2[EditorOption2["lightbulb"] = 62] = "lightbulb";
+    EditorOption2[EditorOption2["lineDecorationsWidth"] = 63] = "lineDecorationsWidth";
+    EditorOption2[EditorOption2["lineHeight"] = 64] = "lineHeight";
+    EditorOption2[EditorOption2["lineNumbers"] = 65] = "lineNumbers";
+    EditorOption2[EditorOption2["lineNumbersMinChars"] = 66] = "lineNumbersMinChars";
+    EditorOption2[EditorOption2["linkedEditing"] = 67] = "linkedEditing";
+    EditorOption2[EditorOption2["links"] = 68] = "links";
+    EditorOption2[EditorOption2["matchBrackets"] = 69] = "matchBrackets";
+    EditorOption2[EditorOption2["minimap"] = 70] = "minimap";
+    EditorOption2[EditorOption2["mouseStyle"] = 71] = "mouseStyle";
+    EditorOption2[EditorOption2["mouseWheelScrollSensitivity"] = 72] = "mouseWheelScrollSensitivity";
+    EditorOption2[EditorOption2["mouseWheelZoom"] = 73] = "mouseWheelZoom";
+    EditorOption2[EditorOption2["multiCursorMergeOverlapping"] = 74] = "multiCursorMergeOverlapping";
+    EditorOption2[EditorOption2["multiCursorModifier"] = 75] = "multiCursorModifier";
+    EditorOption2[EditorOption2["multiCursorPaste"] = 76] = "multiCursorPaste";
+    EditorOption2[EditorOption2["multiCursorLimit"] = 77] = "multiCursorLimit";
+    EditorOption2[EditorOption2["occurrencesHighlight"] = 78] = "occurrencesHighlight";
+    EditorOption2[EditorOption2["overviewRulerBorder"] = 79] = "overviewRulerBorder";
+    EditorOption2[EditorOption2["overviewRulerLanes"] = 80] = "overviewRulerLanes";
+    EditorOption2[EditorOption2["padding"] = 81] = "padding";
+    EditorOption2[EditorOption2["pasteAs"] = 82] = "pasteAs";
+    EditorOption2[EditorOption2["parameterHints"] = 83] = "parameterHints";
+    EditorOption2[EditorOption2["peekWidgetDefaultFocus"] = 84] = "peekWidgetDefaultFocus";
+    EditorOption2[EditorOption2["definitionLinkOpensInPeek"] = 85] = "definitionLinkOpensInPeek";
+    EditorOption2[EditorOption2["quickSuggestions"] = 86] = "quickSuggestions";
+    EditorOption2[EditorOption2["quickSuggestionsDelay"] = 87] = "quickSuggestionsDelay";
+    EditorOption2[EditorOption2["readOnly"] = 88] = "readOnly";
+    EditorOption2[EditorOption2["readOnlyMessage"] = 89] = "readOnlyMessage";
+    EditorOption2[EditorOption2["renameOnType"] = 90] = "renameOnType";
+    EditorOption2[EditorOption2["renderControlCharacters"] = 91] = "renderControlCharacters";
+    EditorOption2[EditorOption2["renderFinalNewline"] = 92] = "renderFinalNewline";
+    EditorOption2[EditorOption2["renderLineHighlight"] = 93] = "renderLineHighlight";
+    EditorOption2[EditorOption2["renderLineHighlightOnlyWhenFocus"] = 94] = "renderLineHighlightOnlyWhenFocus";
+    EditorOption2[EditorOption2["renderValidationDecorations"] = 95] = "renderValidationDecorations";
+    EditorOption2[EditorOption2["renderWhitespace"] = 96] = "renderWhitespace";
+    EditorOption2[EditorOption2["revealHorizontalRightPadding"] = 97] = "revealHorizontalRightPadding";
+    EditorOption2[EditorOption2["roundedSelection"] = 98] = "roundedSelection";
+    EditorOption2[EditorOption2["rulers"] = 99] = "rulers";
+    EditorOption2[EditorOption2["scrollbar"] = 100] = "scrollbar";
+    EditorOption2[EditorOption2["scrollBeyondLastColumn"] = 101] = "scrollBeyondLastColumn";
+    EditorOption2[EditorOption2["scrollBeyondLastLine"] = 102] = "scrollBeyondLastLine";
+    EditorOption2[EditorOption2["scrollPredominantAxis"] = 103] = "scrollPredominantAxis";
+    EditorOption2[EditorOption2["selectionClipboard"] = 104] = "selectionClipboard";
+    EditorOption2[EditorOption2["selectionHighlight"] = 105] = "selectionHighlight";
+    EditorOption2[EditorOption2["selectOnLineNumbers"] = 106] = "selectOnLineNumbers";
+    EditorOption2[EditorOption2["showFoldingControls"] = 107] = "showFoldingControls";
+    EditorOption2[EditorOption2["showUnused"] = 108] = "showUnused";
+    EditorOption2[EditorOption2["snippetSuggestions"] = 109] = "snippetSuggestions";
+    EditorOption2[EditorOption2["smartSelect"] = 110] = "smartSelect";
+    EditorOption2[EditorOption2["smoothScrolling"] = 111] = "smoothScrolling";
+    EditorOption2[EditorOption2["stickyScroll"] = 112] = "stickyScroll";
+    EditorOption2[EditorOption2["stickyTabStops"] = 113] = "stickyTabStops";
+    EditorOption2[EditorOption2["stopRenderingLineAfter"] = 114] = "stopRenderingLineAfter";
+    EditorOption2[EditorOption2["suggest"] = 115] = "suggest";
+    EditorOption2[EditorOption2["suggestFontSize"] = 116] = "suggestFontSize";
+    EditorOption2[EditorOption2["suggestLineHeight"] = 117] = "suggestLineHeight";
+    EditorOption2[EditorOption2["suggestOnTriggerCharacters"] = 118] = "suggestOnTriggerCharacters";
+    EditorOption2[EditorOption2["suggestSelection"] = 119] = "suggestSelection";
+    EditorOption2[EditorOption2["tabCompletion"] = 120] = "tabCompletion";
+    EditorOption2[EditorOption2["tabIndex"] = 121] = "tabIndex";
+    EditorOption2[EditorOption2["unicodeHighlighting"] = 122] = "unicodeHighlighting";
+    EditorOption2[EditorOption2["unusualLineTerminators"] = 123] = "unusualLineTerminators";
+    EditorOption2[EditorOption2["useShadowDOM"] = 124] = "useShadowDOM";
+    EditorOption2[EditorOption2["useTabStops"] = 125] = "useTabStops";
+    EditorOption2[EditorOption2["wordBreak"] = 126] = "wordBreak";
+    EditorOption2[EditorOption2["wordSeparators"] = 127] = "wordSeparators";
+    EditorOption2[EditorOption2["wordWrap"] = 128] = "wordWrap";
+    EditorOption2[EditorOption2["wordWrapBreakAfterCharacters"] = 129] = "wordWrapBreakAfterCharacters";
+    EditorOption2[EditorOption2["wordWrapBreakBeforeCharacters"] = 130] = "wordWrapBreakBeforeCharacters";
+    EditorOption2[EditorOption2["wordWrapColumn"] = 131] = "wordWrapColumn";
+    EditorOption2[EditorOption2["wordWrapOverride1"] = 132] = "wordWrapOverride1";
+    EditorOption2[EditorOption2["wordWrapOverride2"] = 133] = "wordWrapOverride2";
+    EditorOption2[EditorOption2["wrappingIndent"] = 134] = "wrappingIndent";
+    EditorOption2[EditorOption2["wrappingStrategy"] = 135] = "wrappingStrategy";
+    EditorOption2[EditorOption2["showDeprecated"] = 136] = "showDeprecated";
+    EditorOption2[EditorOption2["inlayHints"] = 137] = "inlayHints";
+    EditorOption2[EditorOption2["editorClassName"] = 138] = "editorClassName";
+    EditorOption2[EditorOption2["pixelRatio"] = 139] = "pixelRatio";
+    EditorOption2[EditorOption2["tabFocusMode"] = 140] = "tabFocusMode";
+    EditorOption2[EditorOption2["layoutInfo"] = 141] = "layoutInfo";
+    EditorOption2[EditorOption2["wrappingInfo"] = 142] = "wrappingInfo";
+    EditorOption2[EditorOption2["defaultColorDecorators"] = 143] = "defaultColorDecorators";
+    EditorOption2[EditorOption2["colorDecoratorsActivatedOn"] = 144] = "colorDecoratorsActivatedOn";
   })(EditorOption || (EditorOption = {}));
   var EndOfLinePreference;
   (function(EndOfLinePreference2) {
@@ -23818,6 +24425,11 @@ ${p.commentBefore}` : u;
     EndOfLineSequence2[EndOfLineSequence2["LF"] = 0] = "LF";
     EndOfLineSequence2[EndOfLineSequence2["CRLF"] = 1] = "CRLF";
   })(EndOfLineSequence || (EndOfLineSequence = {}));
+  var GlyphMarginLane;
+  (function(GlyphMarginLane3) {
+    GlyphMarginLane3[GlyphMarginLane3["Left"] = 1] = "Left";
+    GlyphMarginLane3[GlyphMarginLane3["Right"] = 2] = "Right";
+  })(GlyphMarginLane || (GlyphMarginLane = {}));
   var IndentAction;
   (function(IndentAction2) {
     IndentAction2[IndentAction2["None"] = 0] = "None";
@@ -23923,56 +24535,61 @@ ${p.commentBefore}` : u;
     KeyCode2[KeyCode2["F17"] = 75] = "F17";
     KeyCode2[KeyCode2["F18"] = 76] = "F18";
     KeyCode2[KeyCode2["F19"] = 77] = "F19";
-    KeyCode2[KeyCode2["NumLock"] = 78] = "NumLock";
-    KeyCode2[KeyCode2["ScrollLock"] = 79] = "ScrollLock";
-    KeyCode2[KeyCode2["Semicolon"] = 80] = "Semicolon";
-    KeyCode2[KeyCode2["Equal"] = 81] = "Equal";
-    KeyCode2[KeyCode2["Comma"] = 82] = "Comma";
-    KeyCode2[KeyCode2["Minus"] = 83] = "Minus";
-    KeyCode2[KeyCode2["Period"] = 84] = "Period";
-    KeyCode2[KeyCode2["Slash"] = 85] = "Slash";
-    KeyCode2[KeyCode2["Backquote"] = 86] = "Backquote";
-    KeyCode2[KeyCode2["BracketLeft"] = 87] = "BracketLeft";
-    KeyCode2[KeyCode2["Backslash"] = 88] = "Backslash";
-    KeyCode2[KeyCode2["BracketRight"] = 89] = "BracketRight";
-    KeyCode2[KeyCode2["Quote"] = 90] = "Quote";
-    KeyCode2[KeyCode2["OEM_8"] = 91] = "OEM_8";
-    KeyCode2[KeyCode2["IntlBackslash"] = 92] = "IntlBackslash";
-    KeyCode2[KeyCode2["Numpad0"] = 93] = "Numpad0";
-    KeyCode2[KeyCode2["Numpad1"] = 94] = "Numpad1";
-    KeyCode2[KeyCode2["Numpad2"] = 95] = "Numpad2";
-    KeyCode2[KeyCode2["Numpad3"] = 96] = "Numpad3";
-    KeyCode2[KeyCode2["Numpad4"] = 97] = "Numpad4";
-    KeyCode2[KeyCode2["Numpad5"] = 98] = "Numpad5";
-    KeyCode2[KeyCode2["Numpad6"] = 99] = "Numpad6";
-    KeyCode2[KeyCode2["Numpad7"] = 100] = "Numpad7";
-    KeyCode2[KeyCode2["Numpad8"] = 101] = "Numpad8";
-    KeyCode2[KeyCode2["Numpad9"] = 102] = "Numpad9";
-    KeyCode2[KeyCode2["NumpadMultiply"] = 103] = "NumpadMultiply";
-    KeyCode2[KeyCode2["NumpadAdd"] = 104] = "NumpadAdd";
-    KeyCode2[KeyCode2["NUMPAD_SEPARATOR"] = 105] = "NUMPAD_SEPARATOR";
-    KeyCode2[KeyCode2["NumpadSubtract"] = 106] = "NumpadSubtract";
-    KeyCode2[KeyCode2["NumpadDecimal"] = 107] = "NumpadDecimal";
-    KeyCode2[KeyCode2["NumpadDivide"] = 108] = "NumpadDivide";
-    KeyCode2[KeyCode2["KEY_IN_COMPOSITION"] = 109] = "KEY_IN_COMPOSITION";
-    KeyCode2[KeyCode2["ABNT_C1"] = 110] = "ABNT_C1";
-    KeyCode2[KeyCode2["ABNT_C2"] = 111] = "ABNT_C2";
-    KeyCode2[KeyCode2["AudioVolumeMute"] = 112] = "AudioVolumeMute";
-    KeyCode2[KeyCode2["AudioVolumeUp"] = 113] = "AudioVolumeUp";
-    KeyCode2[KeyCode2["AudioVolumeDown"] = 114] = "AudioVolumeDown";
-    KeyCode2[KeyCode2["BrowserSearch"] = 115] = "BrowserSearch";
-    KeyCode2[KeyCode2["BrowserHome"] = 116] = "BrowserHome";
-    KeyCode2[KeyCode2["BrowserBack"] = 117] = "BrowserBack";
-    KeyCode2[KeyCode2["BrowserForward"] = 118] = "BrowserForward";
-    KeyCode2[KeyCode2["MediaTrackNext"] = 119] = "MediaTrackNext";
-    KeyCode2[KeyCode2["MediaTrackPrevious"] = 120] = "MediaTrackPrevious";
-    KeyCode2[KeyCode2["MediaStop"] = 121] = "MediaStop";
-    KeyCode2[KeyCode2["MediaPlayPause"] = 122] = "MediaPlayPause";
-    KeyCode2[KeyCode2["LaunchMediaPlayer"] = 123] = "LaunchMediaPlayer";
-    KeyCode2[KeyCode2["LaunchMail"] = 124] = "LaunchMail";
-    KeyCode2[KeyCode2["LaunchApp2"] = 125] = "LaunchApp2";
-    KeyCode2[KeyCode2["Clear"] = 126] = "Clear";
-    KeyCode2[KeyCode2["MAX_VALUE"] = 127] = "MAX_VALUE";
+    KeyCode2[KeyCode2["F20"] = 78] = "F20";
+    KeyCode2[KeyCode2["F21"] = 79] = "F21";
+    KeyCode2[KeyCode2["F22"] = 80] = "F22";
+    KeyCode2[KeyCode2["F23"] = 81] = "F23";
+    KeyCode2[KeyCode2["F24"] = 82] = "F24";
+    KeyCode2[KeyCode2["NumLock"] = 83] = "NumLock";
+    KeyCode2[KeyCode2["ScrollLock"] = 84] = "ScrollLock";
+    KeyCode2[KeyCode2["Semicolon"] = 85] = "Semicolon";
+    KeyCode2[KeyCode2["Equal"] = 86] = "Equal";
+    KeyCode2[KeyCode2["Comma"] = 87] = "Comma";
+    KeyCode2[KeyCode2["Minus"] = 88] = "Minus";
+    KeyCode2[KeyCode2["Period"] = 89] = "Period";
+    KeyCode2[KeyCode2["Slash"] = 90] = "Slash";
+    KeyCode2[KeyCode2["Backquote"] = 91] = "Backquote";
+    KeyCode2[KeyCode2["BracketLeft"] = 92] = "BracketLeft";
+    KeyCode2[KeyCode2["Backslash"] = 93] = "Backslash";
+    KeyCode2[KeyCode2["BracketRight"] = 94] = "BracketRight";
+    KeyCode2[KeyCode2["Quote"] = 95] = "Quote";
+    KeyCode2[KeyCode2["OEM_8"] = 96] = "OEM_8";
+    KeyCode2[KeyCode2["IntlBackslash"] = 97] = "IntlBackslash";
+    KeyCode2[KeyCode2["Numpad0"] = 98] = "Numpad0";
+    KeyCode2[KeyCode2["Numpad1"] = 99] = "Numpad1";
+    KeyCode2[KeyCode2["Numpad2"] = 100] = "Numpad2";
+    KeyCode2[KeyCode2["Numpad3"] = 101] = "Numpad3";
+    KeyCode2[KeyCode2["Numpad4"] = 102] = "Numpad4";
+    KeyCode2[KeyCode2["Numpad5"] = 103] = "Numpad5";
+    KeyCode2[KeyCode2["Numpad6"] = 104] = "Numpad6";
+    KeyCode2[KeyCode2["Numpad7"] = 105] = "Numpad7";
+    KeyCode2[KeyCode2["Numpad8"] = 106] = "Numpad8";
+    KeyCode2[KeyCode2["Numpad9"] = 107] = "Numpad9";
+    KeyCode2[KeyCode2["NumpadMultiply"] = 108] = "NumpadMultiply";
+    KeyCode2[KeyCode2["NumpadAdd"] = 109] = "NumpadAdd";
+    KeyCode2[KeyCode2["NUMPAD_SEPARATOR"] = 110] = "NUMPAD_SEPARATOR";
+    KeyCode2[KeyCode2["NumpadSubtract"] = 111] = "NumpadSubtract";
+    KeyCode2[KeyCode2["NumpadDecimal"] = 112] = "NumpadDecimal";
+    KeyCode2[KeyCode2["NumpadDivide"] = 113] = "NumpadDivide";
+    KeyCode2[KeyCode2["KEY_IN_COMPOSITION"] = 114] = "KEY_IN_COMPOSITION";
+    KeyCode2[KeyCode2["ABNT_C1"] = 115] = "ABNT_C1";
+    KeyCode2[KeyCode2["ABNT_C2"] = 116] = "ABNT_C2";
+    KeyCode2[KeyCode2["AudioVolumeMute"] = 117] = "AudioVolumeMute";
+    KeyCode2[KeyCode2["AudioVolumeUp"] = 118] = "AudioVolumeUp";
+    KeyCode2[KeyCode2["AudioVolumeDown"] = 119] = "AudioVolumeDown";
+    KeyCode2[KeyCode2["BrowserSearch"] = 120] = "BrowserSearch";
+    KeyCode2[KeyCode2["BrowserHome"] = 121] = "BrowserHome";
+    KeyCode2[KeyCode2["BrowserBack"] = 122] = "BrowserBack";
+    KeyCode2[KeyCode2["BrowserForward"] = 123] = "BrowserForward";
+    KeyCode2[KeyCode2["MediaTrackNext"] = 124] = "MediaTrackNext";
+    KeyCode2[KeyCode2["MediaTrackPrevious"] = 125] = "MediaTrackPrevious";
+    KeyCode2[KeyCode2["MediaStop"] = 126] = "MediaStop";
+    KeyCode2[KeyCode2["MediaPlayPause"] = 127] = "MediaPlayPause";
+    KeyCode2[KeyCode2["LaunchMediaPlayer"] = 128] = "LaunchMediaPlayer";
+    KeyCode2[KeyCode2["LaunchMail"] = 129] = "LaunchMail";
+    KeyCode2[KeyCode2["LaunchApp2"] = 130] = "LaunchApp2";
+    KeyCode2[KeyCode2["Clear"] = 131] = "Clear";
+    KeyCode2[KeyCode2["MAX_VALUE"] = 132] = "MAX_VALUE";
   })(KeyCode || (KeyCode = {}));
   var MarkerSeverity;
   (function(MarkerSeverity2) {
@@ -24163,12 +24780,27 @@ ${p.commentBefore}` : u;
   // node_modules/monaco-editor/esm/vs/editor/common/core/wordCharacterClassifier.js
   var WordCharacterClassifier = class extends CharacterClassifier {
     constructor(wordSeparators) {
-      super(0);
+      super(
+        0
+        /* WordCharacterClass.Regular */
+      );
       for (let i = 0, len = wordSeparators.length; i < len; i++) {
-        this.set(wordSeparators.charCodeAt(i), 2);
+        this.set(
+          wordSeparators.charCodeAt(i),
+          2
+          /* WordCharacterClass.WordSeparator */
+        );
       }
-      this.set(32, 1);
-      this.set(9, 1);
+      this.set(
+        32,
+        1
+        /* WordCharacterClass.Whitespace */
+      );
+      this.set(
+        9,
+        1
+        /* WordCharacterClass.Whitespace */
+      );
     }
   };
   function once2(computeFn) {
@@ -24190,6 +24822,11 @@ ${p.commentBefore}` : u;
     OverviewRulerLane3[OverviewRulerLane3["Right"] = 4] = "Right";
     OverviewRulerLane3[OverviewRulerLane3["Full"] = 7] = "Full";
   })(OverviewRulerLane2 || (OverviewRulerLane2 = {}));
+  var GlyphMarginLane2;
+  (function(GlyphMarginLane3) {
+    GlyphMarginLane3[GlyphMarginLane3["Left"] = 1] = "Left";
+    GlyphMarginLane3[GlyphMarginLane3["Right"] = 2] = "Right";
+  })(GlyphMarginLane2 || (GlyphMarginLane2 = {}));
   var MinimapPosition2;
   (function(MinimapPosition3) {
     MinimapPosition3[MinimapPosition3["Inline"] = 1] = "Inline";
@@ -24291,6 +24928,30 @@ ${p.commentBefore}` : u;
     }
   };
 
+  // node_modules/monaco-editor/esm/vs/base/common/assert.js
+  function assertNever(value, message = "Unreachable") {
+    throw new Error(message);
+  }
+  function assertFn(condition) {
+    if (!condition()) {
+      debugger;
+      condition();
+      onUnexpectedError(new BugIndicatingError("Assertion Failed"));
+    }
+  }
+  function checkAdjacentItems(items, predicate) {
+    let i = 0;
+    while (i < items.length - 1) {
+      const a2 = items[i];
+      const b = items[i + 1];
+      if (!predicate(a2, b)) {
+        return false;
+      }
+      i++;
+    }
+    return true;
+  }
+
   // node_modules/monaco-editor/esm/vs/editor/common/services/unicodeTextModelHighlighter.js
   var UnicodeTextModelHighlighter = class {
     static computeUnicodeHighlights(model, options, range) {
@@ -24334,7 +24995,10 @@ ${p.commentBefore}` : u;
                 }
               }
               const str = lineContent.substring(startIndex, endIndex);
-              const word = getWordAtText(startIndex + 1, DEFAULT_WORD_REGEXP, lineContent, 0);
+              let word = getWordAtText(startIndex + 1, DEFAULT_WORD_REGEXP, lineContent, 0);
+              if (word && word.endColumn <= startIndex + 1) {
+                word = null;
+              }
               const highlightReason = codePointHighlighter.shouldHighlightNonBasicASCII(str, word ? word.word : null);
               if (highlightReason !== 0) {
                 if (highlightReason === 3) {
@@ -24371,7 +25035,10 @@ ${p.commentBefore}` : u;
         case 0:
           return null;
         case 2:
-          return { kind: 1 };
+          return {
+            kind: 1
+            /* UnicodeHighlighterReasonKind.Invisible */
+          };
         case 3: {
           const codePoint = char.codePointAt(0);
           const primaryConfusable = codePointHighlighter.ambiguousCharacters.getPrimaryConfusable(codePoint);
@@ -24379,7 +25046,10 @@ ${p.commentBefore}` : u;
           return { kind: 0, confusableWith: String.fromCodePoint(primaryConfusable), notAmbiguousInLocales };
         }
         case 1:
-          return { kind: 2 };
+          return {
+            kind: 2
+            /* UnicodeHighlighterReasonKind.NonBasicAscii */
+          };
       }
     }
   };
@@ -24435,7 +25105,11 @@ ${p.commentBefore}` : u;
           }
         }
       }
-      if (!hasBasicASCIICharacters && hasNonConfusableNonBasicAsciiCharacter) {
+      if (
+        /* Don't allow mixing weird looking characters with ASCII */
+        !hasBasicASCIICharacters && /* Is there an obviously weird looking character? */
+        hasNonConfusableNonBasicAsciiCharacter
+      ) {
         return 0;
       }
       if (this.options.invisibleCharacters) {
@@ -24453,6 +25127,2195 @@ ${p.commentBefore}` : u;
   };
   function isAllowedInvisibleCharacter(character) {
     return character === " " || character === "\n" || character === "	";
+  }
+
+  // node_modules/monaco-editor/esm/vs/editor/common/core/lineRange.js
+  var LineRange = class _LineRange {
+    static fromRange(range) {
+      return new _LineRange(range.startLineNumber, range.endLineNumber);
+    }
+    static subtract(a2, b) {
+      if (!b) {
+        return [a2];
+      }
+      if (a2.startLineNumber < b.startLineNumber && b.endLineNumberExclusive < a2.endLineNumberExclusive) {
+        return [
+          new _LineRange(a2.startLineNumber, b.startLineNumber),
+          new _LineRange(b.endLineNumberExclusive, a2.endLineNumberExclusive)
+        ];
+      } else if (b.startLineNumber <= a2.startLineNumber && a2.endLineNumberExclusive <= b.endLineNumberExclusive) {
+        return [];
+      } else if (b.endLineNumberExclusive < a2.endLineNumberExclusive) {
+        return [new _LineRange(Math.max(b.endLineNumberExclusive, a2.startLineNumber), a2.endLineNumberExclusive)];
+      } else {
+        return [new _LineRange(a2.startLineNumber, Math.min(b.startLineNumber, a2.endLineNumberExclusive))];
+      }
+    }
+    /**
+     * @param lineRanges An array of sorted line ranges.
+     */
+    static joinMany(lineRanges) {
+      if (lineRanges.length === 0) {
+        return [];
+      }
+      let result = lineRanges[0];
+      for (let i = 1; i < lineRanges.length; i++) {
+        result = this.join(result, lineRanges[i]);
+      }
+      return result;
+    }
+    /**
+     * @param lineRanges1 Must be sorted.
+     * @param lineRanges2 Must be sorted.
+     */
+    static join(lineRanges1, lineRanges2) {
+      if (lineRanges1.length === 0) {
+        return lineRanges2;
+      }
+      if (lineRanges2.length === 0) {
+        return lineRanges1;
+      }
+      const result = [];
+      let i1 = 0;
+      let i2 = 0;
+      let current = null;
+      while (i1 < lineRanges1.length || i2 < lineRanges2.length) {
+        let next = null;
+        if (i1 < lineRanges1.length && i2 < lineRanges2.length) {
+          const lineRange1 = lineRanges1[i1];
+          const lineRange2 = lineRanges2[i2];
+          if (lineRange1.startLineNumber < lineRange2.startLineNumber) {
+            next = lineRange1;
+            i1++;
+          } else {
+            next = lineRange2;
+            i2++;
+          }
+        } else if (i1 < lineRanges1.length) {
+          next = lineRanges1[i1];
+          i1++;
+        } else {
+          next = lineRanges2[i2];
+          i2++;
+        }
+        if (current === null) {
+          current = next;
+        } else {
+          if (current.endLineNumberExclusive >= next.startLineNumber) {
+            current = new _LineRange(current.startLineNumber, Math.max(current.endLineNumberExclusive, next.endLineNumberExclusive));
+          } else {
+            result.push(current);
+            current = next;
+          }
+        }
+      }
+      if (current !== null) {
+        result.push(current);
+      }
+      return result;
+    }
+    static ofLength(startLineNumber, length) {
+      return new _LineRange(startLineNumber, startLineNumber + length);
+    }
+    /**
+     * @internal
+     */
+    static deserialize(lineRange) {
+      return new _LineRange(lineRange[0], lineRange[1]);
+    }
+    constructor(startLineNumber, endLineNumberExclusive) {
+      if (startLineNumber > endLineNumberExclusive) {
+        throw new BugIndicatingError(`startLineNumber ${startLineNumber} cannot be after endLineNumberExclusive ${endLineNumberExclusive}`);
+      }
+      this.startLineNumber = startLineNumber;
+      this.endLineNumberExclusive = endLineNumberExclusive;
+    }
+    /**
+     * Indicates if this line range contains the given line number.
+     */
+    contains(lineNumber) {
+      return this.startLineNumber <= lineNumber && lineNumber < this.endLineNumberExclusive;
+    }
+    /**
+     * Indicates if this line range is empty.
+     */
+    get isEmpty() {
+      return this.startLineNumber === this.endLineNumberExclusive;
+    }
+    /**
+     * Moves this line range by the given offset of line numbers.
+     */
+    delta(offset) {
+      return new _LineRange(this.startLineNumber + offset, this.endLineNumberExclusive + offset);
+    }
+    /**
+     * The number of lines this line range spans.
+     */
+    get length() {
+      return this.endLineNumberExclusive - this.startLineNumber;
+    }
+    /**
+     * Creates a line range that combines this and the given line range.
+     */
+    join(other) {
+      return new _LineRange(Math.min(this.startLineNumber, other.startLineNumber), Math.max(this.endLineNumberExclusive, other.endLineNumberExclusive));
+    }
+    toString() {
+      return `[${this.startLineNumber},${this.endLineNumberExclusive})`;
+    }
+    /**
+     * The resulting range is empty if the ranges do not intersect, but touch.
+     * If the ranges don't even touch, the result is undefined.
+     */
+    intersect(other) {
+      const startLineNumber = Math.max(this.startLineNumber, other.startLineNumber);
+      const endLineNumberExclusive = Math.min(this.endLineNumberExclusive, other.endLineNumberExclusive);
+      if (startLineNumber <= endLineNumberExclusive) {
+        return new _LineRange(startLineNumber, endLineNumberExclusive);
+      }
+      return void 0;
+    }
+    intersectsStrict(other) {
+      return this.startLineNumber < other.endLineNumberExclusive && other.startLineNumber < this.endLineNumberExclusive;
+    }
+    overlapOrTouch(other) {
+      return this.startLineNumber <= other.endLineNumberExclusive && other.startLineNumber <= this.endLineNumberExclusive;
+    }
+    equals(b) {
+      return this.startLineNumber === b.startLineNumber && this.endLineNumberExclusive === b.endLineNumberExclusive;
+    }
+    toInclusiveRange() {
+      if (this.isEmpty) {
+        return null;
+      }
+      return new Range(this.startLineNumber, 1, this.endLineNumberExclusive - 1, Number.MAX_SAFE_INTEGER);
+    }
+    toExclusiveRange() {
+      return new Range(this.startLineNumber, 1, this.endLineNumberExclusive, 1);
+    }
+    mapToLineArray(f2) {
+      const result = [];
+      for (let lineNumber = this.startLineNumber; lineNumber < this.endLineNumberExclusive; lineNumber++) {
+        result.push(f2(lineNumber));
+      }
+      return result;
+    }
+    /**
+     * @internal
+     */
+    serialize() {
+      return [this.startLineNumber, this.endLineNumberExclusive];
+    }
+    includes(lineNumber) {
+      return this.startLineNumber <= lineNumber && lineNumber < this.endLineNumberExclusive;
+    }
+  };
+
+  // node_modules/monaco-editor/esm/vs/editor/common/diff/linesDiffComputer.js
+  var LinesDiff = class {
+    constructor(changes, moves, hitTimeout) {
+      this.changes = changes;
+      this.moves = moves;
+      this.hitTimeout = hitTimeout;
+    }
+  };
+  var LineRangeMapping = class _LineRangeMapping {
+    static inverse(mapping, originalLineCount, modifiedLineCount) {
+      const result = [];
+      let lastOriginalEndLineNumber = 1;
+      let lastModifiedEndLineNumber = 1;
+      for (const m of mapping) {
+        const r2 = new _LineRangeMapping(new LineRange(lastOriginalEndLineNumber, m.originalRange.startLineNumber), new LineRange(lastModifiedEndLineNumber, m.modifiedRange.startLineNumber), void 0);
+        if (!r2.modifiedRange.isEmpty) {
+          result.push(r2);
+        }
+        lastOriginalEndLineNumber = m.originalRange.endLineNumberExclusive;
+        lastModifiedEndLineNumber = m.modifiedRange.endLineNumberExclusive;
+      }
+      const r = new _LineRangeMapping(new LineRange(lastOriginalEndLineNumber, originalLineCount + 1), new LineRange(lastModifiedEndLineNumber, modifiedLineCount + 1), void 0);
+      if (!r.modifiedRange.isEmpty) {
+        result.push(r);
+      }
+      return result;
+    }
+    constructor(originalRange, modifiedRange, innerChanges) {
+      this.originalRange = originalRange;
+      this.modifiedRange = modifiedRange;
+      this.innerChanges = innerChanges;
+    }
+    toString() {
+      return `{${this.originalRange.toString()}->${this.modifiedRange.toString()}}`;
+    }
+    get changedLineCount() {
+      return Math.max(this.originalRange.length, this.modifiedRange.length);
+    }
+    flip() {
+      var _a3;
+      return new _LineRangeMapping(this.modifiedRange, this.originalRange, (_a3 = this.innerChanges) === null || _a3 === void 0 ? void 0 : _a3.map((c) => c.flip()));
+    }
+  };
+  var RangeMapping = class _RangeMapping {
+    constructor(originalRange, modifiedRange) {
+      this.originalRange = originalRange;
+      this.modifiedRange = modifiedRange;
+    }
+    toString() {
+      return `{${this.originalRange.toString()}->${this.modifiedRange.toString()}}`;
+    }
+    flip() {
+      return new _RangeMapping(this.modifiedRange, this.originalRange);
+    }
+  };
+  var SimpleLineRangeMapping = class _SimpleLineRangeMapping {
+    constructor(originalRange, modifiedRange) {
+      this.originalRange = originalRange;
+      this.modifiedRange = modifiedRange;
+    }
+    toString() {
+      return `{${this.originalRange.toString()}->${this.modifiedRange.toString()}}`;
+    }
+    flip() {
+      return new _SimpleLineRangeMapping(this.modifiedRange, this.originalRange);
+    }
+  };
+  var MovedText = class _MovedText {
+    constructor(lineRangeMapping, changes) {
+      this.lineRangeMapping = lineRangeMapping;
+      this.changes = changes;
+    }
+    flip() {
+      return new _MovedText(this.lineRangeMapping.flip(), this.changes.map((c) => c.flip()));
+    }
+  };
+
+  // node_modules/monaco-editor/esm/vs/editor/common/diff/smartLinesDiffComputer.js
+  var MINIMUM_MATCHING_CHARACTER_LENGTH = 3;
+  var SmartLinesDiffComputer = class {
+    computeDiff(originalLines, modifiedLines, options) {
+      var _a3;
+      const diffComputer = new DiffComputer(originalLines, modifiedLines, {
+        maxComputationTime: options.maxComputationTimeMs,
+        shouldIgnoreTrimWhitespace: options.ignoreTrimWhitespace,
+        shouldComputeCharChanges: true,
+        shouldMakePrettyDiff: true,
+        shouldPostProcessCharChanges: true
+      });
+      const result = diffComputer.computeDiff();
+      const changes = [];
+      let lastChange = null;
+      for (const c of result.changes) {
+        let originalRange;
+        if (c.originalEndLineNumber === 0) {
+          originalRange = new LineRange(c.originalStartLineNumber + 1, c.originalStartLineNumber + 1);
+        } else {
+          originalRange = new LineRange(c.originalStartLineNumber, c.originalEndLineNumber + 1);
+        }
+        let modifiedRange;
+        if (c.modifiedEndLineNumber === 0) {
+          modifiedRange = new LineRange(c.modifiedStartLineNumber + 1, c.modifiedStartLineNumber + 1);
+        } else {
+          modifiedRange = new LineRange(c.modifiedStartLineNumber, c.modifiedEndLineNumber + 1);
+        }
+        let change = new LineRangeMapping(originalRange, modifiedRange, (_a3 = c.charChanges) === null || _a3 === void 0 ? void 0 : _a3.map((c2) => new RangeMapping(new Range(c2.originalStartLineNumber, c2.originalStartColumn, c2.originalEndLineNumber, c2.originalEndColumn), new Range(c2.modifiedStartLineNumber, c2.modifiedStartColumn, c2.modifiedEndLineNumber, c2.modifiedEndColumn))));
+        if (lastChange) {
+          if (lastChange.modifiedRange.endLineNumberExclusive === change.modifiedRange.startLineNumber || lastChange.originalRange.endLineNumberExclusive === change.originalRange.startLineNumber) {
+            change = new LineRangeMapping(lastChange.originalRange.join(change.originalRange), lastChange.modifiedRange.join(change.modifiedRange), lastChange.innerChanges && change.innerChanges ? lastChange.innerChanges.concat(change.innerChanges) : void 0);
+            changes.pop();
+          }
+        }
+        changes.push(change);
+        lastChange = change;
+      }
+      assertFn(() => {
+        return checkAdjacentItems(changes, (m1, m2) => m2.originalRange.startLineNumber - m1.originalRange.endLineNumberExclusive === m2.modifiedRange.startLineNumber - m1.modifiedRange.endLineNumberExclusive && // There has to be an unchanged line in between (otherwise both diffs should have been joined)
+        m1.originalRange.endLineNumberExclusive < m2.originalRange.startLineNumber && m1.modifiedRange.endLineNumberExclusive < m2.modifiedRange.startLineNumber);
+      });
+      return new LinesDiff(changes, [], result.quitEarly);
+    }
+  };
+  function computeDiff(originalSequence, modifiedSequence, continueProcessingPredicate, pretty) {
+    const diffAlgo = new LcsDiff(originalSequence, modifiedSequence, continueProcessingPredicate);
+    return diffAlgo.ComputeDiff(pretty);
+  }
+  var LineSequence = class {
+    constructor(lines) {
+      const startColumns = [];
+      const endColumns = [];
+      for (let i = 0, length = lines.length; i < length; i++) {
+        startColumns[i] = getFirstNonBlankColumn(lines[i], 1);
+        endColumns[i] = getLastNonBlankColumn(lines[i], 1);
+      }
+      this.lines = lines;
+      this._startColumns = startColumns;
+      this._endColumns = endColumns;
+    }
+    getElements() {
+      const elements = [];
+      for (let i = 0, len = this.lines.length; i < len; i++) {
+        elements[i] = this.lines[i].substring(this._startColumns[i] - 1, this._endColumns[i] - 1);
+      }
+      return elements;
+    }
+    getStrictElement(index) {
+      return this.lines[index];
+    }
+    getStartLineNumber(i) {
+      return i + 1;
+    }
+    getEndLineNumber(i) {
+      return i + 1;
+    }
+    createCharSequence(shouldIgnoreTrimWhitespace, startIndex, endIndex) {
+      const charCodes = [];
+      const lineNumbers = [];
+      const columns = [];
+      let len = 0;
+      for (let index = startIndex; index <= endIndex; index++) {
+        const lineContent = this.lines[index];
+        const startColumn = shouldIgnoreTrimWhitespace ? this._startColumns[index] : 1;
+        const endColumn = shouldIgnoreTrimWhitespace ? this._endColumns[index] : lineContent.length + 1;
+        for (let col = startColumn; col < endColumn; col++) {
+          charCodes[len] = lineContent.charCodeAt(col - 1);
+          lineNumbers[len] = index + 1;
+          columns[len] = col;
+          len++;
+        }
+        if (!shouldIgnoreTrimWhitespace && index < endIndex) {
+          charCodes[len] = 10;
+          lineNumbers[len] = index + 1;
+          columns[len] = lineContent.length + 1;
+          len++;
+        }
+      }
+      return new CharSequence(charCodes, lineNumbers, columns);
+    }
+  };
+  var CharSequence = class {
+    constructor(charCodes, lineNumbers, columns) {
+      this._charCodes = charCodes;
+      this._lineNumbers = lineNumbers;
+      this._columns = columns;
+    }
+    toString() {
+      return "[" + this._charCodes.map((s, idx) => (s === 10 ? "\\n" : String.fromCharCode(s)) + `-(${this._lineNumbers[idx]},${this._columns[idx]})`).join(", ") + "]";
+    }
+    _assertIndex(index, arr) {
+      if (index < 0 || index >= arr.length) {
+        throw new Error(`Illegal index`);
+      }
+    }
+    getElements() {
+      return this._charCodes;
+    }
+    getStartLineNumber(i) {
+      if (i > 0 && i === this._lineNumbers.length) {
+        return this.getEndLineNumber(i - 1);
+      }
+      this._assertIndex(i, this._lineNumbers);
+      return this._lineNumbers[i];
+    }
+    getEndLineNumber(i) {
+      if (i === -1) {
+        return this.getStartLineNumber(i + 1);
+      }
+      this._assertIndex(i, this._lineNumbers);
+      if (this._charCodes[i] === 10) {
+        return this._lineNumbers[i] + 1;
+      }
+      return this._lineNumbers[i];
+    }
+    getStartColumn(i) {
+      if (i > 0 && i === this._columns.length) {
+        return this.getEndColumn(i - 1);
+      }
+      this._assertIndex(i, this._columns);
+      return this._columns[i];
+    }
+    getEndColumn(i) {
+      if (i === -1) {
+        return this.getStartColumn(i + 1);
+      }
+      this._assertIndex(i, this._columns);
+      if (this._charCodes[i] === 10) {
+        return 1;
+      }
+      return this._columns[i] + 1;
+    }
+  };
+  var CharChange = class _CharChange {
+    constructor(originalStartLineNumber, originalStartColumn, originalEndLineNumber, originalEndColumn, modifiedStartLineNumber, modifiedStartColumn, modifiedEndLineNumber, modifiedEndColumn) {
+      this.originalStartLineNumber = originalStartLineNumber;
+      this.originalStartColumn = originalStartColumn;
+      this.originalEndLineNumber = originalEndLineNumber;
+      this.originalEndColumn = originalEndColumn;
+      this.modifiedStartLineNumber = modifiedStartLineNumber;
+      this.modifiedStartColumn = modifiedStartColumn;
+      this.modifiedEndLineNumber = modifiedEndLineNumber;
+      this.modifiedEndColumn = modifiedEndColumn;
+    }
+    static createFromDiffChange(diffChange, originalCharSequence, modifiedCharSequence) {
+      const originalStartLineNumber = originalCharSequence.getStartLineNumber(diffChange.originalStart);
+      const originalStartColumn = originalCharSequence.getStartColumn(diffChange.originalStart);
+      const originalEndLineNumber = originalCharSequence.getEndLineNumber(diffChange.originalStart + diffChange.originalLength - 1);
+      const originalEndColumn = originalCharSequence.getEndColumn(diffChange.originalStart + diffChange.originalLength - 1);
+      const modifiedStartLineNumber = modifiedCharSequence.getStartLineNumber(diffChange.modifiedStart);
+      const modifiedStartColumn = modifiedCharSequence.getStartColumn(diffChange.modifiedStart);
+      const modifiedEndLineNumber = modifiedCharSequence.getEndLineNumber(diffChange.modifiedStart + diffChange.modifiedLength - 1);
+      const modifiedEndColumn = modifiedCharSequence.getEndColumn(diffChange.modifiedStart + diffChange.modifiedLength - 1);
+      return new _CharChange(originalStartLineNumber, originalStartColumn, originalEndLineNumber, originalEndColumn, modifiedStartLineNumber, modifiedStartColumn, modifiedEndLineNumber, modifiedEndColumn);
+    }
+  };
+  function postProcessCharChanges(rawChanges) {
+    if (rawChanges.length <= 1) {
+      return rawChanges;
+    }
+    const result = [rawChanges[0]];
+    let prevChange = result[0];
+    for (let i = 1, len = rawChanges.length; i < len; i++) {
+      const currChange = rawChanges[i];
+      const originalMatchingLength = currChange.originalStart - (prevChange.originalStart + prevChange.originalLength);
+      const modifiedMatchingLength = currChange.modifiedStart - (prevChange.modifiedStart + prevChange.modifiedLength);
+      const matchingLength = Math.min(originalMatchingLength, modifiedMatchingLength);
+      if (matchingLength < MINIMUM_MATCHING_CHARACTER_LENGTH) {
+        prevChange.originalLength = currChange.originalStart + currChange.originalLength - prevChange.originalStart;
+        prevChange.modifiedLength = currChange.modifiedStart + currChange.modifiedLength - prevChange.modifiedStart;
+      } else {
+        result.push(currChange);
+        prevChange = currChange;
+      }
+    }
+    return result;
+  }
+  var LineChange = class _LineChange {
+    constructor(originalStartLineNumber, originalEndLineNumber, modifiedStartLineNumber, modifiedEndLineNumber, charChanges) {
+      this.originalStartLineNumber = originalStartLineNumber;
+      this.originalEndLineNumber = originalEndLineNumber;
+      this.modifiedStartLineNumber = modifiedStartLineNumber;
+      this.modifiedEndLineNumber = modifiedEndLineNumber;
+      this.charChanges = charChanges;
+    }
+    static createFromDiffResult(shouldIgnoreTrimWhitespace, diffChange, originalLineSequence, modifiedLineSequence, continueCharDiff, shouldComputeCharChanges, shouldPostProcessCharChanges) {
+      let originalStartLineNumber;
+      let originalEndLineNumber;
+      let modifiedStartLineNumber;
+      let modifiedEndLineNumber;
+      let charChanges = void 0;
+      if (diffChange.originalLength === 0) {
+        originalStartLineNumber = originalLineSequence.getStartLineNumber(diffChange.originalStart) - 1;
+        originalEndLineNumber = 0;
+      } else {
+        originalStartLineNumber = originalLineSequence.getStartLineNumber(diffChange.originalStart);
+        originalEndLineNumber = originalLineSequence.getEndLineNumber(diffChange.originalStart + diffChange.originalLength - 1);
+      }
+      if (diffChange.modifiedLength === 0) {
+        modifiedStartLineNumber = modifiedLineSequence.getStartLineNumber(diffChange.modifiedStart) - 1;
+        modifiedEndLineNumber = 0;
+      } else {
+        modifiedStartLineNumber = modifiedLineSequence.getStartLineNumber(diffChange.modifiedStart);
+        modifiedEndLineNumber = modifiedLineSequence.getEndLineNumber(diffChange.modifiedStart + diffChange.modifiedLength - 1);
+      }
+      if (shouldComputeCharChanges && diffChange.originalLength > 0 && diffChange.originalLength < 20 && diffChange.modifiedLength > 0 && diffChange.modifiedLength < 20 && continueCharDiff()) {
+        const originalCharSequence = originalLineSequence.createCharSequence(shouldIgnoreTrimWhitespace, diffChange.originalStart, diffChange.originalStart + diffChange.originalLength - 1);
+        const modifiedCharSequence = modifiedLineSequence.createCharSequence(shouldIgnoreTrimWhitespace, diffChange.modifiedStart, diffChange.modifiedStart + diffChange.modifiedLength - 1);
+        if (originalCharSequence.getElements().length > 0 && modifiedCharSequence.getElements().length > 0) {
+          let rawChanges = computeDiff(originalCharSequence, modifiedCharSequence, continueCharDiff, true).changes;
+          if (shouldPostProcessCharChanges) {
+            rawChanges = postProcessCharChanges(rawChanges);
+          }
+          charChanges = [];
+          for (let i = 0, length = rawChanges.length; i < length; i++) {
+            charChanges.push(CharChange.createFromDiffChange(rawChanges[i], originalCharSequence, modifiedCharSequence));
+          }
+        }
+      }
+      return new _LineChange(originalStartLineNumber, originalEndLineNumber, modifiedStartLineNumber, modifiedEndLineNumber, charChanges);
+    }
+  };
+  var DiffComputer = class {
+    constructor(originalLines, modifiedLines, opts) {
+      this.shouldComputeCharChanges = opts.shouldComputeCharChanges;
+      this.shouldPostProcessCharChanges = opts.shouldPostProcessCharChanges;
+      this.shouldIgnoreTrimWhitespace = opts.shouldIgnoreTrimWhitespace;
+      this.shouldMakePrettyDiff = opts.shouldMakePrettyDiff;
+      this.originalLines = originalLines;
+      this.modifiedLines = modifiedLines;
+      this.original = new LineSequence(originalLines);
+      this.modified = new LineSequence(modifiedLines);
+      this.continueLineDiff = createContinueProcessingPredicate(opts.maxComputationTime);
+      this.continueCharDiff = createContinueProcessingPredicate(opts.maxComputationTime === 0 ? 0 : Math.min(opts.maxComputationTime, 5e3));
+    }
+    computeDiff() {
+      if (this.original.lines.length === 1 && this.original.lines[0].length === 0) {
+        if (this.modified.lines.length === 1 && this.modified.lines[0].length === 0) {
+          return {
+            quitEarly: false,
+            changes: []
+          };
+        }
+        return {
+          quitEarly: false,
+          changes: [{
+            originalStartLineNumber: 1,
+            originalEndLineNumber: 1,
+            modifiedStartLineNumber: 1,
+            modifiedEndLineNumber: this.modified.lines.length,
+            charChanges: void 0
+          }]
+        };
+      }
+      if (this.modified.lines.length === 1 && this.modified.lines[0].length === 0) {
+        return {
+          quitEarly: false,
+          changes: [{
+            originalStartLineNumber: 1,
+            originalEndLineNumber: this.original.lines.length,
+            modifiedStartLineNumber: 1,
+            modifiedEndLineNumber: 1,
+            charChanges: void 0
+          }]
+        };
+      }
+      const diffResult = computeDiff(this.original, this.modified, this.continueLineDiff, this.shouldMakePrettyDiff);
+      const rawChanges = diffResult.changes;
+      const quitEarly = diffResult.quitEarly;
+      if (this.shouldIgnoreTrimWhitespace) {
+        const lineChanges = [];
+        for (let i = 0, length = rawChanges.length; i < length; i++) {
+          lineChanges.push(LineChange.createFromDiffResult(this.shouldIgnoreTrimWhitespace, rawChanges[i], this.original, this.modified, this.continueCharDiff, this.shouldComputeCharChanges, this.shouldPostProcessCharChanges));
+        }
+        return {
+          quitEarly,
+          changes: lineChanges
+        };
+      }
+      const result = [];
+      let originalLineIndex = 0;
+      let modifiedLineIndex = 0;
+      for (let i = -1, len = rawChanges.length; i < len; i++) {
+        const nextChange = i + 1 < len ? rawChanges[i + 1] : null;
+        const originalStop = nextChange ? nextChange.originalStart : this.originalLines.length;
+        const modifiedStop = nextChange ? nextChange.modifiedStart : this.modifiedLines.length;
+        while (originalLineIndex < originalStop && modifiedLineIndex < modifiedStop) {
+          const originalLine = this.originalLines[originalLineIndex];
+          const modifiedLine = this.modifiedLines[modifiedLineIndex];
+          if (originalLine !== modifiedLine) {
+            {
+              let originalStartColumn = getFirstNonBlankColumn(originalLine, 1);
+              let modifiedStartColumn = getFirstNonBlankColumn(modifiedLine, 1);
+              while (originalStartColumn > 1 && modifiedStartColumn > 1) {
+                const originalChar = originalLine.charCodeAt(originalStartColumn - 2);
+                const modifiedChar = modifiedLine.charCodeAt(modifiedStartColumn - 2);
+                if (originalChar !== modifiedChar) {
+                  break;
+                }
+                originalStartColumn--;
+                modifiedStartColumn--;
+              }
+              if (originalStartColumn > 1 || modifiedStartColumn > 1) {
+                this._pushTrimWhitespaceCharChange(result, originalLineIndex + 1, 1, originalStartColumn, modifiedLineIndex + 1, 1, modifiedStartColumn);
+              }
+            }
+            {
+              let originalEndColumn = getLastNonBlankColumn(originalLine, 1);
+              let modifiedEndColumn = getLastNonBlankColumn(modifiedLine, 1);
+              const originalMaxColumn = originalLine.length + 1;
+              const modifiedMaxColumn = modifiedLine.length + 1;
+              while (originalEndColumn < originalMaxColumn && modifiedEndColumn < modifiedMaxColumn) {
+                const originalChar = originalLine.charCodeAt(originalEndColumn - 1);
+                const modifiedChar = originalLine.charCodeAt(modifiedEndColumn - 1);
+                if (originalChar !== modifiedChar) {
+                  break;
+                }
+                originalEndColumn++;
+                modifiedEndColumn++;
+              }
+              if (originalEndColumn < originalMaxColumn || modifiedEndColumn < modifiedMaxColumn) {
+                this._pushTrimWhitespaceCharChange(result, originalLineIndex + 1, originalEndColumn, originalMaxColumn, modifiedLineIndex + 1, modifiedEndColumn, modifiedMaxColumn);
+              }
+            }
+          }
+          originalLineIndex++;
+          modifiedLineIndex++;
+        }
+        if (nextChange) {
+          result.push(LineChange.createFromDiffResult(this.shouldIgnoreTrimWhitespace, nextChange, this.original, this.modified, this.continueCharDiff, this.shouldComputeCharChanges, this.shouldPostProcessCharChanges));
+          originalLineIndex += nextChange.originalLength;
+          modifiedLineIndex += nextChange.modifiedLength;
+        }
+      }
+      return {
+        quitEarly,
+        changes: result
+      };
+    }
+    _pushTrimWhitespaceCharChange(result, originalLineNumber, originalStartColumn, originalEndColumn, modifiedLineNumber, modifiedStartColumn, modifiedEndColumn) {
+      if (this._mergeTrimWhitespaceCharChange(result, originalLineNumber, originalStartColumn, originalEndColumn, modifiedLineNumber, modifiedStartColumn, modifiedEndColumn)) {
+        return;
+      }
+      let charChanges = void 0;
+      if (this.shouldComputeCharChanges) {
+        charChanges = [new CharChange(originalLineNumber, originalStartColumn, originalLineNumber, originalEndColumn, modifiedLineNumber, modifiedStartColumn, modifiedLineNumber, modifiedEndColumn)];
+      }
+      result.push(new LineChange(originalLineNumber, originalLineNumber, modifiedLineNumber, modifiedLineNumber, charChanges));
+    }
+    _mergeTrimWhitespaceCharChange(result, originalLineNumber, originalStartColumn, originalEndColumn, modifiedLineNumber, modifiedStartColumn, modifiedEndColumn) {
+      const len = result.length;
+      if (len === 0) {
+        return false;
+      }
+      const prevChange = result[len - 1];
+      if (prevChange.originalEndLineNumber === 0 || prevChange.modifiedEndLineNumber === 0) {
+        return false;
+      }
+      if (prevChange.originalEndLineNumber === originalLineNumber && prevChange.modifiedEndLineNumber === modifiedLineNumber) {
+        if (this.shouldComputeCharChanges && prevChange.charChanges) {
+          prevChange.charChanges.push(new CharChange(originalLineNumber, originalStartColumn, originalLineNumber, originalEndColumn, modifiedLineNumber, modifiedStartColumn, modifiedLineNumber, modifiedEndColumn));
+        }
+        return true;
+      }
+      if (prevChange.originalEndLineNumber + 1 === originalLineNumber && prevChange.modifiedEndLineNumber + 1 === modifiedLineNumber) {
+        prevChange.originalEndLineNumber = originalLineNumber;
+        prevChange.modifiedEndLineNumber = modifiedLineNumber;
+        if (this.shouldComputeCharChanges && prevChange.charChanges) {
+          prevChange.charChanges.push(new CharChange(originalLineNumber, originalStartColumn, originalLineNumber, originalEndColumn, modifiedLineNumber, modifiedStartColumn, modifiedLineNumber, modifiedEndColumn));
+        }
+        return true;
+      }
+      return false;
+    }
+  };
+  function getFirstNonBlankColumn(txt, defaultValue) {
+    const r = firstNonWhitespaceIndex(txt);
+    if (r === -1) {
+      return defaultValue;
+    }
+    return r + 1;
+  }
+  function getLastNonBlankColumn(txt, defaultValue) {
+    const r = lastNonWhitespaceIndex(txt);
+    if (r === -1) {
+      return defaultValue;
+    }
+    return r + 2;
+  }
+  function createContinueProcessingPredicate(maximumRuntime) {
+    if (maximumRuntime === 0) {
+      return () => true;
+    }
+    const startTime = Date.now();
+    return () => {
+      return Date.now() - startTime < maximumRuntime;
+    };
+  }
+
+  // node_modules/monaco-editor/esm/vs/editor/common/core/offsetRange.js
+  var OffsetRange = class _OffsetRange {
+    static addRange(range, sortedRanges) {
+      let i = 0;
+      while (i < sortedRanges.length && sortedRanges[i].endExclusive < range.start) {
+        i++;
+      }
+      let j = i;
+      while (j < sortedRanges.length && sortedRanges[j].start <= range.endExclusive) {
+        j++;
+      }
+      if (i === j) {
+        sortedRanges.splice(i, 0, range);
+      } else {
+        const start = Math.min(range.start, sortedRanges[i].start);
+        const end = Math.max(range.endExclusive, sortedRanges[j - 1].endExclusive);
+        sortedRanges.splice(i, j - i, new _OffsetRange(start, end));
+      }
+    }
+    static tryCreate(start, endExclusive) {
+      if (start > endExclusive) {
+        return void 0;
+      }
+      return new _OffsetRange(start, endExclusive);
+    }
+    constructor(start, endExclusive) {
+      this.start = start;
+      this.endExclusive = endExclusive;
+      if (start > endExclusive) {
+        throw new BugIndicatingError(`Invalid range: ${this.toString()}`);
+      }
+    }
+    get isEmpty() {
+      return this.start === this.endExclusive;
+    }
+    delta(offset) {
+      return new _OffsetRange(this.start + offset, this.endExclusive + offset);
+    }
+    get length() {
+      return this.endExclusive - this.start;
+    }
+    toString() {
+      return `[${this.start}, ${this.endExclusive})`;
+    }
+    equals(other) {
+      return this.start === other.start && this.endExclusive === other.endExclusive;
+    }
+    containsRange(other) {
+      return this.start <= other.start && other.endExclusive <= this.endExclusive;
+    }
+    /**
+     * for all numbers n: range1.contains(n) or range2.contains(n) => range1.join(range2).contains(n)
+     * The joined range is the smallest range that contains both ranges.
+     */
+    join(other) {
+      return new _OffsetRange(Math.min(this.start, other.start), Math.max(this.endExclusive, other.endExclusive));
+    }
+    /**
+     * for all numbers n: range1.contains(n) and range2.contains(n) <=> range1.intersect(range2).contains(n)
+     *
+     * The resulting range is empty if the ranges do not intersect, but touch.
+     * If the ranges don't even touch, the result is undefined.
+     */
+    intersect(other) {
+      const start = Math.max(this.start, other.start);
+      const end = Math.min(this.endExclusive, other.endExclusive);
+      if (start <= end) {
+        return new _OffsetRange(start, end);
+      }
+      return void 0;
+    }
+  };
+
+  // node_modules/monaco-editor/esm/vs/editor/common/diff/algorithms/diffAlgorithm.js
+  var DiffAlgorithmResult = class _DiffAlgorithmResult {
+    static trivial(seq1, seq2) {
+      return new _DiffAlgorithmResult([new SequenceDiff(new OffsetRange(0, seq1.length), new OffsetRange(0, seq2.length))], false);
+    }
+    static trivialTimedOut(seq1, seq2) {
+      return new _DiffAlgorithmResult([new SequenceDiff(new OffsetRange(0, seq1.length), new OffsetRange(0, seq2.length))], true);
+    }
+    constructor(diffs, hitTimeout) {
+      this.diffs = diffs;
+      this.hitTimeout = hitTimeout;
+    }
+  };
+  var SequenceDiff = class _SequenceDiff {
+    constructor(seq1Range, seq2Range) {
+      this.seq1Range = seq1Range;
+      this.seq2Range = seq2Range;
+    }
+    reverse() {
+      return new _SequenceDiff(this.seq2Range, this.seq1Range);
+    }
+    toString() {
+      return `${this.seq1Range} <-> ${this.seq2Range}`;
+    }
+    join(other) {
+      return new _SequenceDiff(this.seq1Range.join(other.seq1Range), this.seq2Range.join(other.seq2Range));
+    }
+    delta(offset) {
+      if (offset === 0) {
+        return this;
+      }
+      return new _SequenceDiff(this.seq1Range.delta(offset), this.seq2Range.delta(offset));
+    }
+  };
+  var InfiniteTimeout = class {
+    isValid() {
+      return true;
+    }
+  };
+  InfiniteTimeout.instance = new InfiniteTimeout();
+  var DateTimeout = class {
+    constructor(timeout) {
+      this.timeout = timeout;
+      this.startTime = Date.now();
+      this.valid = true;
+      if (timeout <= 0) {
+        throw new BugIndicatingError("timeout must be positive");
+      }
+    }
+    // Recommendation: Set a log-point `{this.disable()}` in the body
+    isValid() {
+      const valid = Date.now() - this.startTime < this.timeout;
+      if (!valid && this.valid) {
+        this.valid = false;
+        debugger;
+      }
+      return this.valid;
+    }
+  };
+
+  // node_modules/monaco-editor/esm/vs/editor/common/diff/algorithms/utils.js
+  var Array2D = class {
+    constructor(width, height) {
+      this.width = width;
+      this.height = height;
+      this.array = [];
+      this.array = new Array(width * height);
+    }
+    get(x, y) {
+      return this.array[x + y * this.width];
+    }
+    set(x, y, value) {
+      this.array[x + y * this.width] = value;
+    }
+  };
+
+  // node_modules/monaco-editor/esm/vs/editor/common/diff/algorithms/dynamicProgrammingDiffing.js
+  var DynamicProgrammingDiffing = class {
+    compute(sequence1, sequence2, timeout = InfiniteTimeout.instance, equalityScore) {
+      if (sequence1.length === 0 || sequence2.length === 0) {
+        return DiffAlgorithmResult.trivial(sequence1, sequence2);
+      }
+      const lcsLengths = new Array2D(sequence1.length, sequence2.length);
+      const directions = new Array2D(sequence1.length, sequence2.length);
+      const lengths = new Array2D(sequence1.length, sequence2.length);
+      for (let s12 = 0; s12 < sequence1.length; s12++) {
+        for (let s22 = 0; s22 < sequence2.length; s22++) {
+          if (!timeout.isValid()) {
+            return DiffAlgorithmResult.trivialTimedOut(sequence1, sequence2);
+          }
+          const horizontalLen = s12 === 0 ? 0 : lcsLengths.get(s12 - 1, s22);
+          const verticalLen = s22 === 0 ? 0 : lcsLengths.get(s12, s22 - 1);
+          let extendedSeqScore;
+          if (sequence1.getElement(s12) === sequence2.getElement(s22)) {
+            if (s12 === 0 || s22 === 0) {
+              extendedSeqScore = 0;
+            } else {
+              extendedSeqScore = lcsLengths.get(s12 - 1, s22 - 1);
+            }
+            if (s12 > 0 && s22 > 0 && directions.get(s12 - 1, s22 - 1) === 3) {
+              extendedSeqScore += lengths.get(s12 - 1, s22 - 1);
+            }
+            extendedSeqScore += equalityScore ? equalityScore(s12, s22) : 1;
+          } else {
+            extendedSeqScore = -1;
+          }
+          const newValue = Math.max(horizontalLen, verticalLen, extendedSeqScore);
+          if (newValue === extendedSeqScore) {
+            const prevLen = s12 > 0 && s22 > 0 ? lengths.get(s12 - 1, s22 - 1) : 0;
+            lengths.set(s12, s22, prevLen + 1);
+            directions.set(s12, s22, 3);
+          } else if (newValue === horizontalLen) {
+            lengths.set(s12, s22, 0);
+            directions.set(s12, s22, 1);
+          } else if (newValue === verticalLen) {
+            lengths.set(s12, s22, 0);
+            directions.set(s12, s22, 2);
+          }
+          lcsLengths.set(s12, s22, newValue);
+        }
+      }
+      const result = [];
+      let lastAligningPosS1 = sequence1.length;
+      let lastAligningPosS2 = sequence2.length;
+      function reportDecreasingAligningPositions(s12, s22) {
+        if (s12 + 1 !== lastAligningPosS1 || s22 + 1 !== lastAligningPosS2) {
+          result.push(new SequenceDiff(new OffsetRange(s12 + 1, lastAligningPosS1), new OffsetRange(s22 + 1, lastAligningPosS2)));
+        }
+        lastAligningPosS1 = s12;
+        lastAligningPosS2 = s22;
+      }
+      let s1 = sequence1.length - 1;
+      let s2 = sequence2.length - 1;
+      while (s1 >= 0 && s2 >= 0) {
+        if (directions.get(s1, s2) === 3) {
+          reportDecreasingAligningPositions(s1, s2);
+          s1--;
+          s2--;
+        } else {
+          if (directions.get(s1, s2) === 1) {
+            s1--;
+          } else {
+            s2--;
+          }
+        }
+      }
+      reportDecreasingAligningPositions(-1, -1);
+      result.reverse();
+      return new DiffAlgorithmResult(result, false);
+    }
+  };
+
+  // node_modules/monaco-editor/esm/vs/editor/common/diff/algorithms/joinSequenceDiffs.js
+  function optimizeSequenceDiffs(sequence1, sequence2, sequenceDiffs) {
+    let result = sequenceDiffs;
+    result = joinSequenceDiffs(sequence1, sequence2, result);
+    result = shiftSequenceDiffs(sequence1, sequence2, result);
+    return result;
+  }
+  function smoothenSequenceDiffs(sequence1, sequence2, sequenceDiffs) {
+    const result = [];
+    for (const s of sequenceDiffs) {
+      const last = result[result.length - 1];
+      if (!last) {
+        result.push(s);
+        continue;
+      }
+      if (s.seq1Range.start - last.seq1Range.endExclusive <= 2 || s.seq2Range.start - last.seq2Range.endExclusive <= 2) {
+        result[result.length - 1] = new SequenceDiff(last.seq1Range.join(s.seq1Range), last.seq2Range.join(s.seq2Range));
+      } else {
+        result.push(s);
+      }
+    }
+    return result;
+  }
+  function joinSequenceDiffs(sequence1, sequence2, sequenceDiffs) {
+    const result = [];
+    if (sequenceDiffs.length > 0) {
+      result.push(sequenceDiffs[0]);
+    }
+    for (let i = 1; i < sequenceDiffs.length; i++) {
+      const prevResult = sequenceDiffs[i - 1];
+      let cur = sequenceDiffs[i];
+      if (cur.seq1Range.isEmpty || cur.seq2Range.isEmpty) {
+        const length = cur.seq1Range.start - prevResult.seq1Range.endExclusive;
+        let d;
+        for (d = 1; d <= length; d++) {
+          if (sequence1.getElement(cur.seq1Range.start - d) !== sequence1.getElement(cur.seq1Range.endExclusive - d) || sequence2.getElement(cur.seq2Range.start - d) !== sequence2.getElement(cur.seq2Range.endExclusive - d)) {
+            break;
+          }
+        }
+        d--;
+        if (d === length) {
+          result[result.length - 1] = new SequenceDiff(new OffsetRange(prevResult.seq1Range.start, cur.seq1Range.endExclusive - length), new OffsetRange(prevResult.seq2Range.start, cur.seq2Range.endExclusive - length));
+          continue;
+        }
+        cur = cur.delta(-d);
+      }
+      result.push(cur);
+    }
+    const result2 = [];
+    for (let i = 0; i < result.length - 1; i++) {
+      const nextResult = result[i + 1];
+      let cur = result[i];
+      if (cur.seq1Range.isEmpty || cur.seq2Range.isEmpty) {
+        const length = nextResult.seq1Range.start - cur.seq1Range.endExclusive;
+        let d;
+        for (d = 0; d < length; d++) {
+          if (sequence1.getElement(cur.seq1Range.start + d) !== sequence1.getElement(cur.seq1Range.endExclusive + d) || sequence2.getElement(cur.seq2Range.start + d) !== sequence2.getElement(cur.seq2Range.endExclusive + d)) {
+            break;
+          }
+        }
+        if (d === length) {
+          result[i + 1] = new SequenceDiff(new OffsetRange(cur.seq1Range.start + length, nextResult.seq1Range.endExclusive), new OffsetRange(cur.seq2Range.start + length, nextResult.seq2Range.endExclusive));
+          continue;
+        }
+        if (d > 0) {
+          cur = cur.delta(d);
+        }
+      }
+      result2.push(cur);
+    }
+    if (result.length > 0) {
+      result2.push(result[result.length - 1]);
+    }
+    return result2;
+  }
+  function shiftSequenceDiffs(sequence1, sequence2, sequenceDiffs) {
+    if (!sequence1.getBoundaryScore || !sequence2.getBoundaryScore) {
+      return sequenceDiffs;
+    }
+    for (let i = 0; i < sequenceDiffs.length; i++) {
+      const prevDiff = i > 0 ? sequenceDiffs[i - 1] : void 0;
+      const diff = sequenceDiffs[i];
+      const nextDiff = i + 1 < sequenceDiffs.length ? sequenceDiffs[i + 1] : void 0;
+      const seq1ValidRange = new OffsetRange(prevDiff ? prevDiff.seq1Range.start + 1 : 0, nextDiff ? nextDiff.seq1Range.endExclusive - 1 : sequence1.length);
+      const seq2ValidRange = new OffsetRange(prevDiff ? prevDiff.seq2Range.start + 1 : 0, nextDiff ? nextDiff.seq2Range.endExclusive - 1 : sequence2.length);
+      if (diff.seq1Range.isEmpty) {
+        sequenceDiffs[i] = shiftDiffToBetterPosition(diff, sequence1, sequence2, seq1ValidRange, seq2ValidRange);
+      } else if (diff.seq2Range.isEmpty) {
+        sequenceDiffs[i] = shiftDiffToBetterPosition(diff.reverse(), sequence2, sequence1, seq2ValidRange, seq1ValidRange).reverse();
+      }
+    }
+    return sequenceDiffs;
+  }
+  function shiftDiffToBetterPosition(diff, sequence1, sequence2, seq1ValidRange, seq2ValidRange) {
+    const maxShiftLimit = 100;
+    let deltaBefore = 1;
+    while (diff.seq1Range.start - deltaBefore >= seq1ValidRange.start && diff.seq2Range.start - deltaBefore >= seq2ValidRange.start && sequence2.getElement(diff.seq2Range.start - deltaBefore) === sequence2.getElement(diff.seq2Range.endExclusive - deltaBefore) && deltaBefore < maxShiftLimit) {
+      deltaBefore++;
+    }
+    deltaBefore--;
+    let deltaAfter = 0;
+    while (diff.seq1Range.start + deltaAfter < seq1ValidRange.endExclusive && diff.seq2Range.endExclusive + deltaAfter < seq2ValidRange.endExclusive && sequence2.getElement(diff.seq2Range.start + deltaAfter) === sequence2.getElement(diff.seq2Range.endExclusive + deltaAfter) && deltaAfter < maxShiftLimit) {
+      deltaAfter++;
+    }
+    if (deltaBefore === 0 && deltaAfter === 0) {
+      return diff;
+    }
+    let bestDelta = 0;
+    let bestScore = -1;
+    for (let delta = -deltaBefore; delta <= deltaAfter; delta++) {
+      const seq2OffsetStart = diff.seq2Range.start + delta;
+      const seq2OffsetEndExclusive = diff.seq2Range.endExclusive + delta;
+      const seq1Offset = diff.seq1Range.start + delta;
+      const score2 = sequence1.getBoundaryScore(seq1Offset) + sequence2.getBoundaryScore(seq2OffsetStart) + sequence2.getBoundaryScore(seq2OffsetEndExclusive);
+      if (score2 > bestScore) {
+        bestScore = score2;
+        bestDelta = delta;
+      }
+    }
+    return diff.delta(bestDelta);
+  }
+
+  // node_modules/monaco-editor/esm/vs/editor/common/diff/algorithms/myersDiffAlgorithm.js
+  var MyersDiffAlgorithm = class {
+    compute(seq1, seq2, timeout = InfiniteTimeout.instance) {
+      if (seq1.length === 0 || seq2.length === 0) {
+        return DiffAlgorithmResult.trivial(seq1, seq2);
+      }
+      function getXAfterSnake(x, y) {
+        while (x < seq1.length && y < seq2.length && seq1.getElement(x) === seq2.getElement(y)) {
+          x++;
+          y++;
+        }
+        return x;
+      }
+      let d = 0;
+      const V = new FastInt32Array();
+      V.set(0, getXAfterSnake(0, 0));
+      const paths = new FastArrayNegativeIndices();
+      paths.set(0, V.get(0) === 0 ? null : new SnakePath(null, 0, 0, V.get(0)));
+      let k = 0;
+      loop:
+        while (true) {
+          d++;
+          if (!timeout.isValid()) {
+            return DiffAlgorithmResult.trivialTimedOut(seq1, seq2);
+          }
+          const lowerBound = -Math.min(d, seq2.length + d % 2);
+          const upperBound = Math.min(d, seq1.length + d % 2);
+          for (k = lowerBound; k <= upperBound; k += 2) {
+            const maxXofDLineTop = k === upperBound ? -1 : V.get(k + 1);
+            const maxXofDLineLeft = k === lowerBound ? -1 : V.get(k - 1) + 1;
+            const x = Math.min(Math.max(maxXofDLineTop, maxXofDLineLeft), seq1.length);
+            const y = x - k;
+            if (x > seq1.length || y > seq2.length) {
+              continue;
+            }
+            const newMaxX = getXAfterSnake(x, y);
+            V.set(k, newMaxX);
+            const lastPath = x === maxXofDLineTop ? paths.get(k + 1) : paths.get(k - 1);
+            paths.set(k, newMaxX !== x ? new SnakePath(lastPath, x, y, newMaxX - x) : lastPath);
+            if (V.get(k) === seq1.length && V.get(k) - k === seq2.length) {
+              break loop;
+            }
+          }
+        }
+      let path5 = paths.get(k);
+      const result = [];
+      let lastAligningPosS1 = seq1.length;
+      let lastAligningPosS2 = seq2.length;
+      while (true) {
+        const endX = path5 ? path5.x + path5.length : 0;
+        const endY = path5 ? path5.y + path5.length : 0;
+        if (endX !== lastAligningPosS1 || endY !== lastAligningPosS2) {
+          result.push(new SequenceDiff(new OffsetRange(endX, lastAligningPosS1), new OffsetRange(endY, lastAligningPosS2)));
+        }
+        if (!path5) {
+          break;
+        }
+        lastAligningPosS1 = path5.x;
+        lastAligningPosS2 = path5.y;
+        path5 = path5.prev;
+      }
+      result.reverse();
+      return new DiffAlgorithmResult(result, false);
+    }
+  };
+  var SnakePath = class {
+    constructor(prev, x, y, length) {
+      this.prev = prev;
+      this.x = x;
+      this.y = y;
+      this.length = length;
+    }
+  };
+  var FastInt32Array = class {
+    constructor() {
+      this.positiveArr = new Int32Array(10);
+      this.negativeArr = new Int32Array(10);
+    }
+    get(idx) {
+      if (idx < 0) {
+        idx = -idx - 1;
+        return this.negativeArr[idx];
+      } else {
+        return this.positiveArr[idx];
+      }
+    }
+    set(idx, value) {
+      if (idx < 0) {
+        idx = -idx - 1;
+        if (idx >= this.negativeArr.length) {
+          const arr = this.negativeArr;
+          this.negativeArr = new Int32Array(arr.length * 2);
+          this.negativeArr.set(arr);
+        }
+        this.negativeArr[idx] = value;
+      } else {
+        if (idx >= this.positiveArr.length) {
+          const arr = this.positiveArr;
+          this.positiveArr = new Int32Array(arr.length * 2);
+          this.positiveArr.set(arr);
+        }
+        this.positiveArr[idx] = value;
+      }
+    }
+  };
+  var FastArrayNegativeIndices = class {
+    constructor() {
+      this.positiveArr = [];
+      this.negativeArr = [];
+    }
+    get(idx) {
+      if (idx < 0) {
+        idx = -idx - 1;
+        return this.negativeArr[idx];
+      } else {
+        return this.positiveArr[idx];
+      }
+    }
+    set(idx, value) {
+      if (idx < 0) {
+        idx = -idx - 1;
+        this.negativeArr[idx] = value;
+      } else {
+        this.positiveArr[idx] = value;
+      }
+    }
+  };
+
+  // node_modules/monaco-editor/esm/vs/editor/common/diff/standardLinesDiffComputer.js
+  var StandardLinesDiffComputer = class {
+    constructor() {
+      this.dynamicProgrammingDiffing = new DynamicProgrammingDiffing();
+      this.myersDiffingAlgorithm = new MyersDiffAlgorithm();
+    }
+    computeDiff(originalLines, modifiedLines, options) {
+      const timeout = options.maxComputationTimeMs === 0 ? InfiniteTimeout.instance : new DateTimeout(options.maxComputationTimeMs);
+      const considerWhitespaceChanges = !options.ignoreTrimWhitespace;
+      const perfectHashes = /* @__PURE__ */ new Map();
+      function getOrCreateHash(text) {
+        let hash = perfectHashes.get(text);
+        if (hash === void 0) {
+          hash = perfectHashes.size;
+          perfectHashes.set(text, hash);
+        }
+        return hash;
+      }
+      const srcDocLines = originalLines.map((l) => getOrCreateHash(l.trim()));
+      const tgtDocLines = modifiedLines.map((l) => getOrCreateHash(l.trim()));
+      const sequence1 = new LineSequence2(srcDocLines, originalLines);
+      const sequence2 = new LineSequence2(tgtDocLines, modifiedLines);
+      const lineAlignmentResult = (() => {
+        if (sequence1.length + sequence2.length < 1500) {
+          return this.dynamicProgrammingDiffing.compute(sequence1, sequence2, timeout, (offset1, offset2) => originalLines[offset1] === modifiedLines[offset2] ? modifiedLines[offset2].length === 0 ? 0.1 : 1 + Math.log(1 + modifiedLines[offset2].length) : 0.99);
+        }
+        return this.myersDiffingAlgorithm.compute(sequence1, sequence2);
+      })();
+      let lineAlignments = lineAlignmentResult.diffs;
+      let hitTimeout = lineAlignmentResult.hitTimeout;
+      lineAlignments = optimizeSequenceDiffs(sequence1, sequence2, lineAlignments);
+      const alignments = [];
+      const scanForWhitespaceChanges = (equalLinesCount) => {
+        if (!considerWhitespaceChanges) {
+          return;
+        }
+        for (let i = 0; i < equalLinesCount; i++) {
+          const seq1Offset = seq1LastStart + i;
+          const seq2Offset = seq2LastStart + i;
+          if (originalLines[seq1Offset] !== modifiedLines[seq2Offset]) {
+            const characterDiffs = this.refineDiff(originalLines, modifiedLines, new SequenceDiff(new OffsetRange(seq1Offset, seq1Offset + 1), new OffsetRange(seq2Offset, seq2Offset + 1)), timeout, considerWhitespaceChanges);
+            for (const a2 of characterDiffs.mappings) {
+              alignments.push(a2);
+            }
+            if (characterDiffs.hitTimeout) {
+              hitTimeout = true;
+            }
+          }
+        }
+      };
+      let seq1LastStart = 0;
+      let seq2LastStart = 0;
+      for (const diff of lineAlignments) {
+        assertFn(() => diff.seq1Range.start - seq1LastStart === diff.seq2Range.start - seq2LastStart);
+        const equalLinesCount = diff.seq1Range.start - seq1LastStart;
+        scanForWhitespaceChanges(equalLinesCount);
+        seq1LastStart = diff.seq1Range.endExclusive;
+        seq2LastStart = diff.seq2Range.endExclusive;
+        const characterDiffs = this.refineDiff(originalLines, modifiedLines, diff, timeout, considerWhitespaceChanges);
+        if (characterDiffs.hitTimeout) {
+          hitTimeout = true;
+        }
+        for (const a2 of characterDiffs.mappings) {
+          alignments.push(a2);
+        }
+      }
+      scanForWhitespaceChanges(originalLines.length - seq1LastStart);
+      const changes = lineRangeMappingFromRangeMappings(alignments, originalLines, modifiedLines);
+      const moves = [];
+      if (options.computeMoves) {
+        const deletions = changes.filter((c) => c.modifiedRange.isEmpty && c.originalRange.length >= 3).map((d) => new LineRangeFragment(d.originalRange, originalLines));
+        const insertions = new Set(changes.filter((c) => c.originalRange.isEmpty && c.modifiedRange.length >= 3).map((d) => new LineRangeFragment(d.modifiedRange, modifiedLines)));
+        for (const deletion of deletions) {
+          let highestSimilarity = -1;
+          let best;
+          for (const insertion of insertions) {
+            const similarity = deletion.computeSimilarity(insertion);
+            if (similarity > highestSimilarity) {
+              highestSimilarity = similarity;
+              best = insertion;
+            }
+          }
+          if (highestSimilarity > 0.9 && best) {
+            const moveChanges = this.refineDiff(originalLines, modifiedLines, new SequenceDiff(new OffsetRange(deletion.range.startLineNumber - 1, deletion.range.endLineNumberExclusive - 1), new OffsetRange(best.range.startLineNumber - 1, best.range.endLineNumberExclusive - 1)), timeout, considerWhitespaceChanges);
+            const mappings = lineRangeMappingFromRangeMappings(moveChanges.mappings, originalLines, modifiedLines, true);
+            insertions.delete(best);
+            moves.push(new MovedText(new SimpleLineRangeMapping(deletion.range, best.range), mappings));
+          }
+        }
+      }
+      return new LinesDiff(changes, moves, hitTimeout);
+    }
+    refineDiff(originalLines, modifiedLines, diff, timeout, considerWhitespaceChanges) {
+      const slice1 = new Slice(originalLines, diff.seq1Range, considerWhitespaceChanges);
+      const slice2 = new Slice(modifiedLines, diff.seq2Range, considerWhitespaceChanges);
+      const diffResult = slice1.length + slice2.length < 500 ? this.dynamicProgrammingDiffing.compute(slice1, slice2, timeout) : this.myersDiffingAlgorithm.compute(slice1, slice2, timeout);
+      let diffs = diffResult.diffs;
+      diffs = optimizeSequenceDiffs(slice1, slice2, diffs);
+      diffs = coverFullWords(slice1, slice2, diffs);
+      diffs = smoothenSequenceDiffs(slice1, slice2, diffs);
+      const result = diffs.map((d) => new RangeMapping(slice1.translateRange(d.seq1Range), slice2.translateRange(d.seq2Range)));
+      return {
+        mappings: result,
+        hitTimeout: diffResult.hitTimeout
+      };
+    }
+  };
+  function coverFullWords(sequence1, sequence2, sequenceDiffs) {
+    const additional = [];
+    let lastModifiedWord = void 0;
+    function maybePushWordToAdditional() {
+      if (!lastModifiedWord) {
+        return;
+      }
+      const originalLength1 = lastModifiedWord.s1Range.length - lastModifiedWord.deleted;
+      const originalLength2 = lastModifiedWord.s2Range.length - lastModifiedWord.added;
+      if (originalLength1 !== originalLength2) {
+      }
+      if (Math.max(lastModifiedWord.deleted, lastModifiedWord.added) + (lastModifiedWord.count - 1) > originalLength1) {
+        additional.push(new SequenceDiff(lastModifiedWord.s1Range, lastModifiedWord.s2Range));
+      }
+      lastModifiedWord = void 0;
+    }
+    for (const s of sequenceDiffs) {
+      let processWord = function(s1Range, s2Range) {
+        var _a3, _b, _c, _d;
+        if (!lastModifiedWord || !lastModifiedWord.s1Range.containsRange(s1Range) || !lastModifiedWord.s2Range.containsRange(s2Range)) {
+          if (lastModifiedWord && !(lastModifiedWord.s1Range.endExclusive < s1Range.start && lastModifiedWord.s2Range.endExclusive < s2Range.start)) {
+            const s1Added = OffsetRange.tryCreate(lastModifiedWord.s1Range.endExclusive, s1Range.start);
+            const s2Added = OffsetRange.tryCreate(lastModifiedWord.s2Range.endExclusive, s2Range.start);
+            lastModifiedWord.deleted += (_a3 = s1Added === null || s1Added === void 0 ? void 0 : s1Added.length) !== null && _a3 !== void 0 ? _a3 : 0;
+            lastModifiedWord.added += (_b = s2Added === null || s2Added === void 0 ? void 0 : s2Added.length) !== null && _b !== void 0 ? _b : 0;
+            lastModifiedWord.s1Range = lastModifiedWord.s1Range.join(s1Range);
+            lastModifiedWord.s2Range = lastModifiedWord.s2Range.join(s2Range);
+          } else {
+            maybePushWordToAdditional();
+            lastModifiedWord = { added: 0, deleted: 0, count: 0, s1Range, s2Range };
+          }
+        }
+        const changedS1 = s1Range.intersect(s.seq1Range);
+        const changedS2 = s2Range.intersect(s.seq2Range);
+        lastModifiedWord.count++;
+        lastModifiedWord.deleted += (_c = changedS1 === null || changedS1 === void 0 ? void 0 : changedS1.length) !== null && _c !== void 0 ? _c : 0;
+        lastModifiedWord.added += (_d = changedS2 === null || changedS2 === void 0 ? void 0 : changedS2.length) !== null && _d !== void 0 ? _d : 0;
+      };
+      const w1Before = sequence1.findWordContaining(s.seq1Range.start - 1);
+      const w2Before = sequence2.findWordContaining(s.seq2Range.start - 1);
+      const w1After = sequence1.findWordContaining(s.seq1Range.endExclusive);
+      const w2After = sequence2.findWordContaining(s.seq2Range.endExclusive);
+      if (w1Before && w1After && w2Before && w2After && w1Before.equals(w1After) && w2Before.equals(w2After)) {
+        processWord(w1Before, w2Before);
+      } else {
+        if (w1Before && w2Before) {
+          processWord(w1Before, w2Before);
+        }
+        if (w1After && w2After) {
+          processWord(w1After, w2After);
+        }
+      }
+    }
+    maybePushWordToAdditional();
+    const merged = mergeSequenceDiffs(sequenceDiffs, additional);
+    return merged;
+  }
+  function mergeSequenceDiffs(sequenceDiffs1, sequenceDiffs2) {
+    const result = [];
+    while (sequenceDiffs1.length > 0 || sequenceDiffs2.length > 0) {
+      const sd1 = sequenceDiffs1[0];
+      const sd2 = sequenceDiffs2[0];
+      let next;
+      if (sd1 && (!sd2 || sd1.seq1Range.start < sd2.seq1Range.start)) {
+        next = sequenceDiffs1.shift();
+      } else {
+        next = sequenceDiffs2.shift();
+      }
+      if (result.length > 0 && result[result.length - 1].seq1Range.endExclusive >= next.seq1Range.start) {
+        result[result.length - 1] = result[result.length - 1].join(next);
+      } else {
+        result.push(next);
+      }
+    }
+    return result;
+  }
+  function lineRangeMappingFromRangeMappings(alignments, originalLines, modifiedLines, dontAssertStartLine = false) {
+    const changes = [];
+    for (const g of group(alignments.map((a2) => getLineRangeMapping(a2, originalLines, modifiedLines)), (a1, a2) => a1.originalRange.overlapOrTouch(a2.originalRange) || a1.modifiedRange.overlapOrTouch(a2.modifiedRange))) {
+      const first = g[0];
+      const last = g[g.length - 1];
+      changes.push(new LineRangeMapping(first.originalRange.join(last.originalRange), first.modifiedRange.join(last.modifiedRange), g.map((a2) => a2.innerChanges[0])));
+    }
+    assertFn(() => {
+      if (!dontAssertStartLine) {
+        if (changes.length > 0 && changes[0].originalRange.startLineNumber !== changes[0].modifiedRange.startLineNumber) {
+          return false;
+        }
+      }
+      return checkAdjacentItems(changes, (m1, m2) => m2.originalRange.startLineNumber - m1.originalRange.endLineNumberExclusive === m2.modifiedRange.startLineNumber - m1.modifiedRange.endLineNumberExclusive && // There has to be an unchanged line in between (otherwise both diffs should have been joined)
+      m1.originalRange.endLineNumberExclusive < m2.originalRange.startLineNumber && m1.modifiedRange.endLineNumberExclusive < m2.modifiedRange.startLineNumber);
+    });
+    return changes;
+  }
+  function getLineRangeMapping(rangeMapping, originalLines, modifiedLines) {
+    let lineStartDelta = 0;
+    let lineEndDelta = 0;
+    if (rangeMapping.modifiedRange.endColumn === 1 && rangeMapping.originalRange.endColumn === 1 && rangeMapping.originalRange.startLineNumber + lineStartDelta <= rangeMapping.originalRange.endLineNumber && rangeMapping.modifiedRange.startLineNumber + lineStartDelta <= rangeMapping.modifiedRange.endLineNumber) {
+      lineEndDelta = -1;
+    }
+    if (rangeMapping.modifiedRange.startColumn - 1 >= modifiedLines[rangeMapping.modifiedRange.startLineNumber - 1].length && rangeMapping.originalRange.startColumn - 1 >= originalLines[rangeMapping.originalRange.startLineNumber - 1].length && rangeMapping.originalRange.startLineNumber <= rangeMapping.originalRange.endLineNumber + lineEndDelta && rangeMapping.modifiedRange.startLineNumber <= rangeMapping.modifiedRange.endLineNumber + lineEndDelta) {
+      lineStartDelta = 1;
+    }
+    const originalLineRange = new LineRange(rangeMapping.originalRange.startLineNumber + lineStartDelta, rangeMapping.originalRange.endLineNumber + 1 + lineEndDelta);
+    const modifiedLineRange = new LineRange(rangeMapping.modifiedRange.startLineNumber + lineStartDelta, rangeMapping.modifiedRange.endLineNumber + 1 + lineEndDelta);
+    return new LineRangeMapping(originalLineRange, modifiedLineRange, [rangeMapping]);
+  }
+  function* group(items, shouldBeGrouped) {
+    let currentGroup;
+    let last;
+    for (const item of items) {
+      if (last !== void 0 && shouldBeGrouped(last, item)) {
+        currentGroup.push(item);
+      } else {
+        if (currentGroup) {
+          yield currentGroup;
+        }
+        currentGroup = [item];
+      }
+      last = item;
+    }
+    if (currentGroup) {
+      yield currentGroup;
+    }
+  }
+  var LineSequence2 = class {
+    constructor(trimmedHash, lines) {
+      this.trimmedHash = trimmedHash;
+      this.lines = lines;
+    }
+    getElement(offset) {
+      return this.trimmedHash[offset];
+    }
+    get length() {
+      return this.trimmedHash.length;
+    }
+    getBoundaryScore(length) {
+      const indentationBefore = length === 0 ? 0 : getIndentation(this.lines[length - 1]);
+      const indentationAfter = length === this.lines.length ? 0 : getIndentation(this.lines[length]);
+      return 1e3 - (indentationBefore + indentationAfter);
+    }
+  };
+  function getIndentation(str) {
+    let i = 0;
+    while (i < str.length && (str.charCodeAt(i) === 32 || str.charCodeAt(i) === 9)) {
+      i++;
+    }
+    return i;
+  }
+  var Slice = class {
+    constructor(lines, lineRange, considerWhitespaceChanges) {
+      this.lines = lines;
+      this.considerWhitespaceChanges = considerWhitespaceChanges;
+      this.elements = [];
+      this.firstCharOffsetByLineMinusOne = [];
+      this.offsetByLine = [];
+      let trimFirstLineFully = false;
+      if (lineRange.start > 0 && lineRange.endExclusive >= lines.length) {
+        lineRange = new OffsetRange(lineRange.start - 1, lineRange.endExclusive);
+        trimFirstLineFully = true;
+      }
+      this.lineRange = lineRange;
+      for (let i = this.lineRange.start; i < this.lineRange.endExclusive; i++) {
+        let line = lines[i];
+        let offset = 0;
+        if (trimFirstLineFully) {
+          offset = line.length;
+          line = "";
+          trimFirstLineFully = false;
+        } else if (!considerWhitespaceChanges) {
+          const trimmedStartLine = line.trimStart();
+          offset = line.length - trimmedStartLine.length;
+          line = trimmedStartLine.trimEnd();
+        }
+        this.offsetByLine.push(offset);
+        for (let i2 = 0; i2 < line.length; i2++) {
+          this.elements.push(line.charCodeAt(i2));
+        }
+        if (i < lines.length - 1) {
+          this.elements.push("\n".charCodeAt(0));
+          this.firstCharOffsetByLineMinusOne[i - this.lineRange.start] = this.elements.length;
+        }
+      }
+      this.offsetByLine.push(0);
+    }
+    toString() {
+      return `Slice: "${this.text}"`;
+    }
+    get text() {
+      return [...this.elements].map((e) => String.fromCharCode(e)).join("");
+    }
+    getElement(offset) {
+      return this.elements[offset];
+    }
+    get length() {
+      return this.elements.length;
+    }
+    getBoundaryScore(length) {
+      const prevCategory = getCategory(length > 0 ? this.elements[length - 1] : -1);
+      const nextCategory = getCategory(length < this.elements.length ? this.elements[length] : -1);
+      if (prevCategory === 6 && nextCategory === 7) {
+        return 0;
+      }
+      let score2 = 0;
+      if (prevCategory !== nextCategory) {
+        score2 += 10;
+        if (nextCategory === 1) {
+          score2 += 1;
+        }
+      }
+      score2 += getCategoryBoundaryScore(prevCategory);
+      score2 += getCategoryBoundaryScore(nextCategory);
+      return score2;
+    }
+    translateOffset(offset) {
+      if (this.lineRange.isEmpty) {
+        return new Position(this.lineRange.start + 1, 1);
+      }
+      let i = 0;
+      let j = this.firstCharOffsetByLineMinusOne.length;
+      while (i < j) {
+        const k = Math.floor((i + j) / 2);
+        if (this.firstCharOffsetByLineMinusOne[k] > offset) {
+          j = k;
+        } else {
+          i = k + 1;
+        }
+      }
+      const offsetOfFirstCharInLine = i === 0 ? 0 : this.firstCharOffsetByLineMinusOne[i - 1];
+      return new Position(this.lineRange.start + i + 1, offset - offsetOfFirstCharInLine + 1 + this.offsetByLine[i]);
+    }
+    translateRange(range) {
+      return Range.fromPositions(this.translateOffset(range.start), this.translateOffset(range.endExclusive));
+    }
+    /**
+     * Finds the word that contains the character at the given offset
+     */
+    findWordContaining(offset) {
+      if (offset < 0 || offset >= this.elements.length) {
+        return void 0;
+      }
+      if (!isWordChar(this.elements[offset])) {
+        return void 0;
+      }
+      let start = offset;
+      while (start > 0 && isWordChar(this.elements[start - 1])) {
+        start--;
+      }
+      let end = offset;
+      while (end < this.elements.length && isWordChar(this.elements[end])) {
+        end++;
+      }
+      return new OffsetRange(start, end);
+    }
+  };
+  function isWordChar(charCode) {
+    return charCode >= 97 && charCode <= 122 || charCode >= 65 && charCode <= 90 || charCode >= 48 && charCode <= 57;
+  }
+  var score = {
+    [
+      0
+      /* CharBoundaryCategory.WordLower */
+    ]: 0,
+    [
+      1
+      /* CharBoundaryCategory.WordUpper */
+    ]: 0,
+    [
+      2
+      /* CharBoundaryCategory.WordNumber */
+    ]: 0,
+    [
+      3
+      /* CharBoundaryCategory.End */
+    ]: 10,
+    [
+      4
+      /* CharBoundaryCategory.Other */
+    ]: 2,
+    [
+      5
+      /* CharBoundaryCategory.Space */
+    ]: 3,
+    [
+      6
+      /* CharBoundaryCategory.LineBreakCR */
+    ]: 10,
+    [
+      7
+      /* CharBoundaryCategory.LineBreakLF */
+    ]: 10
+  };
+  function getCategoryBoundaryScore(category) {
+    return score[category];
+  }
+  function getCategory(charCode) {
+    if (charCode === 10) {
+      return 7;
+    } else if (charCode === 13) {
+      return 6;
+    } else if (isSpace(charCode)) {
+      return 5;
+    } else if (charCode >= 97 && charCode <= 122) {
+      return 0;
+    } else if (charCode >= 65 && charCode <= 90) {
+      return 1;
+    } else if (charCode >= 48 && charCode <= 57) {
+      return 2;
+    } else if (charCode === -1) {
+      return 3;
+    } else {
+      return 4;
+    }
+  }
+  function isSpace(charCode) {
+    return charCode === 32 || charCode === 9;
+  }
+  var chrKeys = /* @__PURE__ */ new Map();
+  function getKey(chr) {
+    let key = chrKeys.get(chr);
+    if (key === void 0) {
+      key = chrKeys.size;
+      chrKeys.set(chr, key);
+    }
+    return key;
+  }
+  var LineRangeFragment = class {
+    constructor(range, lines) {
+      this.range = range;
+      this.lines = lines;
+      this.histogram = [];
+      let counter = 0;
+      for (let i = range.startLineNumber - 1; i < range.endLineNumberExclusive - 1; i++) {
+        const line = lines[i];
+        for (let j = 0; j < line.length; j++) {
+          counter++;
+          const chr = line[j];
+          const key2 = getKey(chr);
+          this.histogram[key2] = (this.histogram[key2] || 0) + 1;
+        }
+        counter++;
+        const key = getKey("\n");
+        this.histogram[key] = (this.histogram[key] || 0) + 1;
+      }
+      this.totalCount = counter;
+    }
+    computeSimilarity(other) {
+      var _a3, _b;
+      let sumDifferences = 0;
+      const maxLength = Math.max(this.histogram.length, other.histogram.length);
+      for (let i = 0; i < maxLength; i++) {
+        sumDifferences += Math.abs(((_a3 = this.histogram[i]) !== null && _a3 !== void 0 ? _a3 : 0) - ((_b = other.histogram[i]) !== null && _b !== void 0 ? _b : 0));
+      }
+      return 1 - sumDifferences / (this.totalCount + other.totalCount);
+    }
+  };
+
+  // node_modules/monaco-editor/esm/vs/editor/common/diff/linesDiffComputers.js
+  var linesDiffComputers = {
+    getLegacy: () => new SmartLinesDiffComputer(),
+    getAdvanced: () => new StandardLinesDiffComputer()
+  };
+
+  // node_modules/monaco-editor/esm/vs/base/common/color.js
+  function roundFloat(number, decimalPoints) {
+    const decimal = Math.pow(10, decimalPoints);
+    return Math.round(number * decimal) / decimal;
+  }
+  var RGBA = class {
+    constructor(r, g, b, a2 = 1) {
+      this._rgbaBrand = void 0;
+      this.r = Math.min(255, Math.max(0, r)) | 0;
+      this.g = Math.min(255, Math.max(0, g)) | 0;
+      this.b = Math.min(255, Math.max(0, b)) | 0;
+      this.a = roundFloat(Math.max(Math.min(1, a2), 0), 3);
+    }
+    static equals(a2, b) {
+      return a2.r === b.r && a2.g === b.g && a2.b === b.b && a2.a === b.a;
+    }
+  };
+  var HSLA = class _HSLA {
+    constructor(h, s, l, a2) {
+      this._hslaBrand = void 0;
+      this.h = Math.max(Math.min(360, h), 0) | 0;
+      this.s = roundFloat(Math.max(Math.min(1, s), 0), 3);
+      this.l = roundFloat(Math.max(Math.min(1, l), 0), 3);
+      this.a = roundFloat(Math.max(Math.min(1, a2), 0), 3);
+    }
+    static equals(a2, b) {
+      return a2.h === b.h && a2.s === b.s && a2.l === b.l && a2.a === b.a;
+    }
+    /**
+     * Converts an RGB color value to HSL. Conversion formula
+     * adapted from http://en.wikipedia.org/wiki/HSL_color_space.
+     * Assumes r, g, and b are contained in the set [0, 255] and
+     * returns h in the set [0, 360], s, and l in the set [0, 1].
+     */
+    static fromRGBA(rgba) {
+      const r = rgba.r / 255;
+      const g = rgba.g / 255;
+      const b = rgba.b / 255;
+      const a2 = rgba.a;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      let h = 0;
+      let s = 0;
+      const l = (min + max) / 2;
+      const chroma = max - min;
+      if (chroma > 0) {
+        s = Math.min(l <= 0.5 ? chroma / (2 * l) : chroma / (2 - 2 * l), 1);
+        switch (max) {
+          case r:
+            h = (g - b) / chroma + (g < b ? 6 : 0);
+            break;
+          case g:
+            h = (b - r) / chroma + 2;
+            break;
+          case b:
+            h = (r - g) / chroma + 4;
+            break;
+        }
+        h *= 60;
+        h = Math.round(h);
+      }
+      return new _HSLA(h, s, l, a2);
+    }
+    static _hue2rgb(p, q, t) {
+      if (t < 0) {
+        t += 1;
+      }
+      if (t > 1) {
+        t -= 1;
+      }
+      if (t < 1 / 6) {
+        return p + (q - p) * 6 * t;
+      }
+      if (t < 1 / 2) {
+        return q;
+      }
+      if (t < 2 / 3) {
+        return p + (q - p) * (2 / 3 - t) * 6;
+      }
+      return p;
+    }
+    /**
+     * Converts an HSL color value to RGB. Conversion formula
+     * adapted from http://en.wikipedia.org/wiki/HSL_color_space.
+     * Assumes h in the set [0, 360] s, and l are contained in the set [0, 1] and
+     * returns r, g, and b in the set [0, 255].
+     */
+    static toRGBA(hsla) {
+      const h = hsla.h / 360;
+      const { s, l, a: a2 } = hsla;
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = _HSLA._hue2rgb(p, q, h + 1 / 3);
+        g = _HSLA._hue2rgb(p, q, h);
+        b = _HSLA._hue2rgb(p, q, h - 1 / 3);
+      }
+      return new RGBA(Math.round(r * 255), Math.round(g * 255), Math.round(b * 255), a2);
+    }
+  };
+  var HSVA = class _HSVA {
+    constructor(h, s, v, a2) {
+      this._hsvaBrand = void 0;
+      this.h = Math.max(Math.min(360, h), 0) | 0;
+      this.s = roundFloat(Math.max(Math.min(1, s), 0), 3);
+      this.v = roundFloat(Math.max(Math.min(1, v), 0), 3);
+      this.a = roundFloat(Math.max(Math.min(1, a2), 0), 3);
+    }
+    static equals(a2, b) {
+      return a2.h === b.h && a2.s === b.s && a2.v === b.v && a2.a === b.a;
+    }
+    // from http://www.rapidtables.com/convert/color/rgb-to-hsv.htm
+    static fromRGBA(rgba) {
+      const r = rgba.r / 255;
+      const g = rgba.g / 255;
+      const b = rgba.b / 255;
+      const cmax = Math.max(r, g, b);
+      const cmin = Math.min(r, g, b);
+      const delta = cmax - cmin;
+      const s = cmax === 0 ? 0 : delta / cmax;
+      let m;
+      if (delta === 0) {
+        m = 0;
+      } else if (cmax === r) {
+        m = ((g - b) / delta % 6 + 6) % 6;
+      } else if (cmax === g) {
+        m = (b - r) / delta + 2;
+      } else {
+        m = (r - g) / delta + 4;
+      }
+      return new _HSVA(Math.round(m * 60), s, cmax, rgba.a);
+    }
+    // from http://www.rapidtables.com/convert/color/hsv-to-rgb.htm
+    static toRGBA(hsva) {
+      const { h, s, v, a: a2 } = hsva;
+      const c = v * s;
+      const x = c * (1 - Math.abs(h / 60 % 2 - 1));
+      const m = v - c;
+      let [r, g, b] = [0, 0, 0];
+      if (h < 60) {
+        r = c;
+        g = x;
+      } else if (h < 120) {
+        r = x;
+        g = c;
+      } else if (h < 180) {
+        g = c;
+        b = x;
+      } else if (h < 240) {
+        g = x;
+        b = c;
+      } else if (h < 300) {
+        r = x;
+        b = c;
+      } else if (h <= 360) {
+        r = c;
+        b = x;
+      }
+      r = Math.round((r + m) * 255);
+      g = Math.round((g + m) * 255);
+      b = Math.round((b + m) * 255);
+      return new RGBA(r, g, b, a2);
+    }
+  };
+  var Color = class _Color {
+    static fromHex(hex) {
+      return _Color.Format.CSS.parseHex(hex) || _Color.red;
+    }
+    static equals(a2, b) {
+      if (!a2 && !b) {
+        return true;
+      }
+      if (!a2 || !b) {
+        return false;
+      }
+      return a2.equals(b);
+    }
+    get hsla() {
+      if (this._hsla) {
+        return this._hsla;
+      } else {
+        return HSLA.fromRGBA(this.rgba);
+      }
+    }
+    get hsva() {
+      if (this._hsva) {
+        return this._hsva;
+      }
+      return HSVA.fromRGBA(this.rgba);
+    }
+    constructor(arg) {
+      if (!arg) {
+        throw new Error("Color needs a value");
+      } else if (arg instanceof RGBA) {
+        this.rgba = arg;
+      } else if (arg instanceof HSLA) {
+        this._hsla = arg;
+        this.rgba = HSLA.toRGBA(arg);
+      } else if (arg instanceof HSVA) {
+        this._hsva = arg;
+        this.rgba = HSVA.toRGBA(arg);
+      } else {
+        throw new Error("Invalid color ctor argument");
+      }
+    }
+    equals(other) {
+      return !!other && RGBA.equals(this.rgba, other.rgba) && HSLA.equals(this.hsla, other.hsla) && HSVA.equals(this.hsva, other.hsva);
+    }
+    /**
+     * http://www.w3.org/TR/WCAG20/#relativeluminancedef
+     * Returns the number in the set [0, 1]. O => Darkest Black. 1 => Lightest white.
+     */
+    getRelativeLuminance() {
+      const R = _Color._relativeLuminanceForComponent(this.rgba.r);
+      const G = _Color._relativeLuminanceForComponent(this.rgba.g);
+      const B = _Color._relativeLuminanceForComponent(this.rgba.b);
+      const luminance = 0.2126 * R + 0.7152 * G + 0.0722 * B;
+      return roundFloat(luminance, 4);
+    }
+    static _relativeLuminanceForComponent(color) {
+      const c = color / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+    /**
+     *	http://24ways.org/2010/calculating-color-contrast
+     *  Return 'true' if lighter color otherwise 'false'
+     */
+    isLighter() {
+      const yiq = (this.rgba.r * 299 + this.rgba.g * 587 + this.rgba.b * 114) / 1e3;
+      return yiq >= 128;
+    }
+    isLighterThan(another) {
+      const lum1 = this.getRelativeLuminance();
+      const lum2 = another.getRelativeLuminance();
+      return lum1 > lum2;
+    }
+    isDarkerThan(another) {
+      const lum1 = this.getRelativeLuminance();
+      const lum2 = another.getRelativeLuminance();
+      return lum1 < lum2;
+    }
+    lighten(factor) {
+      return new _Color(new HSLA(this.hsla.h, this.hsla.s, this.hsla.l + this.hsla.l * factor, this.hsla.a));
+    }
+    darken(factor) {
+      return new _Color(new HSLA(this.hsla.h, this.hsla.s, this.hsla.l - this.hsla.l * factor, this.hsla.a));
+    }
+    transparent(factor) {
+      const { r, g, b, a: a2 } = this.rgba;
+      return new _Color(new RGBA(r, g, b, a2 * factor));
+    }
+    isTransparent() {
+      return this.rgba.a === 0;
+    }
+    isOpaque() {
+      return this.rgba.a === 1;
+    }
+    opposite() {
+      return new _Color(new RGBA(255 - this.rgba.r, 255 - this.rgba.g, 255 - this.rgba.b, this.rgba.a));
+    }
+    makeOpaque(opaqueBackground) {
+      if (this.isOpaque() || opaqueBackground.rgba.a !== 1) {
+        return this;
+      }
+      const { r, g, b, a: a2 } = this.rgba;
+      return new _Color(new RGBA(opaqueBackground.rgba.r - a2 * (opaqueBackground.rgba.r - r), opaqueBackground.rgba.g - a2 * (opaqueBackground.rgba.g - g), opaqueBackground.rgba.b - a2 * (opaqueBackground.rgba.b - b), 1));
+    }
+    toString() {
+      if (!this._toString) {
+        this._toString = _Color.Format.CSS.format(this);
+      }
+      return this._toString;
+    }
+    static getLighterColor(of, relative2, factor) {
+      if (of.isLighterThan(relative2)) {
+        return of;
+      }
+      factor = factor ? factor : 0.5;
+      const lum1 = of.getRelativeLuminance();
+      const lum2 = relative2.getRelativeLuminance();
+      factor = factor * (lum2 - lum1) / lum2;
+      return of.lighten(factor);
+    }
+    static getDarkerColor(of, relative2, factor) {
+      if (of.isDarkerThan(relative2)) {
+        return of;
+      }
+      factor = factor ? factor : 0.5;
+      const lum1 = of.getRelativeLuminance();
+      const lum2 = relative2.getRelativeLuminance();
+      factor = factor * (lum1 - lum2) / lum1;
+      return of.darken(factor);
+    }
+  };
+  Color.white = new Color(new RGBA(255, 255, 255, 1));
+  Color.black = new Color(new RGBA(0, 0, 0, 1));
+  Color.red = new Color(new RGBA(255, 0, 0, 1));
+  Color.blue = new Color(new RGBA(0, 0, 255, 1));
+  Color.green = new Color(new RGBA(0, 255, 0, 1));
+  Color.cyan = new Color(new RGBA(0, 255, 255, 1));
+  Color.lightgrey = new Color(new RGBA(211, 211, 211, 1));
+  Color.transparent = new Color(new RGBA(0, 0, 0, 0));
+  (function(Color3) {
+    let Format;
+    (function(Format2) {
+      let CSS;
+      (function(CSS2) {
+        function formatRGB(color) {
+          if (color.rgba.a === 1) {
+            return `rgb(${color.rgba.r}, ${color.rgba.g}, ${color.rgba.b})`;
+          }
+          return Color3.Format.CSS.formatRGBA(color);
+        }
+        CSS2.formatRGB = formatRGB;
+        function formatRGBA(color) {
+          return `rgba(${color.rgba.r}, ${color.rgba.g}, ${color.rgba.b}, ${+color.rgba.a.toFixed(2)})`;
+        }
+        CSS2.formatRGBA = formatRGBA;
+        function formatHSL(color) {
+          if (color.hsla.a === 1) {
+            return `hsl(${color.hsla.h}, ${(color.hsla.s * 100).toFixed(2)}%, ${(color.hsla.l * 100).toFixed(2)}%)`;
+          }
+          return Color3.Format.CSS.formatHSLA(color);
+        }
+        CSS2.formatHSL = formatHSL;
+        function formatHSLA(color) {
+          return `hsla(${color.hsla.h}, ${(color.hsla.s * 100).toFixed(2)}%, ${(color.hsla.l * 100).toFixed(2)}%, ${color.hsla.a.toFixed(2)})`;
+        }
+        CSS2.formatHSLA = formatHSLA;
+        function _toTwoDigitHex(n) {
+          const r = n.toString(16);
+          return r.length !== 2 ? "0" + r : r;
+        }
+        function formatHex(color) {
+          return `#${_toTwoDigitHex(color.rgba.r)}${_toTwoDigitHex(color.rgba.g)}${_toTwoDigitHex(color.rgba.b)}`;
+        }
+        CSS2.formatHex = formatHex;
+        function formatHexA(color, compact = false) {
+          if (compact && color.rgba.a === 1) {
+            return Color3.Format.CSS.formatHex(color);
+          }
+          return `#${_toTwoDigitHex(color.rgba.r)}${_toTwoDigitHex(color.rgba.g)}${_toTwoDigitHex(color.rgba.b)}${_toTwoDigitHex(Math.round(color.rgba.a * 255))}`;
+        }
+        CSS2.formatHexA = formatHexA;
+        function format5(color) {
+          if (color.isOpaque()) {
+            return Color3.Format.CSS.formatHex(color);
+          }
+          return Color3.Format.CSS.formatRGBA(color);
+        }
+        CSS2.format = format5;
+        function parseHex(hex) {
+          const length = hex.length;
+          if (length === 0) {
+            return null;
+          }
+          if (hex.charCodeAt(0) !== 35) {
+            return null;
+          }
+          if (length === 7) {
+            const r = 16 * _parseHexDigit(hex.charCodeAt(1)) + _parseHexDigit(hex.charCodeAt(2));
+            const g = 16 * _parseHexDigit(hex.charCodeAt(3)) + _parseHexDigit(hex.charCodeAt(4));
+            const b = 16 * _parseHexDigit(hex.charCodeAt(5)) + _parseHexDigit(hex.charCodeAt(6));
+            return new Color3(new RGBA(r, g, b, 1));
+          }
+          if (length === 9) {
+            const r = 16 * _parseHexDigit(hex.charCodeAt(1)) + _parseHexDigit(hex.charCodeAt(2));
+            const g = 16 * _parseHexDigit(hex.charCodeAt(3)) + _parseHexDigit(hex.charCodeAt(4));
+            const b = 16 * _parseHexDigit(hex.charCodeAt(5)) + _parseHexDigit(hex.charCodeAt(6));
+            const a2 = 16 * _parseHexDigit(hex.charCodeAt(7)) + _parseHexDigit(hex.charCodeAt(8));
+            return new Color3(new RGBA(r, g, b, a2 / 255));
+          }
+          if (length === 4) {
+            const r = _parseHexDigit(hex.charCodeAt(1));
+            const g = _parseHexDigit(hex.charCodeAt(2));
+            const b = _parseHexDigit(hex.charCodeAt(3));
+            return new Color3(new RGBA(16 * r + r, 16 * g + g, 16 * b + b));
+          }
+          if (length === 5) {
+            const r = _parseHexDigit(hex.charCodeAt(1));
+            const g = _parseHexDigit(hex.charCodeAt(2));
+            const b = _parseHexDigit(hex.charCodeAt(3));
+            const a2 = _parseHexDigit(hex.charCodeAt(4));
+            return new Color3(new RGBA(16 * r + r, 16 * g + g, 16 * b + b, (16 * a2 + a2) / 255));
+          }
+          return null;
+        }
+        CSS2.parseHex = parseHex;
+        function _parseHexDigit(charCode) {
+          switch (charCode) {
+            case 48:
+              return 0;
+            case 49:
+              return 1;
+            case 50:
+              return 2;
+            case 51:
+              return 3;
+            case 52:
+              return 4;
+            case 53:
+              return 5;
+            case 54:
+              return 6;
+            case 55:
+              return 7;
+            case 56:
+              return 8;
+            case 57:
+              return 9;
+            case 97:
+              return 10;
+            case 65:
+              return 10;
+            case 98:
+              return 11;
+            case 66:
+              return 11;
+            case 99:
+              return 12;
+            case 67:
+              return 12;
+            case 100:
+              return 13;
+            case 68:
+              return 13;
+            case 101:
+              return 14;
+            case 69:
+              return 14;
+            case 102:
+              return 15;
+            case 70:
+              return 15;
+          }
+          return 0;
+        }
+      })(CSS = Format2.CSS || (Format2.CSS = {}));
+    })(Format = Color3.Format || (Color3.Format = {}));
+  })(Color || (Color = {}));
+
+  // node_modules/monaco-editor/esm/vs/editor/common/languages/defaultDocumentColorsComputer.js
+  function _parseCaptureGroups(captureGroups) {
+    const values = [];
+    for (const captureGroup of captureGroups) {
+      const parsedNumber = Number(captureGroup);
+      if (parsedNumber || parsedNumber === 0 && captureGroup.replace(/\s/g, "") !== "") {
+        values.push(parsedNumber);
+      }
+    }
+    return values;
+  }
+  function _toIColor(r, g, b, a2) {
+    return {
+      red: r / 255,
+      blue: b / 255,
+      green: g / 255,
+      alpha: a2
+    };
+  }
+  function _findRange(model, match) {
+    const index = match.index;
+    const length = match[0].length;
+    if (!index) {
+      return;
+    }
+    const startPosition = model.positionAt(index);
+    const range = {
+      startLineNumber: startPosition.lineNumber,
+      startColumn: startPosition.column,
+      endLineNumber: startPosition.lineNumber,
+      endColumn: startPosition.column + length
+    };
+    return range;
+  }
+  function _findHexColorInformation(range, hexValue) {
+    if (!range) {
+      return;
+    }
+    const parsedHexColor = Color.Format.CSS.parseHex(hexValue);
+    if (!parsedHexColor) {
+      return;
+    }
+    return {
+      range,
+      color: _toIColor(parsedHexColor.rgba.r, parsedHexColor.rgba.g, parsedHexColor.rgba.b, parsedHexColor.rgba.a)
+    };
+  }
+  function _findRGBColorInformation(range, matches, isAlpha) {
+    if (!range || matches.length !== 1) {
+      return;
+    }
+    const match = matches[0];
+    const captureGroups = match.values();
+    const parsedRegex = _parseCaptureGroups(captureGroups);
+    return {
+      range,
+      color: _toIColor(parsedRegex[0], parsedRegex[1], parsedRegex[2], isAlpha ? parsedRegex[3] : 1)
+    };
+  }
+  function _findHSLColorInformation(range, matches, isAlpha) {
+    if (!range || matches.length !== 1) {
+      return;
+    }
+    const match = matches[0];
+    const captureGroups = match.values();
+    const parsedRegex = _parseCaptureGroups(captureGroups);
+    const colorEquivalent = new Color(new HSLA(parsedRegex[0], parsedRegex[1] / 100, parsedRegex[2] / 100, isAlpha ? parsedRegex[3] : 1));
+    return {
+      range,
+      color: _toIColor(colorEquivalent.rgba.r, colorEquivalent.rgba.g, colorEquivalent.rgba.b, colorEquivalent.rgba.a)
+    };
+  }
+  function _findMatches(model, regex) {
+    if (typeof model === "string") {
+      return [...model.matchAll(regex)];
+    } else {
+      return model.findMatches(regex);
+    }
+  }
+  function computeColors(model) {
+    const result = [];
+    const initialValidationRegex = /\b(rgb|rgba|hsl|hsla)(\([0-9\s,.\%]*\))|(#)([A-Fa-f0-9]{3})\b|(#)([A-Fa-f0-9]{4})\b|(#)([A-Fa-f0-9]{6})\b|(#)([A-Fa-f0-9]{8})\b/gm;
+    const initialValidationMatches = _findMatches(model, initialValidationRegex);
+    if (initialValidationMatches.length > 0) {
+      for (const initialMatch of initialValidationMatches) {
+        const initialCaptureGroups = initialMatch.filter((captureGroup) => captureGroup !== void 0);
+        const colorScheme = initialCaptureGroups[1];
+        const colorParameters = initialCaptureGroups[2];
+        if (!colorParameters) {
+          continue;
+        }
+        let colorInformation;
+        if (colorScheme === "rgb") {
+          const regexParameters = /^\(\s*(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9][0-9]|[0-9])\s*,\s*(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9][0-9]|[0-9])\s*,\s*(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9][0-9]|[0-9])\s*\)$/gm;
+          colorInformation = _findRGBColorInformation(_findRange(model, initialMatch), _findMatches(colorParameters, regexParameters), false);
+        } else if (colorScheme === "rgba") {
+          const regexParameters = /^\(\s*(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9][0-9]|[0-9])\s*,\s*(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9][0-9]|[0-9])\s*,\s*(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9][0-9]|[0-9])\s*,\s*(0[.][0-9]+|[.][0-9]+|[01][.]|[01])\s*\)$/gm;
+          colorInformation = _findRGBColorInformation(_findRange(model, initialMatch), _findMatches(colorParameters, regexParameters), true);
+        } else if (colorScheme === "hsl") {
+          const regexParameters = /^\(\s*(36[0]|3[0-5][0-9]|[12][0-9][0-9]|[1-9]?[0-9])\s*,\s*(100|\d{1,2}[.]\d*|\d{1,2})%\s*,\s*(100|\d{1,2}[.]\d*|\d{1,2})%\s*\)$/gm;
+          colorInformation = _findHSLColorInformation(_findRange(model, initialMatch), _findMatches(colorParameters, regexParameters), false);
+        } else if (colorScheme === "hsla") {
+          const regexParameters = /^\(\s*(36[0]|3[0-5][0-9]|[12][0-9][0-9]|[1-9]?[0-9])\s*,\s*(100|\d{1,2}[.]\d*|\d{1,2})%\s*,\s*(100|\d{1,2}[.]\d*|\d{1,2})%\s*,\s*(0[.][0-9]+|[.][0-9]+|[01][.]|[01])\s*\)$/gm;
+          colorInformation = _findHSLColorInformation(_findRange(model, initialMatch), _findMatches(colorParameters, regexParameters), true);
+        } else if (colorScheme === "#") {
+          colorInformation = _findHexColorInformation(_findRange(model, initialMatch), colorScheme + colorParameters);
+        }
+        if (colorInformation) {
+          result.push(colorInformation);
+        }
+      }
+    }
+    return result;
+  }
+  function computeDefaultDocumentColors(model) {
+    if (!model || typeof model.getValue !== "function" || typeof model.positionAt !== "function") {
+      return [];
+    }
+    return computeColors(model);
   }
 
   // node_modules/monaco-editor/esm/vs/editor/common/services/editorSimpleWorker.js
@@ -24492,6 +27355,21 @@ ${p.commentBefore}` : u;
     }
     getValue() {
       return this.getText();
+    }
+    findMatches(regex) {
+      const matches = [];
+      for (let i = 0; i < this._lines.length; i++) {
+        const line = this._lines[i];
+        const offsetToAdd = this.offsetAt(new Position(i + 1, 1));
+        const iteratorOverMatches = line.matchAll(regex);
+        for (const match of iteratorOverMatches) {
+          if (match.index || match.index === 0) {
+            match.index = match.index + offsetToAdd;
+          }
+          matches.push(match);
+        }
+      }
+      return matches;
     }
     getLinesContent() {
       return this._lines.slice(0);
@@ -24638,7 +27516,7 @@ ${p.commentBefore}` : u;
       }
     }
   };
-  var EditorSimpleWorker = class {
+  var EditorSimpleWorker = class _EditorSimpleWorker {
     constructor(host, foreignModuleFactory) {
       this._host = host;
       this._models = /* @__PURE__ */ Object.create(null);
@@ -24681,32 +27559,49 @@ ${p.commentBefore}` : u;
         return UnicodeTextModelHighlighter.computeUnicodeHighlights(model, options, range);
       });
     }
-    computeDiff(originalUrl, modifiedUrl, ignoreTrimWhitespace, maxComputationTime) {
+    // ---- BEGIN diff --------------------------------------------------------------------------
+    computeDiff(originalUrl, modifiedUrl, options, algorithm) {
       return __awaiter2(this, void 0, void 0, function* () {
         const original = this._getModel(originalUrl);
         const modified = this._getModel(modifiedUrl);
         if (!original || !modified) {
           return null;
         }
-        return EditorSimpleWorker.computeDiff(original, modified, ignoreTrimWhitespace, maxComputationTime);
+        return _EditorSimpleWorker.computeDiff(original, modified, options, algorithm);
       });
     }
-    static computeDiff(originalTextModel, modifiedTextModel, ignoreTrimWhitespace, maxComputationTime) {
+    static computeDiff(originalTextModel, modifiedTextModel, options, algorithm) {
+      const diffAlgorithm = algorithm === "advanced" ? linesDiffComputers.getAdvanced() : linesDiffComputers.getLegacy();
       const originalLines = originalTextModel.getLinesContent();
       const modifiedLines = modifiedTextModel.getLinesContent();
-      const diffComputer = new DiffComputer(originalLines, modifiedLines, {
-        shouldComputeCharChanges: true,
-        shouldPostProcessCharChanges: true,
-        shouldIgnoreTrimWhitespace: ignoreTrimWhitespace,
-        shouldMakePrettyDiff: true,
-        maxComputationTime
-      });
-      const diffResult = diffComputer.computeDiff();
-      const identical = diffResult.changes.length > 0 ? false : this._modelsAreIdentical(originalTextModel, modifiedTextModel);
+      const result = diffAlgorithm.computeDiff(originalLines, modifiedLines, options);
+      const identical = result.changes.length > 0 ? false : this._modelsAreIdentical(originalTextModel, modifiedTextModel);
+      function getLineChanges(changes) {
+        return changes.map((m) => {
+          var _a3;
+          return [m.originalRange.startLineNumber, m.originalRange.endLineNumberExclusive, m.modifiedRange.startLineNumber, m.modifiedRange.endLineNumberExclusive, (_a3 = m.innerChanges) === null || _a3 === void 0 ? void 0 : _a3.map((m2) => [
+            m2.originalRange.startLineNumber,
+            m2.originalRange.startColumn,
+            m2.originalRange.endLineNumber,
+            m2.originalRange.endColumn,
+            m2.modifiedRange.startLineNumber,
+            m2.modifiedRange.startColumn,
+            m2.modifiedRange.endLineNumber,
+            m2.modifiedRange.endColumn
+          ])];
+        });
+      }
       return {
-        quitEarly: diffResult.quitEarly,
         identical,
-        changes: diffResult.changes
+        quitEarly: result.hitTimeout,
+        changes: getLineChanges(result.changes),
+        moves: result.moves.map((m) => [
+          m.lineRangeMapping.originalRange.startLineNumber,
+          m.lineRangeMapping.originalRange.endLineNumberExclusive,
+          m.lineRangeMapping.modifiedRange.startLineNumber,
+          m.lineRangeMapping.modifiedRange.endLineNumberExclusive,
+          getLineChanges(m.changes)
+        ])
       };
     }
     static _modelsAreIdentical(original, modified) {
@@ -24724,7 +27619,7 @@ ${p.commentBefore}` : u;
       }
       return true;
     }
-    computeMoreMinimalEdits(modelUrl, edits) {
+    computeMoreMinimalEdits(modelUrl, edits, pretty) {
       return __awaiter2(this, void 0, void 0, function* () {
         const model = this._getModel(modelUrl);
         if (!model) {
@@ -24752,11 +27647,11 @@ ${p.commentBefore}` : u;
           if (original === text) {
             continue;
           }
-          if (Math.max(text.length, original.length) > EditorSimpleWorker._diffLimit) {
+          if (Math.max(text.length, original.length) > _EditorSimpleWorker._diffLimit) {
             result.push({ range, text });
             continue;
           }
-          const changes = stringDiff(original, text, false);
+          const changes = stringDiff(original, text, pretty);
           const editOffset = model.offsetAt(Range.lift(range).getStartPosition());
           for (const change of changes) {
             const start = model.positionAt(editOffset + change.originalStart);
@@ -24776,6 +27671,7 @@ ${p.commentBefore}` : u;
         return result;
       });
     }
+    // ---- END minimal edits ---------------------------------------------------------------
     computeLinks(modelUrl) {
       return __awaiter2(this, void 0, void 0, function* () {
         const model = this._getModel(modelUrl);
@@ -24785,9 +27681,19 @@ ${p.commentBefore}` : u;
         return computeLinks(model);
       });
     }
+    // --- BEGIN default document colors -----------------------------------------------------------
+    computeDefaultDocumentColors(modelUrl) {
+      return __awaiter2(this, void 0, void 0, function* () {
+        const model = this._getModel(modelUrl);
+        if (!model) {
+          return null;
+        }
+        return computeDefaultDocumentColors(model);
+      });
+    }
     textualSuggest(modelUrls, leadingWord, wordDef, wordDefFlags) {
       return __awaiter2(this, void 0, void 0, function* () {
-        const sw = new StopWatch(true);
+        const sw = new StopWatch();
         const wordDefRegExp = new RegExp(wordDef, wordDefFlags);
         const seen = /* @__PURE__ */ new Set();
         outer:
@@ -24801,7 +27707,7 @@ ${p.commentBefore}` : u;
                 continue;
               }
               seen.add(word);
-              if (seen.size > EditorSimpleWorker._suggestionsLimit) {
+              if (seen.size > _EditorSimpleWorker._suggestionsLimit) {
                 break outer;
               }
             }
@@ -24809,6 +27715,8 @@ ${p.commentBefore}` : u;
         return { words: Array.from(seen), duration: sw.elapsed() };
       });
     }
+    // ---- END suggest --------------------------------------------------------------------------
+    //#region -- word ranges --
     computeWordRanges(modelUrl, range, wordDef, wordDefFlags) {
       return __awaiter2(this, void 0, void 0, function* () {
         const model = this._getModel(modelUrl);
@@ -24839,6 +27747,7 @@ ${p.commentBefore}` : u;
         return result;
       });
     }
+    //#endregion
     navigateValueSet(modelUrl, range, up, wordDef, wordDefFlags) {
       return __awaiter2(this, void 0, void 0, function* () {
         const model = this._getModel(modelUrl);
@@ -24864,6 +27773,7 @@ ${p.commentBefore}` : u;
         return result;
       });
     }
+    // ---- BEGIN foreign module support --------------------------------------------------------------------------
     loadForeignModule(moduleId, createData, foreignHostMethods) {
       const proxyMethodRequest = (method, args) => {
         return this._host.fhr(method, args);
@@ -24881,6 +27791,7 @@ ${p.commentBefore}` : u;
       }
       return Promise.reject(new Error(`Unexpected usage`));
     }
+    // foreign method request
     fmr(method, args) {
       if (!this._foreignModule || typeof this._foreignModule[method] !== "function") {
         return Promise.reject(new Error("Missing requestHandler or method: " + method));
@@ -24895,7 +27806,7 @@ ${p.commentBefore}` : u;
   EditorSimpleWorker._diffLimit = 1e5;
   EditorSimpleWorker._suggestionsLimit = 1e4;
   if (typeof importScripts === "function") {
-    globals.monaco = createMonacoBaseAPI();
+    globalThis.monaco = createMonacoBaseAPI();
   }
 
   // node_modules/monaco-editor/esm/vs/editor/editor.worker.js
@@ -24906,13 +27817,13 @@ ${p.commentBefore}` : u;
     }
     initialized = true;
     const simpleWorker = new SimpleWorkerServer((msg) => {
-      self.postMessage(msg);
+      globalThis.postMessage(msg);
     }, (host) => new EditorSimpleWorker(host, foreignModule));
-    self.onmessage = (e) => {
+    globalThis.onmessage = (e) => {
       simpleWorker.onmessage(e.data);
     };
   }
-  self.onmessage = (e) => {
+  globalThis.onmessage = (e) => {
     if (!initialized) {
       initialize(null);
     }
@@ -24937,133 +27848,136 @@ ${p.commentBefore}` : u;
       }
     return to.concat(ar || Array.prototype.slice.call(from));
   };
-  var FullTextDocument = function() {
-    function FullTextDocument3(uri, languageId2, version, content) {
-      this._uri = uri;
-      this._languageId = languageId2;
-      this._version = version;
-      this._content = content;
-      this._lineOffsets = void 0;
-    }
-    Object.defineProperty(FullTextDocument3.prototype, "uri", {
-      get: function() {
-        return this._uri;
-      },
-      enumerable: false,
-      configurable: true
-    });
-    Object.defineProperty(FullTextDocument3.prototype, "languageId", {
-      get: function() {
-        return this._languageId;
-      },
-      enumerable: false,
-      configurable: true
-    });
-    Object.defineProperty(FullTextDocument3.prototype, "version", {
-      get: function() {
-        return this._version;
-      },
-      enumerable: false,
-      configurable: true
-    });
-    FullTextDocument3.prototype.getText = function(range) {
-      if (range) {
-        var start = this.offsetAt(range.start);
-        var end = this.offsetAt(range.end);
-        return this._content.substring(start, end);
+  var FullTextDocument = (
+    /** @class */
+    function() {
+      function FullTextDocument3(uri, languageId2, version, content) {
+        this._uri = uri;
+        this._languageId = languageId2;
+        this._version = version;
+        this._content = content;
+        this._lineOffsets = void 0;
       }
-      return this._content;
-    };
-    FullTextDocument3.prototype.update = function(changes, version) {
-      for (var _i = 0, changes_1 = changes; _i < changes_1.length; _i++) {
-        var change = changes_1[_i];
-        if (FullTextDocument3.isIncremental(change)) {
-          var range = getWellformedRange(change.range);
-          var startOffset = this.offsetAt(range.start);
-          var endOffset = this.offsetAt(range.end);
-          this._content = this._content.substring(0, startOffset) + change.text + this._content.substring(endOffset, this._content.length);
-          var startLine = Math.max(range.start.line, 0);
-          var endLine = Math.max(range.end.line, 0);
-          var lineOffsets = this._lineOffsets;
-          var addedLineOffsets = computeLineOffsets(change.text, false, startOffset);
-          if (endLine - startLine === addedLineOffsets.length) {
-            for (var i = 0, len = addedLineOffsets.length; i < len; i++) {
-              lineOffsets[i + startLine + 1] = addedLineOffsets[i];
-            }
-          } else {
-            if (addedLineOffsets.length < 1e4) {
-              lineOffsets.splice.apply(lineOffsets, __spreadArray([startLine + 1, endLine - startLine], addedLineOffsets, false));
+      Object.defineProperty(FullTextDocument3.prototype, "uri", {
+        get: function() {
+          return this._uri;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      Object.defineProperty(FullTextDocument3.prototype, "languageId", {
+        get: function() {
+          return this._languageId;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      Object.defineProperty(FullTextDocument3.prototype, "version", {
+        get: function() {
+          return this._version;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      FullTextDocument3.prototype.getText = function(range) {
+        if (range) {
+          var start = this.offsetAt(range.start);
+          var end = this.offsetAt(range.end);
+          return this._content.substring(start, end);
+        }
+        return this._content;
+      };
+      FullTextDocument3.prototype.update = function(changes, version) {
+        for (var _i = 0, changes_1 = changes; _i < changes_1.length; _i++) {
+          var change = changes_1[_i];
+          if (FullTextDocument3.isIncremental(change)) {
+            var range = getWellformedRange(change.range);
+            var startOffset = this.offsetAt(range.start);
+            var endOffset = this.offsetAt(range.end);
+            this._content = this._content.substring(0, startOffset) + change.text + this._content.substring(endOffset, this._content.length);
+            var startLine = Math.max(range.start.line, 0);
+            var endLine = Math.max(range.end.line, 0);
+            var lineOffsets = this._lineOffsets;
+            var addedLineOffsets = computeLineOffsets(change.text, false, startOffset);
+            if (endLine - startLine === addedLineOffsets.length) {
+              for (var i = 0, len = addedLineOffsets.length; i < len; i++) {
+                lineOffsets[i + startLine + 1] = addedLineOffsets[i];
+              }
             } else {
-              this._lineOffsets = lineOffsets = lineOffsets.slice(0, startLine + 1).concat(addedLineOffsets, lineOffsets.slice(endLine + 1));
+              if (addedLineOffsets.length < 1e4) {
+                lineOffsets.splice.apply(lineOffsets, __spreadArray([startLine + 1, endLine - startLine], addedLineOffsets, false));
+              } else {
+                this._lineOffsets = lineOffsets = lineOffsets.slice(0, startLine + 1).concat(addedLineOffsets, lineOffsets.slice(endLine + 1));
+              }
             }
-          }
-          var diff = change.text.length - (endOffset - startOffset);
-          if (diff !== 0) {
-            for (var i = startLine + 1 + addedLineOffsets.length, len = lineOffsets.length; i < len; i++) {
-              lineOffsets[i] = lineOffsets[i] + diff;
+            var diff = change.text.length - (endOffset - startOffset);
+            if (diff !== 0) {
+              for (var i = startLine + 1 + addedLineOffsets.length, len = lineOffsets.length; i < len; i++) {
+                lineOffsets[i] = lineOffsets[i] + diff;
+              }
             }
+          } else if (FullTextDocument3.isFull(change)) {
+            this._content = change.text;
+            this._lineOffsets = void 0;
+          } else {
+            throw new Error("Unknown change event received");
           }
-        } else if (FullTextDocument3.isFull(change)) {
-          this._content = change.text;
-          this._lineOffsets = void 0;
-        } else {
-          throw new Error("Unknown change event received");
         }
-      }
-      this._version = version;
-    };
-    FullTextDocument3.prototype.getLineOffsets = function() {
-      if (this._lineOffsets === void 0) {
-        this._lineOffsets = computeLineOffsets(this._content, true);
-      }
-      return this._lineOffsets;
-    };
-    FullTextDocument3.prototype.positionAt = function(offset) {
-      offset = Math.max(Math.min(offset, this._content.length), 0);
-      var lineOffsets = this.getLineOffsets();
-      var low = 0, high = lineOffsets.length;
-      if (high === 0) {
-        return { line: 0, character: offset };
-      }
-      while (low < high) {
-        var mid = Math.floor((low + high) / 2);
-        if (lineOffsets[mid] > offset) {
-          high = mid;
-        } else {
-          low = mid + 1;
+        this._version = version;
+      };
+      FullTextDocument3.prototype.getLineOffsets = function() {
+        if (this._lineOffsets === void 0) {
+          this._lineOffsets = computeLineOffsets(this._content, true);
         }
-      }
-      var line = low - 1;
-      return { line, character: offset - lineOffsets[line] };
-    };
-    FullTextDocument3.prototype.offsetAt = function(position) {
-      var lineOffsets = this.getLineOffsets();
-      if (position.line >= lineOffsets.length) {
-        return this._content.length;
-      } else if (position.line < 0) {
-        return 0;
-      }
-      var lineOffset = lineOffsets[position.line];
-      var nextLineOffset = position.line + 1 < lineOffsets.length ? lineOffsets[position.line + 1] : this._content.length;
-      return Math.max(Math.min(lineOffset + position.character, nextLineOffset), lineOffset);
-    };
-    Object.defineProperty(FullTextDocument3.prototype, "lineCount", {
-      get: function() {
-        return this.getLineOffsets().length;
-      },
-      enumerable: false,
-      configurable: true
-    });
-    FullTextDocument3.isIncremental = function(event) {
-      var candidate = event;
-      return candidate !== void 0 && candidate !== null && typeof candidate.text === "string" && candidate.range !== void 0 && (candidate.rangeLength === void 0 || typeof candidate.rangeLength === "number");
-    };
-    FullTextDocument3.isFull = function(event) {
-      var candidate = event;
-      return candidate !== void 0 && candidate !== null && typeof candidate.text === "string" && candidate.range === void 0 && candidate.rangeLength === void 0;
-    };
-    return FullTextDocument3;
-  }();
+        return this._lineOffsets;
+      };
+      FullTextDocument3.prototype.positionAt = function(offset) {
+        offset = Math.max(Math.min(offset, this._content.length), 0);
+        var lineOffsets = this.getLineOffsets();
+        var low = 0, high = lineOffsets.length;
+        if (high === 0) {
+          return { line: 0, character: offset };
+        }
+        while (low < high) {
+          var mid = Math.floor((low + high) / 2);
+          if (lineOffsets[mid] > offset) {
+            high = mid;
+          } else {
+            low = mid + 1;
+          }
+        }
+        var line = low - 1;
+        return { line, character: offset - lineOffsets[line] };
+      };
+      FullTextDocument3.prototype.offsetAt = function(position) {
+        var lineOffsets = this.getLineOffsets();
+        if (position.line >= lineOffsets.length) {
+          return this._content.length;
+        } else if (position.line < 0) {
+          return 0;
+        }
+        var lineOffset = lineOffsets[position.line];
+        var nextLineOffset = position.line + 1 < lineOffsets.length ? lineOffsets[position.line + 1] : this._content.length;
+        return Math.max(Math.min(lineOffset + position.character, nextLineOffset), lineOffset);
+      };
+      Object.defineProperty(FullTextDocument3.prototype, "lineCount", {
+        get: function() {
+          return this.getLineOffsets().length;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      FullTextDocument3.isIncremental = function(event) {
+        var candidate = event;
+        return candidate !== void 0 && candidate !== null && typeof candidate.text === "string" && candidate.range !== void 0 && (candidate.rangeLength === void 0 || typeof candidate.rangeLength === "number");
+      };
+      FullTextDocument3.isFull = function(event) {
+        var candidate = event;
+        return candidate !== void 0 && candidate !== null && typeof candidate.text === "string" && candidate.range === void 0 && candidate.rangeLength === void 0;
+      };
+      return FullTextDocument3;
+    }()
+  );
   var TextDocument;
   (function(TextDocument3) {
     function create(uri, languageId2, version, content) {
@@ -25710,37 +28624,61 @@ ${p.commentBefore}` : u;
         const token = _scanner.scan();
         switch (_scanner.getTokenError()) {
           case 4:
-            handleError(14);
+            handleError(
+              14
+              /* ParseErrorCode.InvalidUnicode */
+            );
             break;
           case 5:
-            handleError(15);
+            handleError(
+              15
+              /* ParseErrorCode.InvalidEscapeCharacter */
+            );
             break;
           case 3:
-            handleError(13);
+            handleError(
+              13
+              /* ParseErrorCode.UnexpectedEndOfNumber */
+            );
             break;
           case 1:
             if (!disallowComments) {
-              handleError(11);
+              handleError(
+                11
+                /* ParseErrorCode.UnexpectedEndOfComment */
+              );
             }
             break;
           case 2:
-            handleError(12);
+            handleError(
+              12
+              /* ParseErrorCode.UnexpectedEndOfString */
+            );
             break;
           case 6:
-            handleError(16);
+            handleError(
+              16
+              /* ParseErrorCode.InvalidCharacter */
+            );
             break;
         }
         switch (token) {
           case 12:
           case 13:
             if (disallowComments) {
-              handleError(10);
+              handleError(
+                10
+                /* ParseErrorCode.InvalidCommentToken */
+              );
             } else {
               onComment();
             }
             break;
           case 16:
-            handleError(1);
+            handleError(
+              1
+              /* ParseErrorCode.InvalidSymbol */
+            );
             break;
           case 15:
           case 14:
@@ -25782,7 +28720,10 @@ ${p.commentBefore}` : u;
           const tokenValue = _scanner.getTokenValue();
           let value = Number(tokenValue);
           if (isNaN(value)) {
-            handleError(2);
+            handleError(
+              2
+              /* ParseErrorCode.InvalidNumberFormat */
+            );
             value = 0;
           }
           onLiteralValue(value);
@@ -25804,7 +28745,11 @@ ${p.commentBefore}` : u;
     }
     function parseProperty() {
       if (_scanner.getToken() !== 10) {
-        handleError(3, [], [2, 5]);
+        handleError(3, [], [
+          2,
+          5
+          /* SyntaxKind.CommaToken */
+        ]);
         return false;
       }
       parseString(false);
@@ -25812,10 +28757,18 @@ ${p.commentBefore}` : u;
         onSeparator(":");
         scanNext();
         if (!parseValue()) {
-          handleError(4, [], [2, 5]);
+          handleError(4, [], [
+            2,
+            5
+            /* SyntaxKind.CommaToken */
+          ]);
         }
       } else {
-        handleError(5, [], [2, 5]);
+        handleError(5, [], [
+          2,
+          5
+          /* SyntaxKind.CommaToken */
+        ]);
       }
       _jsonPath.pop();
       return true;
@@ -25838,13 +28791,20 @@ ${p.commentBefore}` : u;
           handleError(6, [], []);
         }
         if (!parseProperty()) {
-          handleError(4, [], [2, 5]);
+          handleError(4, [], [
+            2,
+            5
+            /* SyntaxKind.CommaToken */
+          ]);
         }
         needsComma = true;
       }
       onObjectEnd();
       if (_scanner.getToken() !== 2) {
-        handleError(7, [2], []);
+        handleError(7, [
+          2
+          /* SyntaxKind.CloseBraceToken */
+        ], []);
       } else {
         scanNext();
       }
@@ -25875,7 +28835,11 @@ ${p.commentBefore}` : u;
           _jsonPath[_jsonPath.length - 1]++;
         }
         if (!parseValue()) {
-          handleError(4, [], [4, 5]);
+          handleError(4, [], [
+            4,
+            5
+            /* SyntaxKind.CommaToken */
+          ]);
         }
         needsComma = true;
       }
@@ -25884,7 +28848,10 @@ ${p.commentBefore}` : u;
         _jsonPath.pop();
       }
       if (_scanner.getToken() !== 4) {
-        handleError(8, [4], []);
+        handleError(8, [
+          4
+          /* SyntaxKind.CloseBracketToken */
+        ], []);
       } else {
         scanNext();
       }
@@ -26448,8 +29415,8 @@ ${p.commentBefore}` : u;
     }
     LocationLink2.is = is;
   })(LocationLink || (LocationLink = {}));
-  var Color;
-  (function(Color2) {
+  var Color2;
+  (function(Color3) {
     function create(red, green, blue, alpha) {
       return {
         red,
@@ -26458,13 +29425,13 @@ ${p.commentBefore}` : u;
         alpha
       };
     }
-    Color2.create = create;
+    Color3.create = create;
     function is(value) {
       var candidate = value;
       return Is.objectLiteral(candidate) && Is.numberRange(candidate.red, 0, 1) && Is.numberRange(candidate.green, 0, 1) && Is.numberRange(candidate.blue, 0, 1) && Is.numberRange(candidate.alpha, 0, 1);
     }
-    Color2.is = is;
-  })(Color || (Color = {}));
+    Color3.is = is;
+  })(Color2 || (Color2 = {}));
   var ColorInformation;
   (function(ColorInformation2) {
     function create(range, color) {
@@ -26476,7 +29443,7 @@ ${p.commentBefore}` : u;
     ColorInformation2.create = create;
     function is(value) {
       var candidate = value;
-      return Is.objectLiteral(candidate) && Range2.is(candidate.range) && Color.is(candidate.color);
+      return Is.objectLiteral(candidate) && Range2.is(candidate.range) && Color2.is(candidate.color);
     }
     ColorInformation2.is = is;
   })(ColorInformation || (ColorInformation = {}));
@@ -26771,281 +29738,294 @@ ${p.commentBefore}` : u;
     }
     WorkspaceEdit2.is = is;
   })(WorkspaceEdit || (WorkspaceEdit = {}));
-  var TextEditChangeImpl = function() {
-    function TextEditChangeImpl2(edits, changeAnnotations) {
-      this.edits = edits;
-      this.changeAnnotations = changeAnnotations;
-    }
-    TextEditChangeImpl2.prototype.insert = function(position, newText, annotation) {
-      var edit;
-      var id;
-      if (annotation === void 0) {
-        edit = TextEdit.insert(position, newText);
-      } else if (ChangeAnnotationIdentifier.is(annotation)) {
-        id = annotation;
-        edit = AnnotatedTextEdit.insert(position, newText, annotation);
-      } else {
-        this.assertChangeAnnotations(this.changeAnnotations);
-        id = this.changeAnnotations.manage(annotation);
-        edit = AnnotatedTextEdit.insert(position, newText, id);
+  var TextEditChangeImpl = (
+    /** @class */
+    function() {
+      function TextEditChangeImpl2(edits, changeAnnotations) {
+        this.edits = edits;
+        this.changeAnnotations = changeAnnotations;
       }
-      this.edits.push(edit);
-      if (id !== void 0) {
-        return id;
-      }
-    };
-    TextEditChangeImpl2.prototype.replace = function(range, newText, annotation) {
-      var edit;
-      var id;
-      if (annotation === void 0) {
-        edit = TextEdit.replace(range, newText);
-      } else if (ChangeAnnotationIdentifier.is(annotation)) {
-        id = annotation;
-        edit = AnnotatedTextEdit.replace(range, newText, annotation);
-      } else {
-        this.assertChangeAnnotations(this.changeAnnotations);
-        id = this.changeAnnotations.manage(annotation);
-        edit = AnnotatedTextEdit.replace(range, newText, id);
-      }
-      this.edits.push(edit);
-      if (id !== void 0) {
-        return id;
-      }
-    };
-    TextEditChangeImpl2.prototype.delete = function(range, annotation) {
-      var edit;
-      var id;
-      if (annotation === void 0) {
-        edit = TextEdit.del(range);
-      } else if (ChangeAnnotationIdentifier.is(annotation)) {
-        id = annotation;
-        edit = AnnotatedTextEdit.del(range, annotation);
-      } else {
-        this.assertChangeAnnotations(this.changeAnnotations);
-        id = this.changeAnnotations.manage(annotation);
-        edit = AnnotatedTextEdit.del(range, id);
-      }
-      this.edits.push(edit);
-      if (id !== void 0) {
-        return id;
-      }
-    };
-    TextEditChangeImpl2.prototype.add = function(edit) {
-      this.edits.push(edit);
-    };
-    TextEditChangeImpl2.prototype.all = function() {
-      return this.edits;
-    };
-    TextEditChangeImpl2.prototype.clear = function() {
-      this.edits.splice(0, this.edits.length);
-    };
-    TextEditChangeImpl2.prototype.assertChangeAnnotations = function(value) {
-      if (value === void 0) {
-        throw new Error("Text edit change is not configured to manage change annotations.");
-      }
-    };
-    return TextEditChangeImpl2;
-  }();
-  var ChangeAnnotations = function() {
-    function ChangeAnnotations2(annotations) {
-      this._annotations = annotations === void 0 ? /* @__PURE__ */ Object.create(null) : annotations;
-      this._counter = 0;
-      this._size = 0;
-    }
-    ChangeAnnotations2.prototype.all = function() {
-      return this._annotations;
-    };
-    Object.defineProperty(ChangeAnnotations2.prototype, "size", {
-      get: function() {
-        return this._size;
-      },
-      enumerable: false,
-      configurable: true
-    });
-    ChangeAnnotations2.prototype.manage = function(idOrAnnotation, annotation) {
-      var id;
-      if (ChangeAnnotationIdentifier.is(idOrAnnotation)) {
-        id = idOrAnnotation;
-      } else {
-        id = this.nextId();
-        annotation = idOrAnnotation;
-      }
-      if (this._annotations[id] !== void 0) {
-        throw new Error("Id ".concat(id, " is already in use."));
-      }
-      if (annotation === void 0) {
-        throw new Error("No annotation provided for id ".concat(id));
-      }
-      this._annotations[id] = annotation;
-      this._size++;
-      return id;
-    };
-    ChangeAnnotations2.prototype.nextId = function() {
-      this._counter++;
-      return this._counter.toString();
-    };
-    return ChangeAnnotations2;
-  }();
-  var WorkspaceChange = function() {
-    function WorkspaceChange2(workspaceEdit) {
-      var _this = this;
-      this._textEditChanges = /* @__PURE__ */ Object.create(null);
-      if (workspaceEdit !== void 0) {
-        this._workspaceEdit = workspaceEdit;
-        if (workspaceEdit.documentChanges) {
-          this._changeAnnotations = new ChangeAnnotations(workspaceEdit.changeAnnotations);
-          workspaceEdit.changeAnnotations = this._changeAnnotations.all();
-          workspaceEdit.documentChanges.forEach(function(change) {
-            if (TextDocumentEdit.is(change)) {
-              var textEditChange = new TextEditChangeImpl(change.edits, _this._changeAnnotations);
-              _this._textEditChanges[change.textDocument.uri] = textEditChange;
-            }
-          });
-        } else if (workspaceEdit.changes) {
-          Object.keys(workspaceEdit.changes).forEach(function(key) {
-            var textEditChange = new TextEditChangeImpl(workspaceEdit.changes[key]);
-            _this._textEditChanges[key] = textEditChange;
-          });
+      TextEditChangeImpl2.prototype.insert = function(position, newText, annotation) {
+        var edit;
+        var id;
+        if (annotation === void 0) {
+          edit = TextEdit.insert(position, newText);
+        } else if (ChangeAnnotationIdentifier.is(annotation)) {
+          id = annotation;
+          edit = AnnotatedTextEdit.insert(position, newText, annotation);
+        } else {
+          this.assertChangeAnnotations(this.changeAnnotations);
+          id = this.changeAnnotations.manage(annotation);
+          edit = AnnotatedTextEdit.insert(position, newText, id);
         }
-      } else {
-        this._workspaceEdit = {};
+        this.edits.push(edit);
+        if (id !== void 0) {
+          return id;
+        }
+      };
+      TextEditChangeImpl2.prototype.replace = function(range, newText, annotation) {
+        var edit;
+        var id;
+        if (annotation === void 0) {
+          edit = TextEdit.replace(range, newText);
+        } else if (ChangeAnnotationIdentifier.is(annotation)) {
+          id = annotation;
+          edit = AnnotatedTextEdit.replace(range, newText, annotation);
+        } else {
+          this.assertChangeAnnotations(this.changeAnnotations);
+          id = this.changeAnnotations.manage(annotation);
+          edit = AnnotatedTextEdit.replace(range, newText, id);
+        }
+        this.edits.push(edit);
+        if (id !== void 0) {
+          return id;
+        }
+      };
+      TextEditChangeImpl2.prototype.delete = function(range, annotation) {
+        var edit;
+        var id;
+        if (annotation === void 0) {
+          edit = TextEdit.del(range);
+        } else if (ChangeAnnotationIdentifier.is(annotation)) {
+          id = annotation;
+          edit = AnnotatedTextEdit.del(range, annotation);
+        } else {
+          this.assertChangeAnnotations(this.changeAnnotations);
+          id = this.changeAnnotations.manage(annotation);
+          edit = AnnotatedTextEdit.del(range, id);
+        }
+        this.edits.push(edit);
+        if (id !== void 0) {
+          return id;
+        }
+      };
+      TextEditChangeImpl2.prototype.add = function(edit) {
+        this.edits.push(edit);
+      };
+      TextEditChangeImpl2.prototype.all = function() {
+        return this.edits;
+      };
+      TextEditChangeImpl2.prototype.clear = function() {
+        this.edits.splice(0, this.edits.length);
+      };
+      TextEditChangeImpl2.prototype.assertChangeAnnotations = function(value) {
+        if (value === void 0) {
+          throw new Error("Text edit change is not configured to manage change annotations.");
+        }
+      };
+      return TextEditChangeImpl2;
+    }()
+  );
+  var ChangeAnnotations = (
+    /** @class */
+    function() {
+      function ChangeAnnotations2(annotations) {
+        this._annotations = annotations === void 0 ? /* @__PURE__ */ Object.create(null) : annotations;
+        this._counter = 0;
+        this._size = 0;
       }
-    }
-    Object.defineProperty(WorkspaceChange2.prototype, "edit", {
-      get: function() {
-        this.initDocumentChanges();
-        if (this._changeAnnotations !== void 0) {
-          if (this._changeAnnotations.size === 0) {
-            this._workspaceEdit.changeAnnotations = void 0;
-          } else {
-            this._workspaceEdit.changeAnnotations = this._changeAnnotations.all();
+      ChangeAnnotations2.prototype.all = function() {
+        return this._annotations;
+      };
+      Object.defineProperty(ChangeAnnotations2.prototype, "size", {
+        get: function() {
+          return this._size;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      ChangeAnnotations2.prototype.manage = function(idOrAnnotation, annotation) {
+        var id;
+        if (ChangeAnnotationIdentifier.is(idOrAnnotation)) {
+          id = idOrAnnotation;
+        } else {
+          id = this.nextId();
+          annotation = idOrAnnotation;
+        }
+        if (this._annotations[id] !== void 0) {
+          throw new Error("Id ".concat(id, " is already in use."));
+        }
+        if (annotation === void 0) {
+          throw new Error("No annotation provided for id ".concat(id));
+        }
+        this._annotations[id] = annotation;
+        this._size++;
+        return id;
+      };
+      ChangeAnnotations2.prototype.nextId = function() {
+        this._counter++;
+        return this._counter.toString();
+      };
+      return ChangeAnnotations2;
+    }()
+  );
+  var WorkspaceChange = (
+    /** @class */
+    function() {
+      function WorkspaceChange2(workspaceEdit) {
+        var _this = this;
+        this._textEditChanges = /* @__PURE__ */ Object.create(null);
+        if (workspaceEdit !== void 0) {
+          this._workspaceEdit = workspaceEdit;
+          if (workspaceEdit.documentChanges) {
+            this._changeAnnotations = new ChangeAnnotations(workspaceEdit.changeAnnotations);
+            workspaceEdit.changeAnnotations = this._changeAnnotations.all();
+            workspaceEdit.documentChanges.forEach(function(change) {
+              if (TextDocumentEdit.is(change)) {
+                var textEditChange = new TextEditChangeImpl(change.edits, _this._changeAnnotations);
+                _this._textEditChanges[change.textDocument.uri] = textEditChange;
+              }
+            });
+          } else if (workspaceEdit.changes) {
+            Object.keys(workspaceEdit.changes).forEach(function(key) {
+              var textEditChange = new TextEditChangeImpl(workspaceEdit.changes[key]);
+              _this._textEditChanges[key] = textEditChange;
+            });
           }
+        } else {
+          this._workspaceEdit = {};
         }
-        return this._workspaceEdit;
-      },
-      enumerable: false,
-      configurable: true
-    });
-    WorkspaceChange2.prototype.getTextEditChange = function(key) {
-      if (OptionalVersionedTextDocumentIdentifier.is(key)) {
+      }
+      Object.defineProperty(WorkspaceChange2.prototype, "edit", {
+        /**
+         * Returns the underlying [WorkspaceEdit](#WorkspaceEdit) literal
+         * use to be returned from a workspace edit operation like rename.
+         */
+        get: function() {
+          this.initDocumentChanges();
+          if (this._changeAnnotations !== void 0) {
+            if (this._changeAnnotations.size === 0) {
+              this._workspaceEdit.changeAnnotations = void 0;
+            } else {
+              this._workspaceEdit.changeAnnotations = this._changeAnnotations.all();
+            }
+          }
+          return this._workspaceEdit;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      WorkspaceChange2.prototype.getTextEditChange = function(key) {
+        if (OptionalVersionedTextDocumentIdentifier.is(key)) {
+          this.initDocumentChanges();
+          if (this._workspaceEdit.documentChanges === void 0) {
+            throw new Error("Workspace edit is not configured for document changes.");
+          }
+          var textDocument = { uri: key.uri, version: key.version };
+          var result = this._textEditChanges[textDocument.uri];
+          if (!result) {
+            var edits = [];
+            var textDocumentEdit = {
+              textDocument,
+              edits
+            };
+            this._workspaceEdit.documentChanges.push(textDocumentEdit);
+            result = new TextEditChangeImpl(edits, this._changeAnnotations);
+            this._textEditChanges[textDocument.uri] = result;
+          }
+          return result;
+        } else {
+          this.initChanges();
+          if (this._workspaceEdit.changes === void 0) {
+            throw new Error("Workspace edit is not configured for normal text edit changes.");
+          }
+          var result = this._textEditChanges[key];
+          if (!result) {
+            var edits = [];
+            this._workspaceEdit.changes[key] = edits;
+            result = new TextEditChangeImpl(edits);
+            this._textEditChanges[key] = result;
+          }
+          return result;
+        }
+      };
+      WorkspaceChange2.prototype.initDocumentChanges = function() {
+        if (this._workspaceEdit.documentChanges === void 0 && this._workspaceEdit.changes === void 0) {
+          this._changeAnnotations = new ChangeAnnotations();
+          this._workspaceEdit.documentChanges = [];
+          this._workspaceEdit.changeAnnotations = this._changeAnnotations.all();
+        }
+      };
+      WorkspaceChange2.prototype.initChanges = function() {
+        if (this._workspaceEdit.documentChanges === void 0 && this._workspaceEdit.changes === void 0) {
+          this._workspaceEdit.changes = /* @__PURE__ */ Object.create(null);
+        }
+      };
+      WorkspaceChange2.prototype.createFile = function(uri, optionsOrAnnotation, options) {
         this.initDocumentChanges();
         if (this._workspaceEdit.documentChanges === void 0) {
           throw new Error("Workspace edit is not configured for document changes.");
         }
-        var textDocument = { uri: key.uri, version: key.version };
-        var result = this._textEditChanges[textDocument.uri];
-        if (!result) {
-          var edits = [];
-          var textDocumentEdit = {
-            textDocument,
-            edits
-          };
-          this._workspaceEdit.documentChanges.push(textDocumentEdit);
-          result = new TextEditChangeImpl(edits, this._changeAnnotations);
-          this._textEditChanges[textDocument.uri] = result;
+        var annotation;
+        if (ChangeAnnotation.is(optionsOrAnnotation) || ChangeAnnotationIdentifier.is(optionsOrAnnotation)) {
+          annotation = optionsOrAnnotation;
+        } else {
+          options = optionsOrAnnotation;
         }
-        return result;
-      } else {
-        this.initChanges();
-        if (this._workspaceEdit.changes === void 0) {
-          throw new Error("Workspace edit is not configured for normal text edit changes.");
+        var operation;
+        var id;
+        if (annotation === void 0) {
+          operation = CreateFile.create(uri, options);
+        } else {
+          id = ChangeAnnotationIdentifier.is(annotation) ? annotation : this._changeAnnotations.manage(annotation);
+          operation = CreateFile.create(uri, options, id);
         }
-        var result = this._textEditChanges[key];
-        if (!result) {
-          var edits = [];
-          this._workspaceEdit.changes[key] = edits;
-          result = new TextEditChangeImpl(edits);
-          this._textEditChanges[key] = result;
+        this._workspaceEdit.documentChanges.push(operation);
+        if (id !== void 0) {
+          return id;
         }
-        return result;
-      }
-    };
-    WorkspaceChange2.prototype.initDocumentChanges = function() {
-      if (this._workspaceEdit.documentChanges === void 0 && this._workspaceEdit.changes === void 0) {
-        this._changeAnnotations = new ChangeAnnotations();
-        this._workspaceEdit.documentChanges = [];
-        this._workspaceEdit.changeAnnotations = this._changeAnnotations.all();
-      }
-    };
-    WorkspaceChange2.prototype.initChanges = function() {
-      if (this._workspaceEdit.documentChanges === void 0 && this._workspaceEdit.changes === void 0) {
-        this._workspaceEdit.changes = /* @__PURE__ */ Object.create(null);
-      }
-    };
-    WorkspaceChange2.prototype.createFile = function(uri, optionsOrAnnotation, options) {
-      this.initDocumentChanges();
-      if (this._workspaceEdit.documentChanges === void 0) {
-        throw new Error("Workspace edit is not configured for document changes.");
-      }
-      var annotation;
-      if (ChangeAnnotation.is(optionsOrAnnotation) || ChangeAnnotationIdentifier.is(optionsOrAnnotation)) {
-        annotation = optionsOrAnnotation;
-      } else {
-        options = optionsOrAnnotation;
-      }
-      var operation;
-      var id;
-      if (annotation === void 0) {
-        operation = CreateFile.create(uri, options);
-      } else {
-        id = ChangeAnnotationIdentifier.is(annotation) ? annotation : this._changeAnnotations.manage(annotation);
-        operation = CreateFile.create(uri, options, id);
-      }
-      this._workspaceEdit.documentChanges.push(operation);
-      if (id !== void 0) {
-        return id;
-      }
-    };
-    WorkspaceChange2.prototype.renameFile = function(oldUri, newUri, optionsOrAnnotation, options) {
-      this.initDocumentChanges();
-      if (this._workspaceEdit.documentChanges === void 0) {
-        throw new Error("Workspace edit is not configured for document changes.");
-      }
-      var annotation;
-      if (ChangeAnnotation.is(optionsOrAnnotation) || ChangeAnnotationIdentifier.is(optionsOrAnnotation)) {
-        annotation = optionsOrAnnotation;
-      } else {
-        options = optionsOrAnnotation;
-      }
-      var operation;
-      var id;
-      if (annotation === void 0) {
-        operation = RenameFile.create(oldUri, newUri, options);
-      } else {
-        id = ChangeAnnotationIdentifier.is(annotation) ? annotation : this._changeAnnotations.manage(annotation);
-        operation = RenameFile.create(oldUri, newUri, options, id);
-      }
-      this._workspaceEdit.documentChanges.push(operation);
-      if (id !== void 0) {
-        return id;
-      }
-    };
-    WorkspaceChange2.prototype.deleteFile = function(uri, optionsOrAnnotation, options) {
-      this.initDocumentChanges();
-      if (this._workspaceEdit.documentChanges === void 0) {
-        throw new Error("Workspace edit is not configured for document changes.");
-      }
-      var annotation;
-      if (ChangeAnnotation.is(optionsOrAnnotation) || ChangeAnnotationIdentifier.is(optionsOrAnnotation)) {
-        annotation = optionsOrAnnotation;
-      } else {
-        options = optionsOrAnnotation;
-      }
-      var operation;
-      var id;
-      if (annotation === void 0) {
-        operation = DeleteFile.create(uri, options);
-      } else {
-        id = ChangeAnnotationIdentifier.is(annotation) ? annotation : this._changeAnnotations.manage(annotation);
-        operation = DeleteFile.create(uri, options, id);
-      }
-      this._workspaceEdit.documentChanges.push(operation);
-      if (id !== void 0) {
-        return id;
-      }
-    };
-    return WorkspaceChange2;
-  }();
+      };
+      WorkspaceChange2.prototype.renameFile = function(oldUri, newUri, optionsOrAnnotation, options) {
+        this.initDocumentChanges();
+        if (this._workspaceEdit.documentChanges === void 0) {
+          throw new Error("Workspace edit is not configured for document changes.");
+        }
+        var annotation;
+        if (ChangeAnnotation.is(optionsOrAnnotation) || ChangeAnnotationIdentifier.is(optionsOrAnnotation)) {
+          annotation = optionsOrAnnotation;
+        } else {
+          options = optionsOrAnnotation;
+        }
+        var operation;
+        var id;
+        if (annotation === void 0) {
+          operation = RenameFile.create(oldUri, newUri, options);
+        } else {
+          id = ChangeAnnotationIdentifier.is(annotation) ? annotation : this._changeAnnotations.manage(annotation);
+          operation = RenameFile.create(oldUri, newUri, options, id);
+        }
+        this._workspaceEdit.documentChanges.push(operation);
+        if (id !== void 0) {
+          return id;
+        }
+      };
+      WorkspaceChange2.prototype.deleteFile = function(uri, optionsOrAnnotation, options) {
+        this.initDocumentChanges();
+        if (this._workspaceEdit.documentChanges === void 0) {
+          throw new Error("Workspace edit is not configured for document changes.");
+        }
+        var annotation;
+        if (ChangeAnnotation.is(optionsOrAnnotation) || ChangeAnnotationIdentifier.is(optionsOrAnnotation)) {
+          annotation = optionsOrAnnotation;
+        } else {
+          options = optionsOrAnnotation;
+        }
+        var operation;
+        var id;
+        if (annotation === void 0) {
+          operation = DeleteFile.create(uri, options);
+        } else {
+          id = ChangeAnnotationIdentifier.is(annotation) ? annotation : this._changeAnnotations.manage(annotation);
+          operation = DeleteFile.create(uri, options, id);
+        }
+        this._workspaceEdit.documentChanges.push(operation);
+        if (id !== void 0) {
+          return id;
+        }
+      };
+      return WorkspaceChange2;
+    }()
+  );
   var TextDocumentIdentifier;
   (function(TextDocumentIdentifier2) {
     function create(uri) {
@@ -27646,109 +30626,112 @@ ${p.commentBefore}` : u;
       return data;
     }
   })(TextDocument2 || (TextDocument2 = {}));
-  var FullTextDocument2 = function() {
-    function FullTextDocument3(uri, languageId2, version, content) {
-      this._uri = uri;
-      this._languageId = languageId2;
-      this._version = version;
-      this._content = content;
-      this._lineOffsets = void 0;
-    }
-    Object.defineProperty(FullTextDocument3.prototype, "uri", {
-      get: function() {
-        return this._uri;
-      },
-      enumerable: false,
-      configurable: true
-    });
-    Object.defineProperty(FullTextDocument3.prototype, "languageId", {
-      get: function() {
-        return this._languageId;
-      },
-      enumerable: false,
-      configurable: true
-    });
-    Object.defineProperty(FullTextDocument3.prototype, "version", {
-      get: function() {
-        return this._version;
-      },
-      enumerable: false,
-      configurable: true
-    });
-    FullTextDocument3.prototype.getText = function(range) {
-      if (range) {
-        var start = this.offsetAt(range.start);
-        var end = this.offsetAt(range.end);
-        return this._content.substring(start, end);
+  var FullTextDocument2 = (
+    /** @class */
+    function() {
+      function FullTextDocument3(uri, languageId2, version, content) {
+        this._uri = uri;
+        this._languageId = languageId2;
+        this._version = version;
+        this._content = content;
+        this._lineOffsets = void 0;
       }
-      return this._content;
-    };
-    FullTextDocument3.prototype.update = function(event, version) {
-      this._content = event.text;
-      this._version = version;
-      this._lineOffsets = void 0;
-    };
-    FullTextDocument3.prototype.getLineOffsets = function() {
-      if (this._lineOffsets === void 0) {
-        var lineOffsets = [];
-        var text = this._content;
-        var isLineStart = true;
-        for (var i = 0; i < text.length; i++) {
-          if (isLineStart) {
-            lineOffsets.push(i);
-            isLineStart = false;
+      Object.defineProperty(FullTextDocument3.prototype, "uri", {
+        get: function() {
+          return this._uri;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      Object.defineProperty(FullTextDocument3.prototype, "languageId", {
+        get: function() {
+          return this._languageId;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      Object.defineProperty(FullTextDocument3.prototype, "version", {
+        get: function() {
+          return this._version;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      FullTextDocument3.prototype.getText = function(range) {
+        if (range) {
+          var start = this.offsetAt(range.start);
+          var end = this.offsetAt(range.end);
+          return this._content.substring(start, end);
+        }
+        return this._content;
+      };
+      FullTextDocument3.prototype.update = function(event, version) {
+        this._content = event.text;
+        this._version = version;
+        this._lineOffsets = void 0;
+      };
+      FullTextDocument3.prototype.getLineOffsets = function() {
+        if (this._lineOffsets === void 0) {
+          var lineOffsets = [];
+          var text = this._content;
+          var isLineStart = true;
+          for (var i = 0; i < text.length; i++) {
+            if (isLineStart) {
+              lineOffsets.push(i);
+              isLineStart = false;
+            }
+            var ch = text.charAt(i);
+            isLineStart = ch === "\r" || ch === "\n";
+            if (ch === "\r" && i + 1 < text.length && text.charAt(i + 1) === "\n") {
+              i++;
+            }
           }
-          var ch = text.charAt(i);
-          isLineStart = ch === "\r" || ch === "\n";
-          if (ch === "\r" && i + 1 < text.length && text.charAt(i + 1) === "\n") {
-            i++;
+          if (isLineStart && text.length > 0) {
+            lineOffsets.push(text.length);
+          }
+          this._lineOffsets = lineOffsets;
+        }
+        return this._lineOffsets;
+      };
+      FullTextDocument3.prototype.positionAt = function(offset) {
+        offset = Math.max(Math.min(offset, this._content.length), 0);
+        var lineOffsets = this.getLineOffsets();
+        var low = 0, high = lineOffsets.length;
+        if (high === 0) {
+          return Position2.create(0, offset);
+        }
+        while (low < high) {
+          var mid = Math.floor((low + high) / 2);
+          if (lineOffsets[mid] > offset) {
+            high = mid;
+          } else {
+            low = mid + 1;
           }
         }
-        if (isLineStart && text.length > 0) {
-          lineOffsets.push(text.length);
+        var line = low - 1;
+        return Position2.create(line, offset - lineOffsets[line]);
+      };
+      FullTextDocument3.prototype.offsetAt = function(position) {
+        var lineOffsets = this.getLineOffsets();
+        if (position.line >= lineOffsets.length) {
+          return this._content.length;
+        } else if (position.line < 0) {
+          return 0;
         }
-        this._lineOffsets = lineOffsets;
-      }
-      return this._lineOffsets;
-    };
-    FullTextDocument3.prototype.positionAt = function(offset) {
-      offset = Math.max(Math.min(offset, this._content.length), 0);
-      var lineOffsets = this.getLineOffsets();
-      var low = 0, high = lineOffsets.length;
-      if (high === 0) {
-        return Position2.create(0, offset);
-      }
-      while (low < high) {
-        var mid = Math.floor((low + high) / 2);
-        if (lineOffsets[mid] > offset) {
-          high = mid;
-        } else {
-          low = mid + 1;
-        }
-      }
-      var line = low - 1;
-      return Position2.create(line, offset - lineOffsets[line]);
-    };
-    FullTextDocument3.prototype.offsetAt = function(position) {
-      var lineOffsets = this.getLineOffsets();
-      if (position.line >= lineOffsets.length) {
-        return this._content.length;
-      } else if (position.line < 0) {
-        return 0;
-      }
-      var lineOffset = lineOffsets[position.line];
-      var nextLineOffset = position.line + 1 < lineOffsets.length ? lineOffsets[position.line + 1] : this._content.length;
-      return Math.max(Math.min(lineOffset + position.character, nextLineOffset), lineOffset);
-    };
-    Object.defineProperty(FullTextDocument3.prototype, "lineCount", {
-      get: function() {
-        return this.getLineOffsets().length;
-      },
-      enumerable: false,
-      configurable: true
-    });
-    return FullTextDocument3;
-  }();
+        var lineOffset = lineOffsets[position.line];
+        var nextLineOffset = position.line + 1 < lineOffsets.length ? lineOffsets[position.line + 1] : this._content.length;
+        return Math.max(Math.min(lineOffset + position.character, nextLineOffset), lineOffset);
+      };
+      Object.defineProperty(FullTextDocument3.prototype, "lineCount", {
+        get: function() {
+          return this.getLineOffsets().length;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      return FullTextDocument3;
+    }()
+  );
   var Is;
   (function(Is2) {
     var toString = Object.prototype.toString;
@@ -27798,7 +30781,7 @@ ${p.commentBefore}` : u;
     Is2.typedArray = typedArray;
   })(Is || (Is = {}));
 
-  // node_modules/yaml/browser/dist/nodes/Node.js
+  // node_modules/yaml/browser/dist/nodes/identity.js
   var ALIAS = Symbol.for("yaml.alias");
   var DOC = Symbol.for("yaml.document");
   var MAP = Symbol.for("yaml.map");
@@ -27833,17 +30816,6 @@ ${p.commentBefore}` : u;
     return false;
   }
   var hasAnchor = (node) => (isScalar(node) || isCollection(node)) && !!node.anchor;
-  var NodeBase = class {
-    constructor(type) {
-      Object.defineProperty(this, NODE_TYPE, { value: type });
-    }
-    clone() {
-      const copy = Object.create(Object.getPrototypeOf(this), Object.getOwnPropertyDescriptors(this));
-      if (this.range)
-        copy.range = this.range.slice();
-      return copy;
-    }
-  };
 
   // node_modules/yaml/browser/dist/visit.js
   var BREAK = Symbol("break visit");
@@ -28005,20 +30977,24 @@ ${p.commentBefore}` : u;
     "}": "%7D"
   };
   var escapeTagName = (tn) => tn.replace(/[!,[\]{}]/g, (ch) => escapeChars[ch]);
-  var Directives = class {
+  var Directives = class _Directives {
     constructor(yaml, tags) {
       this.docStart = null;
       this.docEnd = false;
-      this.yaml = Object.assign({}, Directives.defaultYaml, yaml);
-      this.tags = Object.assign({}, Directives.defaultTags, tags);
+      this.yaml = Object.assign({}, _Directives.defaultYaml, yaml);
+      this.tags = Object.assign({}, _Directives.defaultTags, tags);
     }
     clone() {
-      const copy = new Directives(this.yaml, this.tags);
+      const copy = new _Directives(this.yaml, this.tags);
       copy.docStart = this.docStart;
       return copy;
     }
+    /**
+     * During parsing, get a Directives instance for the current document and
+     * update the stream state according to the current version's spec.
+     */
     atDocument() {
-      const res = new Directives(this.yaml, this.tags);
+      const res = new _Directives(this.yaml, this.tags);
       switch (this.yaml.version) {
         case "1.1":
           this.atNextDocument = true;
@@ -28026,18 +31002,22 @@ ${p.commentBefore}` : u;
         case "1.2":
           this.atNextDocument = false;
           this.yaml = {
-            explicit: Directives.defaultYaml.explicit,
+            explicit: _Directives.defaultYaml.explicit,
             version: "1.2"
           };
-          this.tags = Object.assign({}, Directives.defaultTags);
+          this.tags = Object.assign({}, _Directives.defaultTags);
           break;
       }
       return res;
     }
+    /**
+     * @param onError - May be called even if the action was successful
+     * @returns `true` on success
+     */
     add(line, onError) {
       if (this.atNextDocument) {
-        this.yaml = { explicit: Directives.defaultYaml.explicit, version: "1.1" };
-        this.tags = Object.assign({}, Directives.defaultTags);
+        this.yaml = { explicit: _Directives.defaultYaml.explicit, version: "1.1" };
+        this.tags = Object.assign({}, _Directives.defaultTags);
         this.atNextDocument = false;
       }
       const parts = line.trim().split(/[ \t]+/);
@@ -28074,6 +31054,12 @@ ${p.commentBefore}` : u;
           return false;
       }
     }
+    /**
+     * Resolves a tag, matching handles to those defined in %TAG directives.
+     *
+     * @returns Resolved tag, which may also be the non-specific tag `'!'` or a
+     *   `'!local'` tag, or `null` if unresolvable.
+     */
     tagName(source, onError) {
       if (source === "!")
         return "!";
@@ -28102,6 +31088,10 @@ ${p.commentBefore}` : u;
       onError(`Could not resolve tag: ${source}`);
       return null;
     }
+    /**
+     * Given a fully resolved tag, returns its printable string form,
+     * taking into account current tag prefixes and defaults.
+     */
     tagString(tag) {
       for (const [handle, prefix] of Object.entries(this.tags)) {
         if (tag.startsWith(prefix))
@@ -28173,6 +31163,11 @@ ${p.commentBefore}` : u;
         prevAnchors.add(anchor);
         return anchor;
       },
+      /**
+       * With circular references, the source node is only resolved after all
+       * of its child nodes are. This is why anchors are set only after all of
+       * the nodes have been created.
+       */
       setAnchors: () => {
         for (const source of aliasObjects) {
           const ref = sourceObjects.get(source);
@@ -28189,6 +31184,105 @@ ${p.commentBefore}` : u;
     };
   }
 
+  // node_modules/yaml/browser/dist/doc/applyReviver.js
+  function applyReviver(reviver, obj, key, val) {
+    if (val && typeof val === "object") {
+      if (Array.isArray(val)) {
+        for (let i = 0, len = val.length; i < len; ++i) {
+          const v0 = val[i];
+          const v1 = applyReviver(reviver, val, String(i), v0);
+          if (v1 === void 0)
+            delete val[i];
+          else if (v1 !== v0)
+            val[i] = v1;
+        }
+      } else if (val instanceof Map) {
+        for (const k of Array.from(val.keys())) {
+          const v0 = val.get(k);
+          const v1 = applyReviver(reviver, val, k, v0);
+          if (v1 === void 0)
+            val.delete(k);
+          else if (v1 !== v0)
+            val.set(k, v1);
+        }
+      } else if (val instanceof Set) {
+        for (const v0 of Array.from(val)) {
+          const v1 = applyReviver(reviver, val, v0, v0);
+          if (v1 === void 0)
+            val.delete(v0);
+          else if (v1 !== v0) {
+            val.delete(v0);
+            val.add(v1);
+          }
+        }
+      } else {
+        for (const [k, v0] of Object.entries(val)) {
+          const v1 = applyReviver(reviver, val, k, v0);
+          if (v1 === void 0)
+            delete val[k];
+          else if (v1 !== v0)
+            val[k] = v1;
+        }
+      }
+    }
+    return reviver.call(obj, key, val);
+  }
+
+  // node_modules/yaml/browser/dist/nodes/toJS.js
+  function toJS(value, arg, ctx) {
+    if (Array.isArray(value))
+      return value.map((v, i) => toJS(v, String(i), ctx));
+    if (value && typeof value.toJSON === "function") {
+      if (!ctx || !hasAnchor(value))
+        return value.toJSON(arg, ctx);
+      const data = { aliasCount: 0, count: 1, res: void 0 };
+      ctx.anchors.set(value, data);
+      ctx.onCreate = (res2) => {
+        data.res = res2;
+        delete ctx.onCreate;
+      };
+      const res = value.toJSON(arg, ctx);
+      if (ctx.onCreate)
+        ctx.onCreate(res);
+      return res;
+    }
+    if (typeof value === "bigint" && !ctx?.keep)
+      return Number(value);
+    return value;
+  }
+
+  // node_modules/yaml/browser/dist/nodes/Node.js
+  var NodeBase = class {
+    constructor(type) {
+      Object.defineProperty(this, NODE_TYPE, { value: type });
+    }
+    /** Create a copy of this node.  */
+    clone() {
+      const copy = Object.create(Object.getPrototypeOf(this), Object.getOwnPropertyDescriptors(this));
+      if (this.range)
+        copy.range = this.range.slice();
+      return copy;
+    }
+    /** A plain JavaScript representation of this node. */
+    toJS(doc, { mapAsMap, maxAliasCount, onAnchor, reviver } = {}) {
+      if (!isDocument(doc))
+        throw new TypeError("A document argument is required");
+      const ctx = {
+        anchors: /* @__PURE__ */ new Map(),
+        doc,
+        keep: true,
+        mapAsMap: mapAsMap === true,
+        mapKeyWarned: false,
+        maxAliasCount: typeof maxAliasCount === "number" ? maxAliasCount : 100
+      };
+      const res = toJS(this, "", ctx);
+      if (typeof onAnchor === "function")
+        for (const { count, res: res2 } of ctx.anchors.values())
+          onAnchor(res2, count);
+      return typeof reviver === "function" ? applyReviver(reviver, { "": res }, "", res) : res;
+    }
+  };
+
   // node_modules/yaml/browser/dist/nodes/Alias.js
   var Alias = class extends NodeBase {
     constructor(source) {
@@ -28200,6 +31294,10 @@ ${p.commentBefore}` : u;
         }
       });
     }
+    /**
+     * Resolve the value of this alias within `doc`, finding the last
+     * instance of the `source` anchor before this node.
+     */
     resolve(doc) {
       let found = void 0;
       visit2(doc, {
@@ -28221,7 +31319,11 @@ ${p.commentBefore}` : u;
         const msg = `Unresolved alias (the anchor must be set before the alias): ${this.source}`;
         throw new ReferenceError(msg);
       }
-      const data = anchors.get(source);
+      let data = anchors.get(source);
+      if (!data) {
+        toJS(source, null, ctx);
+        data = anchors.get(source);
+      }
       if (!data || data.res === void 0) {
         const msg = "This should not happen: Alias anchor was not resolved?";
         throw new ReferenceError(msg);
@@ -28270,29 +31372,6 @@ ${p.commentBefore}` : u;
       return Math.max(kc, vc);
     }
     return 1;
-  }
-
-  // node_modules/yaml/browser/dist/nodes/toJS.js
-  function toJS(value, arg, ctx) {
-    if (Array.isArray(value))
-      return value.map((v, i) => toJS(v, String(i), ctx));
-    if (value && typeof value.toJSON === "function") {
-      if (!ctx || !hasAnchor(value))
-        return value.toJSON(arg, ctx);
-      const data = { aliasCount: 0, count: 1, res: void 0 };
-      ctx.anchors.set(value, data);
-      ctx.onCreate = (res2) => {
-        data.res = res2;
-        delete ctx.onCreate;
-      };
-      const res = value.toJSON(arg, ctx);
-      if (ctx.onCreate)
-        ctx.onCreate(res);
-      return res;
-    }
-    if (typeof value === "bigint" && !ctx?.keep)
-      return Number(value);
-    return value;
   }
 
   // node_modules/yaml/browser/dist/nodes/Scalar.js
@@ -28372,9 +31451,11 @@ ${p.commentBefore}` : u;
       onTagObj(tagObj);
       delete ctx.onTagObj;
     }
-    const node = tagObj?.createNode ? tagObj.createNode(ctx.schema, value, ctx) : new Scalar(value);
+    const node = tagObj?.createNode ? tagObj.createNode(ctx.schema, value, ctx) : typeof tagObj?.nodeClass?.from === "function" ? tagObj.nodeClass.from(ctx.schema, value, ctx) : new Scalar(value);
     if (tagName)
       node.tag = tagName;
+    else if (!tagObj.default)
+      node.tag = tagObj.tag;
     if (ref)
       ref.node = node;
     return node;
@@ -28414,6 +31495,11 @@ ${p.commentBefore}` : u;
         writable: true
       });
     }
+    /**
+     * Create a copy of this collection.
+     *
+     * @param schema - If defined, overwrites the original's schema
+     */
     clone(schema5) {
       const copy = Object.create(Object.getPrototypeOf(this), Object.getOwnPropertyDescriptors(this));
       if (schema5)
@@ -28423,6 +31509,11 @@ ${p.commentBefore}` : u;
         copy.range = this.range.slice();
       return copy;
     }
+    /**
+     * Adds a value to the collection. For `!!map` and `!!omap` the value must
+     * be a Pair instance or a `{ key, value }` object, which may not have a key
+     * that already exists in the map.
+     */
     addIn(path5, value) {
       if (isEmptyPath(path5))
         this.add(value);
@@ -28437,6 +31528,10 @@ ${p.commentBefore}` : u;
           throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
       }
     }
+    /**
+     * Removes a value from the collection.
+     * @returns `true` if the item was found and removed.
+     */
     deleteIn(path5) {
       const [key, ...rest] = path5;
       if (rest.length === 0)
@@ -28447,6 +31542,11 @@ ${p.commentBefore}` : u;
       else
         throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
     }
+    /**
+     * Returns item at `key`, or `undefined` if not found. By default unwraps
+     * scalar values from their surrounding node; to disable set `keepScalar` to
+     * `true` (collections are always returned intact).
+     */
     getIn(path5, keepScalar) {
       const [key, ...rest] = path5;
       const node = this.get(key, true);
@@ -28463,6 +31563,9 @@ ${p.commentBefore}` : u;
         return n == null || allowScalar && isScalar(n) && n.value == null && !n.commentBefore && !n.comment && !n.tag;
       });
     }
+    /**
+     * Checks if the collection includes a value with the key `key`.
+     */
     hasIn(path5) {
       const [key, ...rest] = path5;
       if (rest.length === 0)
@@ -28470,6 +31573,10 @@ ${p.commentBefore}` : u;
       const node = this.get(key, true);
       return isCollection(node) ? node.hasIn(rest) : false;
     }
+    /**
+     * Sets a value in this collection. For `!!set`, `value` needs to be a
+     * boolean to add/remove the item from the set.
+     */
     setIn(path5, value) {
       const [key, ...rest] = path5;
       if (rest.length === 0) {
@@ -28614,8 +31721,8 @@ ${indent}${text.slice(fold + 1, end2)}`;
   }
 
   // node_modules/yaml/browser/dist/stringify/stringifyString.js
-  var getFoldOptions = (ctx) => ({
-    indentAtStart: ctx.indentAtStart,
+  var getFoldOptions = (ctx, isBlock2) => ({
+    indentAtStart: isBlock2 ? ctx.indent.length : ctx.indentAtStart,
     lineWidth: ctx.options.lineWidth,
     minContentWidth: ctx.options.minContentWidth
   });
@@ -28716,7 +31823,7 @@ ${indent}${text.slice(fold + 1, end2)}`;
         }
     }
     str = start ? str + json.slice(start) : json;
-    return implicitKey ? str : foldFlowLines(str, indent, FOLD_QUOTED, getFoldOptions(ctx));
+    return implicitKey ? str : foldFlowLines(str, indent, FOLD_QUOTED, getFoldOptions(ctx, false));
   }
   function singleQuotedString(value, ctx) {
     if (ctx.options.singleQuote === false || ctx.implicitKey && value.includes("\n") || /[ \t]\n|\n[ \t]/.test(value))
@@ -28724,7 +31831,7 @@ ${indent}${text.slice(fold + 1, end2)}`;
     const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
     const res = "'" + value.replace(/'/g, "''").replace(/\n+/g, `$&
 ${indent}`) + "'";
-    return ctx.implicitKey ? res : foldFlowLines(res, indent, FOLD_FLOW, getFoldOptions(ctx));
+    return ctx.implicitKey ? res : foldFlowLines(res, indent, FOLD_FLOW, getFoldOptions(ctx, false));
   }
   function quotedString(value, ctx) {
     const { singleQuote } = ctx.options;
@@ -28742,6 +31849,12 @@ ${indent}`) + "'";
         qs = singleQuote ? singleQuotedString : doubleQuotedString;
     }
     return qs(value, ctx);
+  }
+  var blockEndNewlines;
+  try {
+    blockEndNewlines = new RegExp("(^|(?<!\n))\n+(?!\n|$)", "g");
+  } catch {
+    blockEndNewlines = /\n+(?!\n|$)/g;
   }
   function blockString({ comment, type, value }, ctx, onComment, onChompKeep) {
     const { blockQuote, commentString, lineWidth } = ctx.options;
@@ -28774,7 +31887,7 @@ ${indent}`) + "'";
       value = value.slice(0, -end.length);
       if (end[end.length - 1] === "\n")
         end = end.slice(0, -1);
-      end = end.replace(/\n+(?!\n|$)/g, `$&${indent}`);
+      end = end.replace(blockEndNewlines, `$&${indent}`);
     }
     let startWithSpace = false;
     let startEnd;
@@ -28806,13 +31919,13 @@ ${indent}`) + "'";
 ${indent}${start}${value}${end}`;
     }
     value = value.replace(/\n+/g, "\n$&").replace(/(?:^|\n)([\t ].*)(?:([\n\t ]*)\n(?![\n\t ]))?/g, "$1$2").replace(/\n+/g, `$&${indent}`);
-    const body = foldFlowLines(`${start}${value}${end}`, indent, FOLD_BLOCK, getFoldOptions(ctx));
+    const body = foldFlowLines(`${start}${value}${end}`, indent, FOLD_BLOCK, getFoldOptions(ctx, true));
     return `${header}
 ${indent}${body}`;
   }
   function plainString(item, ctx, onComment, onChompKeep) {
     const { type, value } = item;
-    const { actualString, implicitKey, indent, inFlow } = ctx;
+    const { actualString, implicitKey, indent, indentStep, inFlow } = ctx;
     if (implicitKey && /[\n[\]{},]/.test(value) || inFlow && /[[\]{},]/.test(value)) {
       return quotedString(value, ctx);
     }
@@ -28822,9 +31935,13 @@ ${indent}${body}`;
     if (!implicitKey && !inFlow && type !== Scalar.PLAIN && value.includes("\n")) {
       return blockString(item, ctx, onComment, onChompKeep);
     }
-    if (indent === "" && containsDocumentMarker(value)) {
-      ctx.forceBlockIndent = true;
-      return blockString(item, ctx, onComment, onChompKeep);
+    if (containsDocumentMarker(value)) {
+      if (indent === "") {
+        ctx.forceBlockIndent = true;
+        return blockString(item, ctx, onComment, onChompKeep);
+      } else if (implicitKey && indent === indentStep) {
+        return quotedString(value, ctx);
+      }
     }
     const str = value.replace(/\n+/g, `$&
 ${indent}`);
@@ -28834,7 +31951,7 @@ ${indent}`);
       if (tags.some(test) || compat?.some(test))
         return quotedString(value, ctx);
     }
-    return implicitKey ? str : foldFlowLines(str, indent, FOLD_FLOW, getFoldOptions(ctx));
+    return implicitKey ? str : foldFlowLines(str, indent, FOLD_FLOW, getFoldOptions(ctx, false));
   }
   function stringifyString(item, ctx, onComment, onChompKeep) {
     const { implicitKey, inFlow } = ctx;
@@ -28881,6 +31998,7 @@ ${indent}`);
       doubleQuotedAsJSON: false,
       doubleQuotedMinMultiLineLength: 40,
       falseStr: "false",
+      flowCollectionPadding: true,
       indentSeq: true,
       lineWidth: 80,
       minContentWidth: 20,
@@ -28904,6 +32022,7 @@ ${indent}`);
     return {
       anchors: /* @__PURE__ */ new Set(),
       doc,
+      flowCollectionPadding: opt.flowCollectionPadding ? " " : "",
       indent: "",
       indentStep: typeof opt.indent === "number" ? " ".repeat(opt.indent) : "  ",
       inFlow,
@@ -29029,43 +32148,64 @@ ${indent}:`;
       if (keyComment)
         str += lineComment(str, ctx.indent, commentString(keyComment));
     }
-    let vcb = "";
-    let valueComment = null;
+    let vsb, vcb, valueComment;
     if (isNode(value)) {
-      if (value.spaceBefore)
-        vcb = "\n";
-      if (value.commentBefore) {
-        const cs = commentString(value.commentBefore);
-        vcb += `
-${indentComment(cs, ctx.indent)}`;
-      }
+      vsb = !!value.spaceBefore;
+      vcb = value.commentBefore;
       valueComment = value.comment;
-    } else if (value && typeof value === "object") {
-      value = doc.createNode(value);
+    } else {
+      vsb = false;
+      vcb = null;
+      valueComment = null;
+      if (value && typeof value === "object")
+        value = doc.createNode(value);
     }
     ctx.implicitKey = false;
     if (!explicitKey && !keyComment && isScalar(value))
       ctx.indentAtStart = str.length + 1;
     chompKeep = false;
     if (!indentSeq && indentStep.length >= 2 && !ctx.inFlow && !explicitKey && isSeq(value) && !value.flow && !value.tag && !value.anchor) {
-      ctx.indent = ctx.indent.substr(2);
+      ctx.indent = ctx.indent.substring(2);
     }
     let valueCommentDone = false;
     const valueStr = stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
     let ws = " ";
-    if (vcb || keyComment) {
-      if (valueStr === "" && !ctx.inFlow)
-        ws = vcb === "\n" ? "\n\n" : vcb;
-      else
-        ws = `${vcb}
+    if (keyComment || vsb || vcb) {
+      ws = vsb ? "\n" : "";
+      if (vcb) {
+        const cs = commentString(vcb);
+        ws += `
+${indentComment(cs, ctx.indent)}`;
+      }
+      if (valueStr === "" && !ctx.inFlow) {
+        if (ws === "\n")
+          ws = "\n\n";
+      } else {
+        ws += `
 ${ctx.indent}`;
+      }
     } else if (!explicitKey && isCollection(value)) {
-      const flow = valueStr[0] === "[" || valueStr[0] === "{";
-      if (!flow || valueStr.includes("\n"))
-        ws = `
+      const vs0 = valueStr[0];
+      const nl0 = valueStr.indexOf("\n");
+      const hasNewline = nl0 !== -1;
+      const flow = ctx.inFlow ?? value.flow ?? value.items.length === 0;
+      if (hasNewline || !flow) {
+        let hasPropsLine = false;
+        if (hasNewline && (vs0 === "&" || vs0 === "!")) {
+          let sp0 = valueStr.indexOf(" ");
+          if (vs0 === "&" && sp0 !== -1 && sp0 < nl0 && valueStr[sp0 + 1] === "!") {
+            sp0 = valueStr.indexOf(" ", sp0 + 1);
+          }
+          if (sp0 === -1 || nl0 < sp0)
+            hasPropsLine = true;
+        }
+        if (!hasPropsLine)
+          ws = `
 ${ctx.indent}`;
-    } else if (valueStr === "" || valueStr[0] === "\n")
+      }
+    } else if (valueStr === "" || valueStr[0] === "\n") {
       ws = "";
+    }
     str += ws + valueStr;
     if (ctx.inFlow) {
       if (valueCommentDone && onComment)
@@ -29177,7 +32317,7 @@ ${ctx.indent}`;
     const v = createNode(value, void 0, ctx);
     return new Pair(k, v);
   }
-  var Pair = class {
+  var Pair = class _Pair {
     constructor(key, value = null) {
       Object.defineProperty(this, NODE_TYPE, { value: PAIR });
       this.key = key;
@@ -29189,7 +32329,7 @@ ${ctx.indent}`;
         key = key.clone(schema5);
       if (isNode(value))
         value = value.clone(schema5);
-      return new Pair(key, value);
+      return new _Pair(key, value);
     }
     toJSON(_, ctx) {
       const pair = ctx?.mapAsMap ? /* @__PURE__ */ new Map() : {};
@@ -29256,7 +32396,7 @@ ${indent}${line}` : "\n";
     return str;
   }
   function stringifyFlowCollection({ comment, items }, ctx, { flowChars, itemIndent, onComment }) {
-    const { indent, indentStep, options: { commentString } } = ctx;
+    const { indent, indentStep, flowCollectionPadding: fcPadding, options: { commentString } } = ctx;
     itemIndent += indentStep;
     const itemCtx = Object.assign({}, ctx, {
       indent: itemIndent,
@@ -29323,11 +32463,11 @@ ${indentStep}${indent}${line}` : "\n";
         str += `
 ${indent}${end}`;
       } else {
-        str = `${start} ${lines.join(" ")} ${end}`;
+        str = `${start}${fcPadding}${lines.join(" ")}${fcPadding}${end}`;
       }
     }
     if (comment) {
-      str += lineComment(str, commentString(comment), indent);
+      str += lineComment(str, indent, commentString(comment));
       if (onComment)
         onComment();
     }
@@ -29356,13 +32496,46 @@ ${indent}${end}`;
     return void 0;
   }
   var YAMLMap = class extends Collection {
+    static get tagName() {
+      return "tag:yaml.org,2002:map";
+    }
     constructor(schema5) {
       super(MAP, schema5);
       this.items = [];
     }
-    static get tagName() {
-      return "tag:yaml.org,2002:map";
+    /**
+     * A generic collection parsing method that can be extended
+     * to other node classes that inherit from YAMLMap
+     */
+    static from(schema5, obj, ctx) {
+      const { keepUndefined, replacer } = ctx;
+      const map2 = new this(schema5);
+      const add = (key, value) => {
+        if (typeof replacer === "function")
+          value = replacer.call(obj, key, value);
+        else if (Array.isArray(replacer) && !replacer.includes(key))
+          return;
+        if (value !== void 0 || keepUndefined)
+          map2.items.push(createPair(key, value, ctx));
+      };
+      if (obj instanceof Map) {
+        for (const [key, value] of obj)
+          add(key, value);
+      } else if (obj && typeof obj === "object") {
+        for (const key of Object.keys(obj))
+          add(key, obj[key]);
+      }
+      if (typeof schema5.sortMapEntries === "function") {
+        map2.items.sort(schema5.sortMapEntries);
+      }
+      return map2;
     }
+    /**
+     * Adds a value to the collection.
+     *
+     * @param overwrite - If not set `true`, using a key that is already in the
+     *   collection will throw. Otherwise, overwrites the previous value.
+     */
     add(pair, overwrite) {
       let _pair;
       if (isPair(pair))
@@ -29408,6 +32581,11 @@ ${indent}${end}`;
     set(key, value) {
       this.add(new Pair(key, value), true);
     }
+    /**
+     * @param ctx - Conversion context, originally set in Document#toJS()
+     * @param {Class} Type - If set, forces the returned collection type
+     * @returns Instance of Type, Map, or Object
+     */
     toJSON(_, ctx, Type) {
       const map2 = Type ? new Type() : ctx?.mapAsMap ? /* @__PURE__ */ new Map() : {};
       if (ctx?.onCreate)
@@ -29436,32 +32614,8 @@ ${indent}${end}`;
   };
 
   // node_modules/yaml/browser/dist/schema/common/map.js
-  function createMap(schema5, obj, ctx) {
-    const { keepUndefined, replacer } = ctx;
-    const map2 = new YAMLMap(schema5);
-    const add = (key, value) => {
-      if (typeof replacer === "function")
-        value = replacer.call(obj, key, value);
-      else if (Array.isArray(replacer) && !replacer.includes(key))
-        return;
-      if (value !== void 0 || keepUndefined)
-        map2.items.push(createPair(key, value, ctx));
-    };
-    if (obj instanceof Map) {
-      for (const [key, value] of obj)
-        add(key, value);
-    } else if (obj && typeof obj === "object") {
-      for (const key of Object.keys(obj))
-        add(key, obj[key]);
-    }
-    if (typeof schema5.sortMapEntries === "function") {
-      map2.items.sort(schema5.sortMapEntries);
-    }
-    return map2;
-  }
   var map = {
     collection: "map",
-    createNode: createMap,
     default: true,
     nodeClass: YAMLMap,
     tag: "tag:yaml.org,2002:map",
@@ -29469,21 +32623,30 @@ ${indent}${end}`;
       if (!isMap(map2))
         onError("Expected a mapping for this tag");
       return map2;
-    }
+    },
+    createNode: (schema5, obj, ctx) => YAMLMap.from(schema5, obj, ctx)
   };
 
   // node_modules/yaml/browser/dist/nodes/YAMLSeq.js
   var YAMLSeq = class extends Collection {
+    static get tagName() {
+      return "tag:yaml.org,2002:seq";
+    }
     constructor(schema5) {
       super(SEQ, schema5);
       this.items = [];
     }
-    static get tagName() {
-      return "tag:yaml.org,2002:seq";
-    }
     add(value) {
       this.items.push(value);
     }
+    /**
+     * Removes a value from the collection.
+     *
+     * `key` must contain a representation of an integer for this to succeed.
+     * It may be wrapped in a `Scalar`.
+     *
+     * @returns `true` if the item was found and removed.
+     */
     delete(key) {
       const idx = asItemIndex(key);
       if (typeof idx !== "number")
@@ -29498,10 +32661,23 @@ ${indent}${end}`;
       const it = this.items[idx];
       return !keepScalar && isScalar(it) ? it.value : it;
     }
+    /**
+     * Checks if the collection includes a value with the key `key`.
+     *
+     * `key` must contain a representation of an integer for this to succeed.
+     * It may be wrapped in a `Scalar`.
+     */
     has(key) {
       const idx = asItemIndex(key);
       return typeof idx === "number" && idx < this.items.length;
     }
+    /**
+     * Sets a value in this collection. For `!!set`, `value` needs to be a
+     * boolean to add/remove the item from the set.
+     *
+     * If `key` does not contain a representation of an integer, this will throw.
+     * It may be wrapped in a `Scalar`.
+     */
     set(key, value) {
       const idx = asItemIndex(key);
       if (typeof idx !== "number")
@@ -29532,6 +32708,21 @@ ${indent}${end}`;
         onComment
       });
     }
+    static from(schema5, obj, ctx) {
+      const { replacer } = ctx;
+      const seq2 = new this(schema5);
+      if (obj && Symbol.iterator in Object(obj)) {
+        let i = 0;
+        for (let it of obj) {
+          if (typeof replacer === "function") {
+            const key = obj instanceof Set ? it : String(i++);
+            it = replacer.call(obj, key, it);
+          }
+          seq2.items.push(createNode(it, void 0, ctx));
+        }
+      }
+      return seq2;
+    }
   };
   function asItemIndex(key) {
     let idx = isScalar(key) ? key.value : key;
@@ -29541,24 +32732,8 @@ ${indent}${end}`;
   }
 
   // node_modules/yaml/browser/dist/schema/common/seq.js
-  function createSeq(schema5, obj, ctx) {
-    const { replacer } = ctx;
-    const seq2 = new YAMLSeq(schema5);
-    if (obj && Symbol.iterator in Object(obj)) {
-      let i = 0;
-      for (let it of obj) {
-        if (typeof replacer === "function") {
-          const key = obj instanceof Set ? it : String(i++);
-          it = replacer.call(obj, key, it);
-        }
-        seq2.items.push(createNode(it, void 0, ctx));
-      }
-    }
-    return seq2;
-  }
   var seq = {
     collection: "seq",
-    createNode: createSeq,
     default: true,
     nodeClass: YAMLSeq,
     tag: "tag:yaml.org,2002:seq",
@@ -29566,7 +32741,8 @@ ${indent}${end}`;
       if (!isSeq(seq2))
         onError("Expected a sequence for this tag");
       return seq2;
-    }
+    },
+    createNode: (schema5, obj, ctx) => YAMLSeq.from(schema5, obj, ctx)
   };
 
   // node_modules/yaml/browser/dist/schema/common/string.js
@@ -29780,6 +32956,14 @@ ${indent}${end}`;
     identify: (value) => value instanceof Uint8Array,
     default: false,
     tag: "tag:yaml.org,2002:binary",
+    /**
+     * Returns a Buffer in node and an Uint8Array in browsers
+     *
+     * To use the resulting buffer as an image, you'll want to do something like:
+     *
+     *   const blob = new Blob([buffer], { type: 'image/jpeg' })
+     *   document.querySelector('#photo').src = URL.createObjectURL(blob)
+     */
     resolve(src, onError) {
       if (typeof Buffer === "function") {
         return Buffer.from(src, "base64");
@@ -29888,7 +33072,7 @@ ${cn.comment}` : item.comment;
   };
 
   // node_modules/yaml/browser/dist/schema/yaml-1.1/omap.js
-  var YAMLOMap = class extends YAMLSeq {
+  var YAMLOMap = class _YAMLOMap extends YAMLSeq {
     constructor() {
       super();
       this.add = YAMLMap.prototype.add.bind(this);
@@ -29896,8 +33080,12 @@ ${cn.comment}` : item.comment;
       this.get = YAMLMap.prototype.get.bind(this);
       this.has = YAMLMap.prototype.has.bind(this);
       this.set = YAMLMap.prototype.set.bind(this);
-      this.tag = YAMLOMap.tag;
+      this.tag = _YAMLOMap.tag;
     }
+    /**
+     * If `ctx` is given, the return type is actually `Map<unknown, unknown>`,
+     * but TypeScript won't allow widening the signature of a child method.
+     */
     toJSON(_, ctx) {
       if (!ctx)
         return super.toJSON(_);
@@ -29917,6 +33105,12 @@ ${cn.comment}` : item.comment;
         map2.set(key, value);
       }
       return map2;
+    }
+    static from(schema5, iterable, ctx) {
+      const pairs2 = createPairs(schema5, iterable, ctx);
+      const omap2 = new this();
+      omap2.items = pairs2.items;
+      return omap2;
     }
   };
   YAMLOMap.tag = "tag:yaml.org,2002:omap";
@@ -29940,12 +33134,7 @@ ${cn.comment}` : item.comment;
       }
       return Object.assign(new YAMLOMap(), pairs2);
     },
-    createNode(schema5, iterable, ctx) {
-      const pairs2 = createPairs(schema5, iterable, ctx);
-      const omap2 = new YAMLOMap();
-      omap2.items = pairs2.items;
-      return omap2;
-    }
+    createNode: (schema5, iterable, ctx) => YAMLOMap.from(schema5, iterable, ctx)
   };
 
   // node_modules/yaml/browser/dist/schema/yaml-1.1/bool.js
@@ -30081,10 +33270,10 @@ ${cn.comment}` : item.comment;
   };
 
   // node_modules/yaml/browser/dist/schema/yaml-1.1/set.js
-  var YAMLSet = class extends YAMLMap {
+  var YAMLSet = class _YAMLSet extends YAMLMap {
     constructor(schema5) {
       super(schema5);
-      this.tag = YAMLSet.tag;
+      this.tag = _YAMLSet.tag;
     }
     add(key) {
       let pair;
@@ -30098,6 +33287,10 @@ ${cn.comment}` : item.comment;
       if (!prev)
         this.items.push(pair);
     }
+    /**
+     * If `keepPair` is `true`, returns the Pair matching `key`.
+     * Otherwise, returns the value of that Pair's key.
+     */
     get(key, keepPair) {
       const pair = findPair(this.items, key);
       return !keepPair && isPair(pair) ? isScalar(pair.key) ? pair.key.value : pair.key : pair;
@@ -30123,6 +33316,17 @@ ${cn.comment}` : item.comment;
       else
         throw new Error("Set items must all have null values");
     }
+    static from(schema5, iterable, ctx) {
+      const { replacer } = ctx;
+      const set2 = new this(schema5);
+      if (iterable && Symbol.iterator in Object(iterable))
+        for (let value of iterable) {
+          if (typeof replacer === "function")
+            value = replacer.call(iterable, value, value);
+          set2.items.push(createPair(value, null, ctx));
+        }
+      return set2;
+    }
   };
   YAMLSet.tag = "tag:yaml.org,2002:set";
   var set = {
@@ -30131,6 +33335,7 @@ ${cn.comment}` : item.comment;
     nodeClass: YAMLSet,
     default: false,
     tag: "tag:yaml.org,2002:set",
+    createNode: (schema5, iterable, ctx) => YAMLSet.from(schema5, iterable, ctx),
     resolve(map2, onError) {
       if (isMap(map2)) {
         if (map2.hasAllNullValues(true))
@@ -30140,17 +33345,6 @@ ${cn.comment}` : item.comment;
       } else
         onError("Expected a mapping for this tag");
       return map2;
-    },
-    createNode(schema5, iterable, ctx) {
-      const { replacer } = ctx;
-      const set2 = new YAMLSet(schema5);
-      if (iterable && Symbol.iterator in Object(iterable))
-        for (let value of iterable) {
-          if (typeof replacer === "function")
-            value = replacer.call(iterable, value, value);
-          set2.items.push(createPair(value, null, ctx));
-        }
-      return set2;
     }
   };
 
@@ -30186,7 +33380,7 @@ ${cn.comment}` : item.comment;
         parts.unshift(value);
       }
     }
-    return sign + parts.map((n) => n < 10 ? "0" + String(n) : String(n)).join(":").replace(/000000\d*$/, "");
+    return sign + parts.map((n) => String(n).padStart(2, "0")).join(":").replace(/000000\d*$/, "");
   }
   var intTime = {
     identify: (value) => typeof value === "bigint" || Number.isInteger(value),
@@ -30210,6 +33404,9 @@ ${cn.comment}` : item.comment;
     identify: (value) => value instanceof Date,
     default: true,
     tag: "tag:yaml.org,2002:timestamp",
+    // If the time zone is omitted, the timestamp is assumed to be specified in UTC. The time part
+    // may be omitted altogether, resulting in a date format. In such a case, the time part is
+    // assumed to be 00:00:00Z (start of day, UTC).
     test: RegExp("^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})(?:(?:t|T|[ \\t]+)([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2}(\\.[0-9]+)?)(?:[ \\t]*(Z|[-+][012]?[0-9](?::[0-9]{2})?))?)?$"),
     resolve(str) {
       const match = str.match(timestamp.test);
@@ -30317,7 +33514,7 @@ ${cn.comment}` : item.comment;
 
   // node_modules/yaml/browser/dist/schema/Schema.js
   var sortMapEntriesByKey = (a2, b) => a2.key < b.key ? -1 : a2.key > b.key ? 1 : 0;
-  var Schema = class {
+  var Schema = class _Schema {
     constructor({ compat, customTags, merge, resolveKnownTags, schema: schema5, sortMapEntries, toStringDefaults }) {
       this.compat = Array.isArray(compat) ? getTags(compat, "compat") : compat ? getTags(null, compat) : null;
       this.merge = !!merge;
@@ -30331,7 +33528,7 @@ ${cn.comment}` : item.comment;
       this.sortMapEntries = typeof sortMapEntries === "function" ? sortMapEntries : sortMapEntries === true ? sortMapEntriesByKey : null;
     }
     clone() {
-      const copy = Object.create(Schema.prototype, Object.getOwnPropertyDescriptors(this));
+      const copy = Object.create(_Schema.prototype, Object.getOwnPropertyDescriptors(this));
       copy.tags = this.tags.slice();
       return copy;
     }
@@ -30408,52 +33605,8 @@ ${cn.comment}` : item.comment;
     return lines.join("\n") + "\n";
   }
 
-  // node_modules/yaml/browser/dist/doc/applyReviver.js
-  function applyReviver(reviver, obj, key, val) {
-    if (val && typeof val === "object") {
-      if (Array.isArray(val)) {
-        for (let i = 0, len = val.length; i < len; ++i) {
-          const v0 = val[i];
-          const v1 = applyReviver(reviver, val, String(i), v0);
-          if (v1 === void 0)
-            delete val[i];
-          else if (v1 !== v0)
-            val[i] = v1;
-        }
-      } else if (val instanceof Map) {
-        for (const k of Array.from(val.keys())) {
-          const v0 = val.get(k);
-          const v1 = applyReviver(reviver, val, k, v0);
-          if (v1 === void 0)
-            val.delete(k);
-          else if (v1 !== v0)
-            val.set(k, v1);
-        }
-      } else if (val instanceof Set) {
-        for (const v0 of Array.from(val)) {
-          const v1 = applyReviver(reviver, val, v0, v0);
-          if (v1 === void 0)
-            val.delete(v0);
-          else if (v1 !== v0) {
-            val.delete(v0);
-            val.add(v1);
-          }
-        }
-      } else {
-        for (const [k, v0] of Object.entries(val)) {
-          const v1 = applyReviver(reviver, val, k, v0);
-          if (v1 === void 0)
-            delete val[k];
-          else if (v1 !== v0)
-            val[k] = v1;
-        }
-      }
-    }
-    return reviver.call(obj, key, val);
-  }
-
   // node_modules/yaml/browser/dist/doc/Document.js
-  var Document = class {
+  var Document = class _Document {
     constructor(value, replacer, options) {
       this.commentBefore = null;
       this.comment = null;
@@ -30485,14 +33638,15 @@ ${cn.comment}` : item.comment;
       } else
         this.directives = new Directives({ version });
       this.setSchema(version, options);
-      if (value === void 0)
-        this.contents = null;
-      else {
-        this.contents = this.createNode(value, _replacer, options);
-      }
+      this.contents = value === void 0 ? null : this.createNode(value, _replacer, options);
     }
+    /**
+     * Create a deep copy of this Document and its contents.
+     *
+     * Custom Node values that inherit from `Object` still refer to their original instances.
+     */
     clone() {
-      const copy = Object.create(Document.prototype, {
+      const copy = Object.create(_Document.prototype, {
         [NODE_TYPE]: { value: DOC }
       });
       copy.commentBefore = this.commentBefore;
@@ -30508,18 +33662,30 @@ ${cn.comment}` : item.comment;
         copy.range = this.range.slice();
       return copy;
     }
+    /** Adds a value to the document. */
     add(value) {
       if (assertCollection(this.contents))
         this.contents.add(value);
     }
+    /** Adds a value to the document. */
     addIn(path5, value) {
       if (assertCollection(this.contents))
         this.contents.addIn(path5, value);
     }
+    /**
+     * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
+     *
+     * If `node` already has an anchor, `name` is ignored.
+     * Otherwise, the `node.anchor` value will be set to `name`,
+     * or if an anchor with that name is already present in the document,
+     * `name` will be used as a prefix for a new unique anchor.
+     * If `name` is undefined, the generated anchor will use 'a' as a prefix.
+     */
     createAlias(node, name) {
       if (!node.anchor) {
         const prev = anchorNames(this);
-        node.anchor = !name || prev.has(name) ? findNewAnchor(name || "a", prev) : name;
+        node.anchor = // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+        !name || prev.has(name) ? findNewAnchor(name || "a", prev) : name;
       }
       return new Alias(node.anchor);
     }
@@ -30541,6 +33707,7 @@ ${cn.comment}` : item.comment;
       const { aliasDuplicateObjects, anchorPrefix, flow, keepUndefined, onTagObj, tag } = options ?? {};
       const { onAnchor, setAnchors, sourceObjects } = createNodeAnchors(
         this,
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         anchorPrefix || "a"
       );
       const ctx = {
@@ -30558,14 +33725,26 @@ ${cn.comment}` : item.comment;
       setAnchors();
       return node;
     }
+    /**
+     * Convert a key and a value into a `Pair` using the current schema,
+     * recursively wrapping all values as `Scalar` or `Collection` nodes.
+     */
     createPair(key, value, options = {}) {
       const k = this.createNode(key, null, options);
       const v = this.createNode(value, null, options);
       return new Pair(k, v);
     }
+    /**
+     * Removes a value from the document.
+     * @returns `true` if the item was found and removed.
+     */
     delete(key) {
       return assertCollection(this.contents) ? this.contents.delete(key) : false;
     }
+    /**
+     * Removes a value from the document.
+     * @returns `true` if the item was found and removed.
+     */
     deleteIn(path5) {
       if (isEmptyPath(path5)) {
         if (this.contents == null)
@@ -30575,22 +33754,42 @@ ${cn.comment}` : item.comment;
       }
       return assertCollection(this.contents) ? this.contents.deleteIn(path5) : false;
     }
+    /**
+     * Returns item at `key`, or `undefined` if not found. By default unwraps
+     * scalar values from their surrounding node; to disable set `keepScalar` to
+     * `true` (collections are always returned intact).
+     */
     get(key, keepScalar) {
       return isCollection(this.contents) ? this.contents.get(key, keepScalar) : void 0;
     }
+    /**
+     * Returns item at `path`, or `undefined` if not found. By default unwraps
+     * scalar values from their surrounding node; to disable set `keepScalar` to
+     * `true` (collections are always returned intact).
+     */
     getIn(path5, keepScalar) {
       if (isEmptyPath(path5))
         return !keepScalar && isScalar(this.contents) ? this.contents.value : this.contents;
       return isCollection(this.contents) ? this.contents.getIn(path5, keepScalar) : void 0;
     }
+    /**
+     * Checks if the document includes a value with the key `key`.
+     */
     has(key) {
       return isCollection(this.contents) ? this.contents.has(key) : false;
     }
+    /**
+     * Checks if the document includes a value at `path`.
+     */
     hasIn(path5) {
       if (isEmptyPath(path5))
         return this.contents !== void 0;
       return isCollection(this.contents) ? this.contents.hasIn(path5) : false;
     }
+    /**
+     * Sets a value in this document. For `!!set`, `value` needs to be a
+     * boolean to add/remove the item from the set.
+     */
     set(key, value) {
       if (this.contents == null) {
         this.contents = collectionFromPath(this.schema, [key], value);
@@ -30598,15 +33797,26 @@ ${cn.comment}` : item.comment;
         this.contents.set(key, value);
       }
     }
+    /**
+     * Sets a value in this document. For `!!set`, `value` needs to be a
+     * boolean to add/remove the item from the set.
+     */
     setIn(path5, value) {
-      if (isEmptyPath(path5))
+      if (isEmptyPath(path5)) {
         this.contents = value;
-      else if (this.contents == null) {
+      } else if (this.contents == null) {
         this.contents = collectionFromPath(this.schema, Array.from(path5), value);
       } else if (assertCollection(this.contents)) {
         this.contents.setIn(path5, value);
       }
     }
+    /**
+     * Change the YAML version and schema used by the document.
+     * A `null` version disables support for directives, explicit tags, anchors, and aliases.
+     * It also requires the `schema` option to be given as a `Schema` instance value.
+     *
+     * Overrides all previously set schema options.
+     */
     setSchema(version, options = {}) {
       if (typeof version === "number")
         version = String(version);
@@ -30644,6 +33854,7 @@ ${cn.comment}` : item.comment;
       else
         throw new Error(`With a null YAML version, the { schema: Schema } option is required`);
     }
+    // json & jsonArg are only used from toJSON()
     toJS({ json, jsonArg, mapAsMap, maxAliasCount, onAnchor, reviver } = {}) {
       const ctx = {
         anchors: /* @__PURE__ */ new Map(),
@@ -30651,8 +33862,7 @@ ${cn.comment}` : item.comment;
         keep: !json,
         mapAsMap: mapAsMap === true,
         mapKeyWarned: false,
-        maxAliasCount: typeof maxAliasCount === "number" ? maxAliasCount : 100,
-        stringify
+        maxAliasCount: typeof maxAliasCount === "number" ? maxAliasCount : 100
       };
       const res = toJS(this.contents, jsonArg ?? "", ctx);
       if (typeof onAnchor === "function")
@@ -30660,9 +33870,16 @@ ${cn.comment}` : item.comment;
           onAnchor(res2, count);
       return typeof reviver === "function" ? applyReviver(reviver, { "": res }, "", res) : res;
     }
+    /**
+     * A JSON representation of the document `contents`.
+     *
+     * @param jsonArg Used by `JSON.stringify` to indicate the array index or
+     *   property name.
+     */
     toJSON(jsonArg, onAnchor) {
       return this.toJS({ json: true, jsonArg, mapAsMap: false, onAnchor });
     }
+    /** A YAML representation of the document. */
     toString(options = {}) {
       if (this.errors.length > 0)
         throw new Error("Document with errors cannot be stringified");
@@ -30724,7 +33941,7 @@ ${cn.comment}` : item.comment;
       let count = 1;
       const end = error.linePos[1];
       if (end && end.line === line && end.col > col) {
-        count = Math.min(end.col - col, 80 - ci);
+        count = Math.max(1, Math.min(end.col - col, 80 - ci));
       }
       const pointer = " ".repeat(ci) + "^".repeat(count);
       error.message += `:
@@ -30911,8 +34128,9 @@ ${pointer}
 
   // node_modules/yaml/browser/dist/compose/resolve-block-map.js
   var startColMsg = "All mapping items must start at the same column";
-  function resolveBlockMap({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bm, onError) {
-    const map2 = new YAMLMap(ctx.schema);
+  function resolveBlockMap({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bm, onError, tag) {
+    const NodeClass = tag?.nodeClass ?? YAMLMap;
+    const map2 = new NodeClass(ctx.schema);
     if (ctx.atRoot)
       ctx.atRoot = false;
     let offset = bm.offset;
@@ -31001,8 +34219,9 @@ ${pointer}
   }
 
   // node_modules/yaml/browser/dist/compose/resolve-block-seq.js
-  function resolveBlockSeq({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bs, onError) {
-    const seq2 = new YAMLSeq(ctx.schema);
+  function resolveBlockSeq({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bs, onError, tag) {
+    const NodeClass = tag?.nodeClass ?? YAMLSeq;
+    const seq2 = new NodeClass(ctx.schema);
     if (ctx.atRoot)
       ctx.atRoot = false;
     let offset = bs.offset;
@@ -31078,10 +34297,11 @@ ${pointer}
   // node_modules/yaml/browser/dist/compose/resolve-flow-collection.js
   var blockMsg = "Block collections are not allowed within flow collections";
   var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
-  function resolveFlowCollection({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, fc, onError) {
+  function resolveFlowCollection({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, fc, onError, tag) {
     const isMap2 = fc.start.source === "{";
     const fcName = isMap2 ? "flow map" : "flow sequence";
-    const coll = isMap2 ? new YAMLMap(ctx.schema) : new YAMLSeq(ctx.schema);
+    const NodeClass = tag?.nodeClass ?? (isMap2 ? YAMLMap : YAMLSeq);
+    const coll = new NodeClass(ctx.schema);
     coll.flow = true;
     const atRoot = ctx.atRoot;
     if (atRoot)
@@ -31116,6 +34336,7 @@ ${pointer}
         if (!isMap2 && ctx.options.strict && containsNewline(key))
           onError(
             key,
+            // checked by containsNewline()
             "MULTILINE_IMPLICIT_KEY",
             "Implicit keys of flow sequence pairs need to be on a single line"
           );
@@ -31247,46 +34468,40 @@ ${pointer}
   }
 
   // node_modules/yaml/browser/dist/compose/compose-collection.js
-  function composeCollection(CN2, ctx, token, tagToken, onError) {
-    let coll;
-    switch (token.type) {
-      case "block-map": {
-        coll = resolveBlockMap(CN2, ctx, token, onError);
-        break;
-      }
-      case "block-seq": {
-        coll = resolveBlockSeq(CN2, ctx, token, onError);
-        break;
-      }
-      case "flow-collection": {
-        coll = resolveFlowCollection(CN2, ctx, token, onError);
-        break;
-      }
-    }
-    if (!tagToken)
-      return coll;
-    const tagName = ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg));
-    if (!tagName)
-      return coll;
+  function resolveCollection(CN2, ctx, token, onError, tagName, tag) {
+    const coll = token.type === "block-map" ? resolveBlockMap(CN2, ctx, token, onError, tag) : token.type === "block-seq" ? resolveBlockSeq(CN2, ctx, token, onError, tag) : resolveFlowCollection(CN2, ctx, token, onError, tag);
     const Coll = coll.constructor;
     if (tagName === "!" || tagName === Coll.tagName) {
       coll.tag = Coll.tagName;
       return coll;
     }
-    const expType = isMap(coll) ? "map" : "seq";
-    let tag = ctx.schema.tags.find((t) => t.collection === expType && t.tag === tagName);
+    if (tagName)
+      coll.tag = tagName;
+    return coll;
+  }
+  function composeCollection(CN2, ctx, token, tagToken, onError) {
+    const tagName = !tagToken ? null : ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg));
+    const expType = token.type === "block-map" ? "map" : token.type === "block-seq" ? "seq" : token.start.source === "{" ? "map" : "seq";
+    if (!tagToken || !tagName || tagName === "!" || tagName === YAMLMap.tagName && expType === "map" || tagName === YAMLSeq.tagName && expType === "seq" || !expType) {
+      return resolveCollection(CN2, ctx, token, onError, tagName);
+    }
+    let tag = ctx.schema.tags.find((t) => t.tag === tagName && t.collection === expType);
     if (!tag) {
       const kt = ctx.schema.knownTags[tagName];
       if (kt && kt.collection === expType) {
         ctx.schema.tags.push(Object.assign({}, kt, { default: false }));
         tag = kt;
       } else {
-        onError(tagToken, "TAG_RESOLVE_FAILED", `Unresolved tag: ${tagName}`, true);
-        coll.tag = tagName;
-        return coll;
+        if (kt?.collection) {
+          onError(tagToken, "BAD_COLLECTION_TYPE", `${kt.tag} used for ${expType} collection, but expects ${kt.collection}`, true);
+        } else {
+          onError(tagToken, "TAG_RESOLVE_FAILED", `Unresolved tag: ${tagName}`, true);
+        }
+        return resolveCollection(CN2, ctx, token, onError, tagName);
       }
     }
-    const res = tag.resolve(coll, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg), ctx.options);
+    const coll = resolveCollection(CN2, ctx, token, onError, tagName, tag);
+    const res = tag.resolve?.(coll, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg), ctx.options) ?? coll;
     const node = isNode(res) ? res : new Scalar(res);
     node.range = coll.range;
     node.tag = tagName;
@@ -31947,6 +35162,11 @@ ${cb}` : comment;
       this.errors = [];
       this.warnings = [];
     }
+    /**
+     * Current stream status information.
+     *
+     * Mostly useful at the end of input for an empty stream.
+     */
     streamInfo() {
       return {
         comment: parsePrelude(this.prelude).comment,
@@ -31955,11 +35175,18 @@ ${cb}` : comment;
         warnings: this.warnings
       };
     }
+    /**
+     * Compose tokens into documents.
+     *
+     * @param forceDoc - If the stream contains no document, still emit a final document including any comments and directives that would be applied to a subsequent document.
+     * @param endOffset - Should be set if `forceDoc` is also set, to set the document range end and to indicate errors correctly.
+     */
     *compose(tokens, forceDoc = false, endOffset = -1) {
       for (const token of tokens)
         yield* this.next(token);
       yield* this.end(forceDoc, endOffset);
     }
+    /** Advance the composer by one CST token. */
     *next(token) {
       switch (token.type) {
         case "directive":
@@ -32019,6 +35246,12 @@ ${end.comment}` : end.comment;
           this.errors.push(new YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", `Unsupported token ${token.type}`));
       }
     }
+    /**
+     * Call at end of input to yield any remaining document.
+     *
+     * @param forceDoc - If the stream contains no document, still emit a final document including any comments and directives that would be applied to a subsequent document.
+     * @param endOffset - Should be set if `forceDoc` is also set, to set the document range end and to indicate errors correctly.
+     */
     *end(forceDoc = false, endOffset = -1) {
       if (this.doc) {
         this.decorate(this.doc, true);
@@ -32451,6 +35684,12 @@ ${end.comment}` : end.comment;
       this.next = null;
       this.pos = 0;
     }
+    /**
+     * Generate YAML tokens from the `source` string. If `incomplete`,
+     * a part of the last line may be left as a buffer for the next call.
+     *
+     * @returns A generator of lexical tokens
+     */
     *lex(source, incomplete = false) {
       if (source) {
         this.buffer = this.buffer ? this.buffer + source : source;
@@ -33079,6 +36318,10 @@ ${end.comment}` : end.comment;
     }
   }
   var Parser = class {
+    /**
+     * @param onNewLine - If defined, called separately with the start position of
+     *   each new line (in `parse()`, including the start of input).
+     */
     constructor(onNewLine) {
       this.atNewLine = true;
       this.atScalar = false;
@@ -33091,6 +36334,14 @@ ${end.comment}` : end.comment;
       this.lexer = new Lexer();
       this.onNewLine = onNewLine;
     }
+    /**
+     * Parse `source` as a YAML stream.
+     * If `incomplete`, a part of the last line may be left as a buffer for the next call.
+     *
+     * Errors are not thrown, but yielded as `{ type: 'error', message }` tokens.
+     *
+     * @returns A generator of tokens representing each directive, document, and other structure.
+     */
     *parse(source, incomplete = false) {
       if (this.onNewLine && this.offset === 0)
         this.onNewLine(0);
@@ -33099,6 +36350,9 @@ ${end.comment}` : end.comment;
       if (!incomplete)
         yield* this.end();
     }
+    /**
+     * Advance the parser by the `source` of one lexical token.
+     */
     *next(source) {
       this.source = source;
       if (this.atScalar) {
@@ -33145,6 +36399,7 @@ ${end.comment}` : end.comment;
         this.offset += source.length;
       }
     }
+    /** Call at end of input to push out any remaining constructions */
     *end() {
       while (this.stack.length > 0)
         yield* this.pop();
@@ -34114,7 +37369,7 @@ ${end.comment}` : end.comment;
   function isBoolean(val) {
     return typeof val === "boolean";
   }
-  function isString(val) {
+  function isString2(val) {
     return typeof val === "string";
   }
   var ErrorCode;
@@ -34153,14 +37408,12 @@ ${end.comment}` : end.comment;
     };
   })(ClientCapabilities || (ClientCapabilities = {}));
   function format4(message, args) {
-    return args.length === 0 ? message : message.replace(/{(\d+)}/g, (match, rest) => {
-      const [index] = rest;
-      return typeof args[index] === "undefined" ? match : args[index];
-    });
+    return args.length === 0 ? message : message.replace(
+      /{(\d+)}/g,
+      (match, [index]) => index in args ? args[index] : match
+    );
   }
-  function localize2(key, message, ...args) {
-    return format4(message, args);
-  }
+  var localize2 = (key, message, ...args) => format4(message, args);
   function loadMessageBundle() {
     return localize2;
   }
@@ -34193,120 +37446,144 @@ ${end.comment}` : end.comment;
     "time": { errorMessage: localize22("timeFormatWarning", "String is not a RFC3339 time."), pattern: /^([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]|60)(\.[0-9]+)?(Z|(\+|-)([01][0-9]|2[0-3]):([0-5][0-9]))$/i },
     "email": { errorMessage: localize22("emailFormatWarning", "String is not an e-mail address."), pattern: /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/ }
   };
-  var ASTNodeImpl = function() {
-    function ASTNodeImpl3(parent, offset, length) {
-      if (length === void 0) {
-        length = 0;
+  var ASTNodeImpl = (
+    /** @class */
+    function() {
+      function ASTNodeImpl3(parent, offset, length) {
+        if (length === void 0) {
+          length = 0;
+        }
+        this.offset = offset;
+        this.length = length;
+        this.parent = parent;
       }
-      this.offset = offset;
-      this.length = length;
-      this.parent = parent;
-    }
-    Object.defineProperty(ASTNodeImpl3.prototype, "children", {
-      get: function() {
-        return [];
-      },
-      enumerable: false,
-      configurable: true
-    });
-    ASTNodeImpl3.prototype.toString = function() {
-      return "type: " + this.type + " (" + this.offset + "/" + this.length + ")" + (this.parent ? " parent: {" + this.parent.toString() + "}" : "");
-    };
-    return ASTNodeImpl3;
-  }();
-  var NullASTNodeImpl = function(_super) {
-    __extends(NullASTNodeImpl3, _super);
-    function NullASTNodeImpl3(parent, offset) {
-      var _this = _super.call(this, parent, offset) || this;
-      _this.type = "null";
-      _this.value = null;
-      return _this;
-    }
-    return NullASTNodeImpl3;
-  }(ASTNodeImpl);
-  var BooleanASTNodeImpl = function(_super) {
-    __extends(BooleanASTNodeImpl3, _super);
-    function BooleanASTNodeImpl3(parent, boolValue, offset) {
-      var _this = _super.call(this, parent, offset) || this;
-      _this.type = "boolean";
-      _this.value = boolValue;
-      return _this;
-    }
-    return BooleanASTNodeImpl3;
-  }(ASTNodeImpl);
-  var ArrayASTNodeImpl = function(_super) {
-    __extends(ArrayASTNodeImpl3, _super);
-    function ArrayASTNodeImpl3(parent, offset) {
-      var _this = _super.call(this, parent, offset) || this;
-      _this.type = "array";
-      _this.items = [];
-      return _this;
-    }
-    Object.defineProperty(ArrayASTNodeImpl3.prototype, "children", {
-      get: function() {
-        return this.items;
-      },
-      enumerable: false,
-      configurable: true
-    });
-    return ArrayASTNodeImpl3;
-  }(ASTNodeImpl);
-  var NumberASTNodeImpl = function(_super) {
-    __extends(NumberASTNodeImpl3, _super);
-    function NumberASTNodeImpl3(parent, offset) {
-      var _this = _super.call(this, parent, offset) || this;
-      _this.type = "number";
-      _this.isInteger = true;
-      _this.value = Number.NaN;
-      return _this;
-    }
-    return NumberASTNodeImpl3;
-  }(ASTNodeImpl);
-  var StringASTNodeImpl = function(_super) {
-    __extends(StringASTNodeImpl3, _super);
-    function StringASTNodeImpl3(parent, offset, length) {
-      var _this = _super.call(this, parent, offset, length) || this;
-      _this.type = "string";
-      _this.value = "";
-      return _this;
-    }
-    return StringASTNodeImpl3;
-  }(ASTNodeImpl);
-  var PropertyASTNodeImpl = function(_super) {
-    __extends(PropertyASTNodeImpl3, _super);
-    function PropertyASTNodeImpl3(parent, offset, keyNode) {
-      var _this = _super.call(this, parent, offset) || this;
-      _this.type = "property";
-      _this.colonOffset = -1;
-      _this.keyNode = keyNode;
-      return _this;
-    }
-    Object.defineProperty(PropertyASTNodeImpl3.prototype, "children", {
-      get: function() {
-        return this.valueNode ? [this.keyNode, this.valueNode] : [this.keyNode];
-      },
-      enumerable: false,
-      configurable: true
-    });
-    return PropertyASTNodeImpl3;
-  }(ASTNodeImpl);
-  var ObjectASTNodeImpl = function(_super) {
-    __extends(ObjectASTNodeImpl3, _super);
-    function ObjectASTNodeImpl3(parent, offset) {
-      var _this = _super.call(this, parent, offset) || this;
-      _this.type = "object";
-      _this.properties = [];
-      return _this;
-    }
-    Object.defineProperty(ObjectASTNodeImpl3.prototype, "children", {
-      get: function() {
-        return this.properties;
-      },
-      enumerable: false,
-      configurable: true
-    });
-    return ObjectASTNodeImpl3;
-  }(ASTNodeImpl);
+      Object.defineProperty(ASTNodeImpl3.prototype, "children", {
+        get: function() {
+          return [];
+        },
+        enumerable: false,
+        configurable: true
+      });
+      ASTNodeImpl3.prototype.toString = function() {
+        return "type: " + this.type + " (" + this.offset + "/" + this.length + ")" + (this.parent ? " parent: {" + this.parent.toString() + "}" : "");
+      };
+      return ASTNodeImpl3;
+    }()
+  );
+  var NullASTNodeImpl = (
+    /** @class */
+    function(_super) {
+      __extends(NullASTNodeImpl3, _super);
+      function NullASTNodeImpl3(parent, offset) {
+        var _this = _super.call(this, parent, offset) || this;
+        _this.type = "null";
+        _this.value = null;
+        return _this;
+      }
+      return NullASTNodeImpl3;
+    }(ASTNodeImpl)
+  );
+  var BooleanASTNodeImpl = (
+    /** @class */
+    function(_super) {
+      __extends(BooleanASTNodeImpl3, _super);
+      function BooleanASTNodeImpl3(parent, boolValue, offset) {
+        var _this = _super.call(this, parent, offset) || this;
+        _this.type = "boolean";
+        _this.value = boolValue;
+        return _this;
+      }
+      return BooleanASTNodeImpl3;
+    }(ASTNodeImpl)
+  );
+  var ArrayASTNodeImpl = (
+    /** @class */
+    function(_super) {
+      __extends(ArrayASTNodeImpl3, _super);
+      function ArrayASTNodeImpl3(parent, offset) {
+        var _this = _super.call(this, parent, offset) || this;
+        _this.type = "array";
+        _this.items = [];
+        return _this;
+      }
+      Object.defineProperty(ArrayASTNodeImpl3.prototype, "children", {
+        get: function() {
+          return this.items;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      return ArrayASTNodeImpl3;
+    }(ASTNodeImpl)
+  );
+  var NumberASTNodeImpl = (
+    /** @class */
+    function(_super) {
+      __extends(NumberASTNodeImpl3, _super);
+      function NumberASTNodeImpl3(parent, offset) {
+        var _this = _super.call(this, parent, offset) || this;
+        _this.type = "number";
+        _this.isInteger = true;
+        _this.value = Number.NaN;
+        return _this;
+      }
+      return NumberASTNodeImpl3;
+    }(ASTNodeImpl)
+  );
+  var StringASTNodeImpl = (
+    /** @class */
+    function(_super) {
+      __extends(StringASTNodeImpl3, _super);
+      function StringASTNodeImpl3(parent, offset, length) {
+        var _this = _super.call(this, parent, offset, length) || this;
+        _this.type = "string";
+        _this.value = "";
+        return _this;
+      }
+      return StringASTNodeImpl3;
+    }(ASTNodeImpl)
+  );
+  var PropertyASTNodeImpl = (
+    /** @class */
+    function(_super) {
+      __extends(PropertyASTNodeImpl3, _super);
+      function PropertyASTNodeImpl3(parent, offset, keyNode) {
+        var _this = _super.call(this, parent, offset) || this;
+        _this.type = "property";
+        _this.colonOffset = -1;
+        _this.keyNode = keyNode;
+        return _this;
+      }
+      Object.defineProperty(PropertyASTNodeImpl3.prototype, "children", {
+        get: function() {
+          return this.valueNode ? [this.keyNode, this.valueNode] : [this.keyNode];
+        },
+        enumerable: false,
+        configurable: true
+      });
+      return PropertyASTNodeImpl3;
+    }(ASTNodeImpl)
+  );
+  var ObjectASTNodeImpl = (
+    /** @class */
+    function(_super) {
+      __extends(ObjectASTNodeImpl3, _super);
+      function ObjectASTNodeImpl3(parent, offset) {
+        var _this = _super.call(this, parent, offset) || this;
+        _this.type = "object";
+        _this.properties = [];
+        return _this;
+      }
+      Object.defineProperty(ObjectASTNodeImpl3.prototype, "children", {
+        get: function() {
+          return this.properties;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      return ObjectASTNodeImpl3;
+    }(ASTNodeImpl)
+  );
   function asSchema(schema5) {
     if (isBoolean(schema5)) {
       return schema5 ? {} : { "not": {} };
@@ -34318,114 +37595,123 @@ ${end.comment}` : end.comment;
     EnumMatch3[EnumMatch3["Key"] = 0] = "Key";
     EnumMatch3[EnumMatch3["Enum"] = 1] = "Enum";
   })(EnumMatch || (EnumMatch = {}));
-  var SchemaCollector = function() {
-    function SchemaCollector3(focusOffset, exclude) {
-      if (focusOffset === void 0) {
-        focusOffset = -1;
+  var SchemaCollector = (
+    /** @class */
+    function() {
+      function SchemaCollector3(focusOffset, exclude) {
+        if (focusOffset === void 0) {
+          focusOffset = -1;
+        }
+        this.focusOffset = focusOffset;
+        this.exclude = exclude;
+        this.schemas = [];
       }
-      this.focusOffset = focusOffset;
-      this.exclude = exclude;
-      this.schemas = [];
-    }
-    SchemaCollector3.prototype.add = function(schema5) {
-      this.schemas.push(schema5);
-    };
-    SchemaCollector3.prototype.merge = function(other) {
-      Array.prototype.push.apply(this.schemas, other.schemas);
-    };
-    SchemaCollector3.prototype.include = function(node) {
-      return (this.focusOffset === -1 || contains2(node, this.focusOffset)) && node !== this.exclude;
-    };
-    SchemaCollector3.prototype.newSub = function() {
-      return new SchemaCollector3(-1, this.exclude);
-    };
-    return SchemaCollector3;
-  }();
-  var NoOpSchemaCollector = function() {
-    function NoOpSchemaCollector3() {
-    }
-    Object.defineProperty(NoOpSchemaCollector3.prototype, "schemas", {
-      get: function() {
-        return [];
-      },
-      enumerable: false,
-      configurable: true
-    });
-    NoOpSchemaCollector3.prototype.add = function(schema5) {
-    };
-    NoOpSchemaCollector3.prototype.merge = function(other) {
-    };
-    NoOpSchemaCollector3.prototype.include = function(node) {
-      return true;
-    };
-    NoOpSchemaCollector3.prototype.newSub = function() {
-      return this;
-    };
-    NoOpSchemaCollector3.instance = new NoOpSchemaCollector3();
-    return NoOpSchemaCollector3;
-  }();
-  var ValidationResult = function() {
-    function ValidationResult3() {
-      this.problems = [];
-      this.propertiesMatches = 0;
-      this.propertiesValueMatches = 0;
-      this.primaryValueMatches = 0;
-      this.enumValueMatch = false;
-      this.enumValues = void 0;
-    }
-    ValidationResult3.prototype.hasProblems = function() {
-      return !!this.problems.length;
-    };
-    ValidationResult3.prototype.mergeAll = function(validationResults) {
-      for (var _i = 0, validationResults_1 = validationResults; _i < validationResults_1.length; _i++) {
-        var validationResult = validationResults_1[_i];
-        this.merge(validationResult);
+      SchemaCollector3.prototype.add = function(schema5) {
+        this.schemas.push(schema5);
+      };
+      SchemaCollector3.prototype.merge = function(other) {
+        Array.prototype.push.apply(this.schemas, other.schemas);
+      };
+      SchemaCollector3.prototype.include = function(node) {
+        return (this.focusOffset === -1 || contains2(node, this.focusOffset)) && node !== this.exclude;
+      };
+      SchemaCollector3.prototype.newSub = function() {
+        return new SchemaCollector3(-1, this.exclude);
+      };
+      return SchemaCollector3;
+    }()
+  );
+  var NoOpSchemaCollector = (
+    /** @class */
+    function() {
+      function NoOpSchemaCollector3() {
       }
-    };
-    ValidationResult3.prototype.merge = function(validationResult) {
-      this.problems = this.problems.concat(validationResult.problems);
-    };
-    ValidationResult3.prototype.mergeEnumValues = function(validationResult) {
-      if (!this.enumValueMatch && !validationResult.enumValueMatch && this.enumValues && validationResult.enumValues) {
-        this.enumValues = this.enumValues.concat(validationResult.enumValues);
-        for (var _i = 0, _a3 = this.problems; _i < _a3.length; _i++) {
-          var error = _a3[_i];
-          if (error.code === ErrorCode.EnumValueMismatch) {
-            error.message = localize22("enumWarning", "Value is not accepted. Valid values: {0}.", this.enumValues.map(function(v) {
-              return JSON.stringify(v);
-            }).join(", "));
+      Object.defineProperty(NoOpSchemaCollector3.prototype, "schemas", {
+        get: function() {
+          return [];
+        },
+        enumerable: false,
+        configurable: true
+      });
+      NoOpSchemaCollector3.prototype.add = function(schema5) {
+      };
+      NoOpSchemaCollector3.prototype.merge = function(other) {
+      };
+      NoOpSchemaCollector3.prototype.include = function(node) {
+        return true;
+      };
+      NoOpSchemaCollector3.prototype.newSub = function() {
+        return this;
+      };
+      NoOpSchemaCollector3.instance = new NoOpSchemaCollector3();
+      return NoOpSchemaCollector3;
+    }()
+  );
+  var ValidationResult = (
+    /** @class */
+    function() {
+      function ValidationResult3() {
+        this.problems = [];
+        this.propertiesMatches = 0;
+        this.propertiesValueMatches = 0;
+        this.primaryValueMatches = 0;
+        this.enumValueMatch = false;
+        this.enumValues = void 0;
+      }
+      ValidationResult3.prototype.hasProblems = function() {
+        return !!this.problems.length;
+      };
+      ValidationResult3.prototype.mergeAll = function(validationResults) {
+        for (var _i = 0, validationResults_1 = validationResults; _i < validationResults_1.length; _i++) {
+          var validationResult = validationResults_1[_i];
+          this.merge(validationResult);
+        }
+      };
+      ValidationResult3.prototype.merge = function(validationResult) {
+        this.problems = this.problems.concat(validationResult.problems);
+      };
+      ValidationResult3.prototype.mergeEnumValues = function(validationResult) {
+        if (!this.enumValueMatch && !validationResult.enumValueMatch && this.enumValues && validationResult.enumValues) {
+          this.enumValues = this.enumValues.concat(validationResult.enumValues);
+          for (var _i = 0, _a3 = this.problems; _i < _a3.length; _i++) {
+            var error = _a3[_i];
+            if (error.code === ErrorCode.EnumValueMismatch) {
+              error.message = localize22("enumWarning", "Value is not accepted. Valid values: {0}.", this.enumValues.map(function(v) {
+                return JSON.stringify(v);
+              }).join(", "));
+            }
           }
         }
-      }
-    };
-    ValidationResult3.prototype.mergePropertyMatch = function(propertyValidationResult) {
-      this.merge(propertyValidationResult);
-      this.propertiesMatches++;
-      if (propertyValidationResult.enumValueMatch || !propertyValidationResult.hasProblems() && propertyValidationResult.propertiesMatches) {
-        this.propertiesValueMatches++;
-      }
-      if (propertyValidationResult.enumValueMatch && propertyValidationResult.enumValues && propertyValidationResult.enumValues.length === 1) {
-        this.primaryValueMatches++;
-      }
-    };
-    ValidationResult3.prototype.compare = function(other) {
-      var hasProblems = this.hasProblems();
-      if (hasProblems !== other.hasProblems()) {
-        return hasProblems ? -1 : 1;
-      }
-      if (this.enumValueMatch !== other.enumValueMatch) {
-        return other.enumValueMatch ? -1 : 1;
-      }
-      if (this.primaryValueMatches !== other.primaryValueMatches) {
-        return this.primaryValueMatches - other.primaryValueMatches;
-      }
-      if (this.propertiesValueMatches !== other.propertiesValueMatches) {
-        return this.propertiesValueMatches - other.propertiesValueMatches;
-      }
-      return this.propertiesMatches - other.propertiesMatches;
-    };
-    return ValidationResult3;
-  }();
+      };
+      ValidationResult3.prototype.mergePropertyMatch = function(propertyValidationResult) {
+        this.merge(propertyValidationResult);
+        this.propertiesMatches++;
+        if (propertyValidationResult.enumValueMatch || !propertyValidationResult.hasProblems() && propertyValidationResult.propertiesMatches) {
+          this.propertiesValueMatches++;
+        }
+        if (propertyValidationResult.enumValueMatch && propertyValidationResult.enumValues && propertyValidationResult.enumValues.length === 1) {
+          this.primaryValueMatches++;
+        }
+      };
+      ValidationResult3.prototype.compare = function(other) {
+        var hasProblems = this.hasProblems();
+        if (hasProblems !== other.hasProblems()) {
+          return hasProblems ? -1 : 1;
+        }
+        if (this.enumValueMatch !== other.enumValueMatch) {
+          return other.enumValueMatch ? -1 : 1;
+        }
+        if (this.primaryValueMatches !== other.primaryValueMatches) {
+          return this.primaryValueMatches - other.primaryValueMatches;
+        }
+        if (this.propertiesValueMatches !== other.propertiesValueMatches) {
+          return this.propertiesValueMatches - other.propertiesValueMatches;
+        }
+        return this.propertiesMatches - other.propertiesMatches;
+      };
+      return ValidationResult3;
+    }()
+  );
   function getNodeValue22(node) {
     return getNodeValue2(node);
   }
@@ -34438,69 +37724,72 @@ ${end.comment}` : end.comment;
     }
     return offset >= node.offset && offset < node.offset + node.length || includeRightBound && offset === node.offset + node.length;
   }
-  var JSONDocument = function() {
-    function JSONDocument3(root, syntaxErrors, comments) {
-      if (syntaxErrors === void 0) {
-        syntaxErrors = [];
+  var JSONDocument = (
+    /** @class */
+    function() {
+      function JSONDocument3(root, syntaxErrors, comments) {
+        if (syntaxErrors === void 0) {
+          syntaxErrors = [];
+        }
+        if (comments === void 0) {
+          comments = [];
+        }
+        this.root = root;
+        this.syntaxErrors = syntaxErrors;
+        this.comments = comments;
       }
-      if (comments === void 0) {
-        comments = [];
-      }
-      this.root = root;
-      this.syntaxErrors = syntaxErrors;
-      this.comments = comments;
-    }
-    JSONDocument3.prototype.getNodeFromOffset = function(offset, includeRightBound) {
-      if (includeRightBound === void 0) {
-        includeRightBound = false;
-      }
-      if (this.root) {
-        return findNodeAtOffset2(this.root, offset, includeRightBound);
-      }
-      return void 0;
-    };
-    JSONDocument3.prototype.visit = function(visitor) {
-      if (this.root) {
-        var doVisit_1 = function(node) {
-          var ctn = visitor(node);
-          var children = node.children;
-          if (Array.isArray(children)) {
-            for (var i = 0; i < children.length && ctn; i++) {
-              ctn = doVisit_1(children[i]);
+      JSONDocument3.prototype.getNodeFromOffset = function(offset, includeRightBound) {
+        if (includeRightBound === void 0) {
+          includeRightBound = false;
+        }
+        if (this.root) {
+          return findNodeAtOffset2(this.root, offset, includeRightBound);
+        }
+        return void 0;
+      };
+      JSONDocument3.prototype.visit = function(visitor) {
+        if (this.root) {
+          var doVisit_1 = function(node) {
+            var ctn = visitor(node);
+            var children = node.children;
+            if (Array.isArray(children)) {
+              for (var i = 0; i < children.length && ctn; i++) {
+                ctn = doVisit_1(children[i]);
+              }
             }
-          }
-          return ctn;
-        };
-        doVisit_1(this.root);
-      }
-    };
-    JSONDocument3.prototype.validate = function(textDocument, schema5, severity) {
-      if (severity === void 0) {
-        severity = DiagnosticSeverity.Warning;
-      }
-      if (this.root && schema5) {
-        var validationResult = new ValidationResult();
-        validate(this.root, schema5, validationResult, NoOpSchemaCollector.instance);
-        return validationResult.problems.map(function(p) {
-          var _a3;
-          var range = Range2.create(textDocument.positionAt(p.location.offset), textDocument.positionAt(p.location.offset + p.location.length));
-          return Diagnostic.create(range, p.message, (_a3 = p.severity) !== null && _a3 !== void 0 ? _a3 : severity, p.code);
-        });
-      }
-      return void 0;
-    };
-    JSONDocument3.prototype.getMatchingSchemas = function(schema5, focusOffset, exclude) {
-      if (focusOffset === void 0) {
-        focusOffset = -1;
-      }
-      var matchingSchemas = new SchemaCollector(focusOffset, exclude);
-      if (this.root && schema5) {
-        validate(this.root, schema5, new ValidationResult(), matchingSchemas);
-      }
-      return matchingSchemas.schemas;
-    };
-    return JSONDocument3;
-  }();
+            return ctn;
+          };
+          doVisit_1(this.root);
+        }
+      };
+      JSONDocument3.prototype.validate = function(textDocument, schema5, severity) {
+        if (severity === void 0) {
+          severity = DiagnosticSeverity.Warning;
+        }
+        if (this.root && schema5) {
+          var validationResult = new ValidationResult();
+          validate(this.root, schema5, validationResult, NoOpSchemaCollector.instance);
+          return validationResult.problems.map(function(p) {
+            var _a3;
+            var range = Range2.create(textDocument.positionAt(p.location.offset), textDocument.positionAt(p.location.offset + p.location.length));
+            return Diagnostic.create(range, p.message, (_a3 = p.severity) !== null && _a3 !== void 0 ? _a3 : severity, p.code);
+          });
+        }
+        return void 0;
+      };
+      JSONDocument3.prototype.getMatchingSchemas = function(schema5, focusOffset, exclude) {
+        if (focusOffset === void 0) {
+          focusOffset = -1;
+        }
+        var matchingSchemas = new SchemaCollector(focusOffset, exclude);
+        if (this.root && schema5) {
+          validate(this.root, schema5, new ValidationResult(), matchingSchemas);
+        }
+        return matchingSchemas.schemas;
+      };
+      return JSONDocument3;
+    }()
+  );
   function validate(n, schema5, validationResult, matchingSchemas) {
     if (!n || !matchingSchemas.include(n)) {
       return;
@@ -34780,7 +38069,7 @@ ${end.comment}` : end.comment;
           message: localize22("maxLengthWarning", "String is longer than the maximum length of {0}.", schema22.maxLength)
         });
       }
-      if (isString(schema22.pattern)) {
+      if (isString2(schema22.pattern)) {
         var regex = extendedRegExp(schema22.pattern);
         if (!regex.test(node2.value)) {
           validationResult2.problems.push({
@@ -35169,498 +38458,513 @@ ${end.comment}` : end.comment;
   var localize3 = loadMessageBundle();
   var BANG = "!";
   var PATH_SEP = "/";
-  var FilePatternAssociation = function() {
-    function FilePatternAssociation3(pattern, uris) {
-      this.globWrappers = [];
-      try {
-        for (var _i = 0, pattern_1 = pattern; _i < pattern_1.length; _i++) {
-          var patternString = pattern_1[_i];
-          var include = patternString[0] !== BANG;
-          if (!include) {
-            patternString = patternString.substring(1);
-          }
-          if (patternString.length > 0) {
-            if (patternString[0] === PATH_SEP) {
+  var FilePatternAssociation = (
+    /** @class */
+    function() {
+      function FilePatternAssociation3(pattern, uris) {
+        this.globWrappers = [];
+        try {
+          for (var _i = 0, pattern_1 = pattern; _i < pattern_1.length; _i++) {
+            var patternString = pattern_1[_i];
+            var include = patternString[0] !== BANG;
+            if (!include) {
               patternString = patternString.substring(1);
             }
-            this.globWrappers.push({
-              regexp: createRegex("**/" + patternString, { extended: true, globstar: true }),
-              include
+            if (patternString.length > 0) {
+              if (patternString[0] === PATH_SEP) {
+                patternString = patternString.substring(1);
+              }
+              this.globWrappers.push({
+                regexp: createRegex("**/" + patternString, { extended: true, globstar: true }),
+                include
+              });
+            }
+          }
+          ;
+          this.uris = uris;
+        } catch (e) {
+          this.globWrappers.length = 0;
+          this.uris = [];
+        }
+      }
+      FilePatternAssociation3.prototype.matchesPattern = function(fileName) {
+        var match = false;
+        for (var _i = 0, _a3 = this.globWrappers; _i < _a3.length; _i++) {
+          var _b = _a3[_i], regexp = _b.regexp, include = _b.include;
+          if (regexp.test(fileName)) {
+            match = include;
+          }
+        }
+        return match;
+      };
+      FilePatternAssociation3.prototype.getURIs = function() {
+        return this.uris;
+      };
+      return FilePatternAssociation3;
+    }()
+  );
+  var SchemaHandle = (
+    /** @class */
+    function() {
+      function SchemaHandle2(service, url, unresolvedSchemaContent) {
+        this.service = service;
+        this.url = url;
+        this.dependencies = {};
+        if (unresolvedSchemaContent) {
+          this.unresolvedSchema = this.service.promise.resolve(new UnresolvedSchema(unresolvedSchemaContent));
+        }
+      }
+      SchemaHandle2.prototype.getUnresolvedSchema = function() {
+        if (!this.unresolvedSchema) {
+          this.unresolvedSchema = this.service.loadSchema(this.url);
+        }
+        return this.unresolvedSchema;
+      };
+      SchemaHandle2.prototype.getResolvedSchema = function() {
+        var _this = this;
+        if (!this.resolvedSchema) {
+          this.resolvedSchema = this.getUnresolvedSchema().then(function(unresolved) {
+            return _this.service.resolveSchemaContent(unresolved, _this.url, _this.dependencies);
+          });
+        }
+        return this.resolvedSchema;
+      };
+      SchemaHandle2.prototype.clearSchema = function() {
+        this.resolvedSchema = void 0;
+        this.unresolvedSchema = void 0;
+        this.dependencies = {};
+      };
+      return SchemaHandle2;
+    }()
+  );
+  var UnresolvedSchema = (
+    /** @class */
+    function() {
+      function UnresolvedSchema2(schema5, errors) {
+        if (errors === void 0) {
+          errors = [];
+        }
+        this.schema = schema5;
+        this.errors = errors;
+      }
+      return UnresolvedSchema2;
+    }()
+  );
+  var ResolvedSchema = (
+    /** @class */
+    function() {
+      function ResolvedSchema2(schema5, errors) {
+        if (errors === void 0) {
+          errors = [];
+        }
+        this.schema = schema5;
+        this.errors = errors;
+      }
+      ResolvedSchema2.prototype.getSection = function(path5) {
+        var schemaRef = this.getSectionRecursive(path5, this.schema);
+        if (schemaRef) {
+          return asSchema(schemaRef);
+        }
+        return void 0;
+      };
+      ResolvedSchema2.prototype.getSectionRecursive = function(path5, schema5) {
+        if (!schema5 || typeof schema5 === "boolean" || path5.length === 0) {
+          return schema5;
+        }
+        var next = path5.shift();
+        if (schema5.properties && typeof schema5.properties[next]) {
+          return this.getSectionRecursive(path5, schema5.properties[next]);
+        } else if (schema5.patternProperties) {
+          for (var _i = 0, _a3 = Object.keys(schema5.patternProperties); _i < _a3.length; _i++) {
+            var pattern = _a3[_i];
+            var regex = extendedRegExp(pattern);
+            if (regex.test(next)) {
+              return this.getSectionRecursive(path5, schema5.patternProperties[pattern]);
+            }
+          }
+        } else if (typeof schema5.additionalProperties === "object") {
+          return this.getSectionRecursive(path5, schema5.additionalProperties);
+        } else if (next.match("[0-9]+")) {
+          if (Array.isArray(schema5.items)) {
+            var index = parseInt(next, 10);
+            if (!isNaN(index) && schema5.items[index]) {
+              return this.getSectionRecursive(path5, schema5.items[index]);
+            }
+          } else if (schema5.items) {
+            return this.getSectionRecursive(path5, schema5.items);
+          }
+        }
+        return void 0;
+      };
+      return ResolvedSchema2;
+    }()
+  );
+  var JSONSchemaService = (
+    /** @class */
+    function() {
+      function JSONSchemaService2(requestService, contextService, promiseConstructor) {
+        this.contextService = contextService;
+        this.requestService = requestService;
+        this.promiseConstructor = promiseConstructor || Promise;
+        this.callOnDispose = [];
+        this.contributionSchemas = {};
+        this.contributionAssociations = [];
+        this.schemasById = {};
+        this.filePatternAssociations = [];
+        this.registeredSchemasIds = {};
+      }
+      JSONSchemaService2.prototype.getRegisteredSchemaIds = function(filter) {
+        return Object.keys(this.registeredSchemasIds).filter(function(id) {
+          var scheme = URI2.parse(id).scheme;
+          return scheme !== "schemaservice" && (!filter || filter(scheme));
+        });
+      };
+      Object.defineProperty(JSONSchemaService2.prototype, "promise", {
+        get: function() {
+          return this.promiseConstructor;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      JSONSchemaService2.prototype.dispose = function() {
+        while (this.callOnDispose.length > 0) {
+          this.callOnDispose.pop()();
+        }
+      };
+      JSONSchemaService2.prototype.onResourceChange = function(uri) {
+        var _this = this;
+        this.cachedSchemaForResource = void 0;
+        var hasChanges = false;
+        uri = normalizeId(uri);
+        var toWalk = [uri];
+        var all = Object.keys(this.schemasById).map(function(key) {
+          return _this.schemasById[key];
+        });
+        while (toWalk.length) {
+          var curr = toWalk.pop();
+          for (var i = 0; i < all.length; i++) {
+            var handle = all[i];
+            if (handle && (handle.url === curr || handle.dependencies[curr])) {
+              if (handle.url !== curr) {
+                toWalk.push(handle.url);
+              }
+              handle.clearSchema();
+              all[i] = void 0;
+              hasChanges = true;
+            }
+          }
+        }
+        return hasChanges;
+      };
+      JSONSchemaService2.prototype.setSchemaContributions = function(schemaContributions2) {
+        if (schemaContributions2.schemas) {
+          var schemas2 = schemaContributions2.schemas;
+          for (var id in schemas2) {
+            var normalizedId = normalizeId(id);
+            this.contributionSchemas[normalizedId] = this.addSchemaHandle(normalizedId, schemas2[id]);
+          }
+        }
+        if (Array.isArray(schemaContributions2.schemaAssociations)) {
+          var schemaAssociations = schemaContributions2.schemaAssociations;
+          for (var _i = 0, schemaAssociations_1 = schemaAssociations; _i < schemaAssociations_1.length; _i++) {
+            var schemaAssociation = schemaAssociations_1[_i];
+            var uris = schemaAssociation.uris.map(normalizeId);
+            var association = this.addFilePatternAssociation(schemaAssociation.pattern, uris);
+            this.contributionAssociations.push(association);
+          }
+        }
+      };
+      JSONSchemaService2.prototype.addSchemaHandle = function(id, unresolvedSchemaContent) {
+        var schemaHandle = new SchemaHandle(this, id, unresolvedSchemaContent);
+        this.schemasById[id] = schemaHandle;
+        return schemaHandle;
+      };
+      JSONSchemaService2.prototype.getOrAddSchemaHandle = function(id, unresolvedSchemaContent) {
+        return this.schemasById[id] || this.addSchemaHandle(id, unresolvedSchemaContent);
+      };
+      JSONSchemaService2.prototype.addFilePatternAssociation = function(pattern, uris) {
+        var fpa = new FilePatternAssociation(pattern, uris);
+        this.filePatternAssociations.push(fpa);
+        return fpa;
+      };
+      JSONSchemaService2.prototype.registerExternalSchema = function(uri, filePatterns, unresolvedSchemaContent) {
+        var id = normalizeId(uri);
+        this.registeredSchemasIds[id] = true;
+        this.cachedSchemaForResource = void 0;
+        if (filePatterns) {
+          this.addFilePatternAssociation(filePatterns, [uri]);
+        }
+        return unresolvedSchemaContent ? this.addSchemaHandle(id, unresolvedSchemaContent) : this.getOrAddSchemaHandle(id);
+      };
+      JSONSchemaService2.prototype.clearExternalSchemas = function() {
+        this.schemasById = {};
+        this.filePatternAssociations = [];
+        this.registeredSchemasIds = {};
+        this.cachedSchemaForResource = void 0;
+        for (var id in this.contributionSchemas) {
+          this.schemasById[id] = this.contributionSchemas[id];
+          this.registeredSchemasIds[id] = true;
+        }
+        for (var _i = 0, _a3 = this.contributionAssociations; _i < _a3.length; _i++) {
+          var contributionAssociation = _a3[_i];
+          this.filePatternAssociations.push(contributionAssociation);
+        }
+      };
+      JSONSchemaService2.prototype.getResolvedSchema = function(schemaId) {
+        var id = normalizeId(schemaId);
+        var schemaHandle = this.schemasById[id];
+        if (schemaHandle) {
+          return schemaHandle.getResolvedSchema();
+        }
+        return this.promise.resolve(void 0);
+      };
+      JSONSchemaService2.prototype.loadSchema = function(url) {
+        if (!this.requestService) {
+          var errorMessage = localize3("json.schema.norequestservice", "Unable to load schema from '{0}'. No schema request service available", toDisplayString(url));
+          return this.promise.resolve(new UnresolvedSchema({}, [errorMessage]));
+        }
+        return this.requestService(url).then(function(content) {
+          if (!content) {
+            var errorMessage2 = localize3("json.schema.nocontent", "Unable to load schema from '{0}': No content.", toDisplayString(url));
+            return new UnresolvedSchema({}, [errorMessage2]);
+          }
+          var schemaContent = {};
+          var jsonErrors = [];
+          schemaContent = parse2(content, jsonErrors);
+          var errors = jsonErrors.length ? [localize3("json.schema.invalidFormat", "Unable to parse content from '{0}': Parse error at offset {1}.", toDisplayString(url), jsonErrors[0].offset)] : [];
+          return new UnresolvedSchema(schemaContent, errors);
+        }, function(error) {
+          var errorMessage2 = error.toString();
+          var errorSplit = error.toString().split("Error: ");
+          if (errorSplit.length > 1) {
+            errorMessage2 = errorSplit[1];
+          }
+          if (endsWith(errorMessage2, ".")) {
+            errorMessage2 = errorMessage2.substr(0, errorMessage2.length - 1);
+          }
+          return new UnresolvedSchema({}, [localize3("json.schema.nocontent", "Unable to load schema from '{0}': {1}.", toDisplayString(url), errorMessage2)]);
+        });
+      };
+      JSONSchemaService2.prototype.resolveSchemaContent = function(schemaToResolve, schemaURL, dependencies) {
+        var _this = this;
+        var resolveErrors = schemaToResolve.errors.slice(0);
+        var schema5 = schemaToResolve.schema;
+        if (schema5.$schema) {
+          var id = normalizeId(schema5.$schema);
+          if (id === "http://json-schema.org/draft-03/schema") {
+            return this.promise.resolve(new ResolvedSchema({}, [localize3("json.schema.draft03.notsupported", "Draft-03 schemas are not supported.")]));
+          } else if (id === "https://json-schema.org/draft/2019-09/schema") {
+            resolveErrors.push(localize3("json.schema.draft201909.notsupported", "Draft 2019-09 schemas are not yet fully supported."));
+          }
+        }
+        var contextService = this.contextService;
+        var findSection = function(schema22, path5) {
+          if (!path5) {
+            return schema22;
+          }
+          var current = schema22;
+          if (path5[0] === "/") {
+            path5 = path5.substr(1);
+          }
+          path5.split("/").some(function(part) {
+            part = part.replace(/~1/g, "/").replace(/~0/g, "~");
+            current = current[part];
+            return !current;
+          });
+          return current;
+        };
+        var merge = function(target, sourceRoot, sourceURI, refSegment) {
+          var path5 = refSegment ? decodeURIComponent(refSegment) : void 0;
+          var section = findSection(sourceRoot, path5);
+          if (section) {
+            for (var key in section) {
+              if (section.hasOwnProperty(key) && !target.hasOwnProperty(key)) {
+                target[key] = section[key];
+              }
+            }
+          } else {
+            resolveErrors.push(localize3("json.schema.invalidref", "$ref '{0}' in '{1}' can not be resolved.", path5, sourceURI));
+          }
+        };
+        var resolveExternalLink = function(node, uri, refSegment, parentSchemaURL, parentSchemaDependencies) {
+          if (contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/\/.*/.test(uri)) {
+            uri = contextService.resolveRelativePath(uri, parentSchemaURL);
+          }
+          uri = normalizeId(uri);
+          var referencedHandle = _this.getOrAddSchemaHandle(uri);
+          return referencedHandle.getUnresolvedSchema().then(function(unresolvedSchema) {
+            parentSchemaDependencies[uri] = true;
+            if (unresolvedSchema.errors.length) {
+              var loc = refSegment ? uri + "#" + refSegment : uri;
+              resolveErrors.push(localize3("json.schema.problemloadingref", "Problems loading reference '{0}': {1}", loc, unresolvedSchema.errors[0]));
+            }
+            merge(node, unresolvedSchema.schema, uri, refSegment);
+            return resolveRefs(node, unresolvedSchema.schema, uri, referencedHandle.dependencies);
+          });
+        };
+        var resolveRefs = function(node, parentSchema, parentSchemaURL, parentSchemaDependencies) {
+          if (!node || typeof node !== "object") {
+            return Promise.resolve(null);
+          }
+          var toWalk = [node];
+          var seen = [];
+          var openPromises = [];
+          var collectEntries = function() {
+            var entries = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+              entries[_i] = arguments[_i];
+            }
+            for (var _a3 = 0, entries_1 = entries; _a3 < entries_1.length; _a3++) {
+              var entry = entries_1[_a3];
+              if (typeof entry === "object") {
+                toWalk.push(entry);
+              }
+            }
+          };
+          var collectMapEntries = function() {
+            var maps = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+              maps[_i] = arguments[_i];
+            }
+            for (var _a3 = 0, maps_1 = maps; _a3 < maps_1.length; _a3++) {
+              var map2 = maps_1[_a3];
+              if (typeof map2 === "object") {
+                for (var k in map2) {
+                  var key = k;
+                  var entry = map2[key];
+                  if (typeof entry === "object") {
+                    toWalk.push(entry);
+                  }
+                }
+              }
+            }
+          };
+          var collectArrayEntries = function() {
+            var arrays = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+              arrays[_i] = arguments[_i];
+            }
+            for (var _a3 = 0, arrays_1 = arrays; _a3 < arrays_1.length; _a3++) {
+              var array = arrays_1[_a3];
+              if (Array.isArray(array)) {
+                for (var _b = 0, array_1 = array; _b < array_1.length; _b++) {
+                  var entry = array_1[_b];
+                  if (typeof entry === "object") {
+                    toWalk.push(entry);
+                  }
+                }
+              }
+            }
+          };
+          var handleRef = function(next2) {
+            var seenRefs = [];
+            while (next2.$ref) {
+              var ref = next2.$ref;
+              var segments = ref.split("#", 2);
+              delete next2.$ref;
+              if (segments[0].length > 0) {
+                openPromises.push(resolveExternalLink(next2, segments[0], segments[1], parentSchemaURL, parentSchemaDependencies));
+                return;
+              } else {
+                if (seenRefs.indexOf(ref) === -1) {
+                  merge(next2, parentSchema, parentSchemaURL, segments[1]);
+                  seenRefs.push(ref);
+                }
+              }
+            }
+            collectEntries(next2.items, next2.additionalItems, next2.additionalProperties, next2.not, next2.contains, next2.propertyNames, next2.if, next2.then, next2.else);
+            collectMapEntries(next2.definitions, next2.properties, next2.patternProperties, next2.dependencies);
+            collectArrayEntries(next2.anyOf, next2.allOf, next2.oneOf, next2.items);
+          };
+          while (toWalk.length) {
+            var next = toWalk.pop();
+            if (seen.indexOf(next) >= 0) {
+              continue;
+            }
+            seen.push(next);
+            handleRef(next);
+          }
+          return _this.promise.all(openPromises);
+        };
+        return resolveRefs(schema5, schema5, schemaURL, dependencies).then(function(_) {
+          return new ResolvedSchema(schema5, resolveErrors);
+        });
+      };
+      JSONSchemaService2.prototype.getSchemaForResource = function(resource, document2) {
+        if (document2 && document2.root && document2.root.type === "object") {
+          var schemaProperties = document2.root.properties.filter(function(p) {
+            return p.keyNode.value === "$schema" && p.valueNode && p.valueNode.type === "string";
+          });
+          if (schemaProperties.length > 0) {
+            var valueNode = schemaProperties[0].valueNode;
+            if (valueNode && valueNode.type === "string") {
+              var schemeId = getNodeValue22(valueNode);
+              if (schemeId && startsWith(schemeId, ".") && this.contextService) {
+                schemeId = this.contextService.resolveRelativePath(schemeId, resource);
+              }
+              if (schemeId) {
+                var id = normalizeId(schemeId);
+                return this.getOrAddSchemaHandle(id).getResolvedSchema();
+              }
+            }
+          }
+        }
+        if (this.cachedSchemaForResource && this.cachedSchemaForResource.resource === resource) {
+          return this.cachedSchemaForResource.resolvedSchema;
+        }
+        var seen = /* @__PURE__ */ Object.create(null);
+        var schemas2 = [];
+        var normalizedResource = normalizeResourceForMatching(resource);
+        for (var _i = 0, _a3 = this.filePatternAssociations; _i < _a3.length; _i++) {
+          var entry = _a3[_i];
+          if (entry.matchesPattern(normalizedResource)) {
+            for (var _b = 0, _c = entry.getURIs(); _b < _c.length; _b++) {
+              var schemaId = _c[_b];
+              if (!seen[schemaId]) {
+                schemas2.push(schemaId);
+                seen[schemaId] = true;
+              }
+            }
+          }
+        }
+        var resolvedSchema = schemas2.length > 0 ? this.createCombinedSchema(resource, schemas2).getResolvedSchema() : this.promise.resolve(void 0);
+        this.cachedSchemaForResource = { resource, resolvedSchema };
+        return resolvedSchema;
+      };
+      JSONSchemaService2.prototype.createCombinedSchema = function(resource, schemaIds) {
+        if (schemaIds.length === 1) {
+          return this.getOrAddSchemaHandle(schemaIds[0]);
+        } else {
+          var combinedSchemaId = "schemaservice://combinedSchema/" + encodeURIComponent(resource);
+          var combinedSchema = {
+            allOf: schemaIds.map(function(schemaId) {
+              return { $ref: schemaId };
+            })
+          };
+          return this.addSchemaHandle(combinedSchemaId, combinedSchema);
+        }
+      };
+      JSONSchemaService2.prototype.getMatchingSchemas = function(document2, jsonDocument, schema5) {
+        if (schema5) {
+          var id = schema5.id || "schemaservice://untitled/matchingSchemas/" + idCounter++;
+          return this.resolveSchemaContent(new UnresolvedSchema(schema5), id, {}).then(function(resolvedSchema) {
+            return jsonDocument.getMatchingSchemas(resolvedSchema.schema).filter(function(s) {
+              return !s.inverted;
+            });
+          });
+        }
+        return this.getSchemaForResource(document2.uri, jsonDocument).then(function(schema22) {
+          if (schema22) {
+            return jsonDocument.getMatchingSchemas(schema22.schema).filter(function(s) {
+              return !s.inverted;
             });
           }
-        }
-        ;
-        this.uris = uris;
-      } catch (e) {
-        this.globWrappers.length = 0;
-        this.uris = [];
-      }
-    }
-    FilePatternAssociation3.prototype.matchesPattern = function(fileName) {
-      var match = false;
-      for (var _i = 0, _a3 = this.globWrappers; _i < _a3.length; _i++) {
-        var _b = _a3[_i], regexp = _b.regexp, include = _b.include;
-        if (regexp.test(fileName)) {
-          match = include;
-        }
-      }
-      return match;
-    };
-    FilePatternAssociation3.prototype.getURIs = function() {
-      return this.uris;
-    };
-    return FilePatternAssociation3;
-  }();
-  var SchemaHandle = function() {
-    function SchemaHandle2(service, url, unresolvedSchemaContent) {
-      this.service = service;
-      this.url = url;
-      this.dependencies = {};
-      if (unresolvedSchemaContent) {
-        this.unresolvedSchema = this.service.promise.resolve(new UnresolvedSchema(unresolvedSchemaContent));
-      }
-    }
-    SchemaHandle2.prototype.getUnresolvedSchema = function() {
-      if (!this.unresolvedSchema) {
-        this.unresolvedSchema = this.service.loadSchema(this.url);
-      }
-      return this.unresolvedSchema;
-    };
-    SchemaHandle2.prototype.getResolvedSchema = function() {
-      var _this = this;
-      if (!this.resolvedSchema) {
-        this.resolvedSchema = this.getUnresolvedSchema().then(function(unresolved) {
-          return _this.service.resolveSchemaContent(unresolved, _this.url, _this.dependencies);
-        });
-      }
-      return this.resolvedSchema;
-    };
-    SchemaHandle2.prototype.clearSchema = function() {
-      this.resolvedSchema = void 0;
-      this.unresolvedSchema = void 0;
-      this.dependencies = {};
-    };
-    return SchemaHandle2;
-  }();
-  var UnresolvedSchema = function() {
-    function UnresolvedSchema2(schema5, errors) {
-      if (errors === void 0) {
-        errors = [];
-      }
-      this.schema = schema5;
-      this.errors = errors;
-    }
-    return UnresolvedSchema2;
-  }();
-  var ResolvedSchema = function() {
-    function ResolvedSchema2(schema5, errors) {
-      if (errors === void 0) {
-        errors = [];
-      }
-      this.schema = schema5;
-      this.errors = errors;
-    }
-    ResolvedSchema2.prototype.getSection = function(path5) {
-      var schemaRef = this.getSectionRecursive(path5, this.schema);
-      if (schemaRef) {
-        return asSchema(schemaRef);
-      }
-      return void 0;
-    };
-    ResolvedSchema2.prototype.getSectionRecursive = function(path5, schema5) {
-      if (!schema5 || typeof schema5 === "boolean" || path5.length === 0) {
-        return schema5;
-      }
-      var next = path5.shift();
-      if (schema5.properties && typeof schema5.properties[next]) {
-        return this.getSectionRecursive(path5, schema5.properties[next]);
-      } else if (schema5.patternProperties) {
-        for (var _i = 0, _a3 = Object.keys(schema5.patternProperties); _i < _a3.length; _i++) {
-          var pattern = _a3[_i];
-          var regex = extendedRegExp(pattern);
-          if (regex.test(next)) {
-            return this.getSectionRecursive(path5, schema5.patternProperties[pattern]);
-          }
-        }
-      } else if (typeof schema5.additionalProperties === "object") {
-        return this.getSectionRecursive(path5, schema5.additionalProperties);
-      } else if (next.match("[0-9]+")) {
-        if (Array.isArray(schema5.items)) {
-          var index = parseInt(next, 10);
-          if (!isNaN(index) && schema5.items[index]) {
-            return this.getSectionRecursive(path5, schema5.items[index]);
-          }
-        } else if (schema5.items) {
-          return this.getSectionRecursive(path5, schema5.items);
-        }
-      }
-      return void 0;
-    };
-    return ResolvedSchema2;
-  }();
-  var JSONSchemaService = function() {
-    function JSONSchemaService2(requestService, contextService, promiseConstructor) {
-      this.contextService = contextService;
-      this.requestService = requestService;
-      this.promiseConstructor = promiseConstructor || Promise;
-      this.callOnDispose = [];
-      this.contributionSchemas = {};
-      this.contributionAssociations = [];
-      this.schemasById = {};
-      this.filePatternAssociations = [];
-      this.registeredSchemasIds = {};
-    }
-    JSONSchemaService2.prototype.getRegisteredSchemaIds = function(filter) {
-      return Object.keys(this.registeredSchemasIds).filter(function(id) {
-        var scheme = URI2.parse(id).scheme;
-        return scheme !== "schemaservice" && (!filter || filter(scheme));
-      });
-    };
-    Object.defineProperty(JSONSchemaService2.prototype, "promise", {
-      get: function() {
-        return this.promiseConstructor;
-      },
-      enumerable: false,
-      configurable: true
-    });
-    JSONSchemaService2.prototype.dispose = function() {
-      while (this.callOnDispose.length > 0) {
-        this.callOnDispose.pop()();
-      }
-    };
-    JSONSchemaService2.prototype.onResourceChange = function(uri) {
-      var _this = this;
-      this.cachedSchemaForResource = void 0;
-      var hasChanges = false;
-      uri = normalizeId(uri);
-      var toWalk = [uri];
-      var all = Object.keys(this.schemasById).map(function(key) {
-        return _this.schemasById[key];
-      });
-      while (toWalk.length) {
-        var curr = toWalk.pop();
-        for (var i = 0; i < all.length; i++) {
-          var handle = all[i];
-          if (handle && (handle.url === curr || handle.dependencies[curr])) {
-            if (handle.url !== curr) {
-              toWalk.push(handle.url);
-            }
-            handle.clearSchema();
-            all[i] = void 0;
-            hasChanges = true;
-          }
-        }
-      }
-      return hasChanges;
-    };
-    JSONSchemaService2.prototype.setSchemaContributions = function(schemaContributions2) {
-      if (schemaContributions2.schemas) {
-        var schemas2 = schemaContributions2.schemas;
-        for (var id in schemas2) {
-          var normalizedId = normalizeId(id);
-          this.contributionSchemas[normalizedId] = this.addSchemaHandle(normalizedId, schemas2[id]);
-        }
-      }
-      if (Array.isArray(schemaContributions2.schemaAssociations)) {
-        var schemaAssociations = schemaContributions2.schemaAssociations;
-        for (var _i = 0, schemaAssociations_1 = schemaAssociations; _i < schemaAssociations_1.length; _i++) {
-          var schemaAssociation = schemaAssociations_1[_i];
-          var uris = schemaAssociation.uris.map(normalizeId);
-          var association = this.addFilePatternAssociation(schemaAssociation.pattern, uris);
-          this.contributionAssociations.push(association);
-        }
-      }
-    };
-    JSONSchemaService2.prototype.addSchemaHandle = function(id, unresolvedSchemaContent) {
-      var schemaHandle = new SchemaHandle(this, id, unresolvedSchemaContent);
-      this.schemasById[id] = schemaHandle;
-      return schemaHandle;
-    };
-    JSONSchemaService2.prototype.getOrAddSchemaHandle = function(id, unresolvedSchemaContent) {
-      return this.schemasById[id] || this.addSchemaHandle(id, unresolvedSchemaContent);
-    };
-    JSONSchemaService2.prototype.addFilePatternAssociation = function(pattern, uris) {
-      var fpa = new FilePatternAssociation(pattern, uris);
-      this.filePatternAssociations.push(fpa);
-      return fpa;
-    };
-    JSONSchemaService2.prototype.registerExternalSchema = function(uri, filePatterns, unresolvedSchemaContent) {
-      var id = normalizeId(uri);
-      this.registeredSchemasIds[id] = true;
-      this.cachedSchemaForResource = void 0;
-      if (filePatterns) {
-        this.addFilePatternAssociation(filePatterns, [uri]);
-      }
-      return unresolvedSchemaContent ? this.addSchemaHandle(id, unresolvedSchemaContent) : this.getOrAddSchemaHandle(id);
-    };
-    JSONSchemaService2.prototype.clearExternalSchemas = function() {
-      this.schemasById = {};
-      this.filePatternAssociations = [];
-      this.registeredSchemasIds = {};
-      this.cachedSchemaForResource = void 0;
-      for (var id in this.contributionSchemas) {
-        this.schemasById[id] = this.contributionSchemas[id];
-        this.registeredSchemasIds[id] = true;
-      }
-      for (var _i = 0, _a3 = this.contributionAssociations; _i < _a3.length; _i++) {
-        var contributionAssociation = _a3[_i];
-        this.filePatternAssociations.push(contributionAssociation);
-      }
-    };
-    JSONSchemaService2.prototype.getResolvedSchema = function(schemaId) {
-      var id = normalizeId(schemaId);
-      var schemaHandle = this.schemasById[id];
-      if (schemaHandle) {
-        return schemaHandle.getResolvedSchema();
-      }
-      return this.promise.resolve(void 0);
-    };
-    JSONSchemaService2.prototype.loadSchema = function(url) {
-      if (!this.requestService) {
-        var errorMessage = localize3("json.schema.norequestservice", "Unable to load schema from '{0}'. No schema request service available", toDisplayString(url));
-        return this.promise.resolve(new UnresolvedSchema({}, [errorMessage]));
-      }
-      return this.requestService(url).then(function(content) {
-        if (!content) {
-          var errorMessage2 = localize3("json.schema.nocontent", "Unable to load schema from '{0}': No content.", toDisplayString(url));
-          return new UnresolvedSchema({}, [errorMessage2]);
-        }
-        var schemaContent = {};
-        var jsonErrors = [];
-        schemaContent = parse2(content, jsonErrors);
-        var errors = jsonErrors.length ? [localize3("json.schema.invalidFormat", "Unable to parse content from '{0}': Parse error at offset {1}.", toDisplayString(url), jsonErrors[0].offset)] : [];
-        return new UnresolvedSchema(schemaContent, errors);
-      }, function(error) {
-        var errorMessage2 = error.toString();
-        var errorSplit = error.toString().split("Error: ");
-        if (errorSplit.length > 1) {
-          errorMessage2 = errorSplit[1];
-        }
-        if (endsWith(errorMessage2, ".")) {
-          errorMessage2 = errorMessage2.substr(0, errorMessage2.length - 1);
-        }
-        return new UnresolvedSchema({}, [localize3("json.schema.nocontent", "Unable to load schema from '{0}': {1}.", toDisplayString(url), errorMessage2)]);
-      });
-    };
-    JSONSchemaService2.prototype.resolveSchemaContent = function(schemaToResolve, schemaURL, dependencies) {
-      var _this = this;
-      var resolveErrors = schemaToResolve.errors.slice(0);
-      var schema5 = schemaToResolve.schema;
-      if (schema5.$schema) {
-        var id = normalizeId(schema5.$schema);
-        if (id === "http://json-schema.org/draft-03/schema") {
-          return this.promise.resolve(new ResolvedSchema({}, [localize3("json.schema.draft03.notsupported", "Draft-03 schemas are not supported.")]));
-        } else if (id === "https://json-schema.org/draft/2019-09/schema") {
-          resolveErrors.push(localize3("json.schema.draft201909.notsupported", "Draft 2019-09 schemas are not yet fully supported."));
-        }
-      }
-      var contextService = this.contextService;
-      var findSection = function(schema22, path5) {
-        if (!path5) {
-          return schema22;
-        }
-        var current = schema22;
-        if (path5[0] === "/") {
-          path5 = path5.substr(1);
-        }
-        path5.split("/").some(function(part) {
-          part = part.replace(/~1/g, "/").replace(/~0/g, "~");
-          current = current[part];
-          return !current;
-        });
-        return current;
-      };
-      var merge = function(target, sourceRoot, sourceURI, refSegment) {
-        var path5 = refSegment ? decodeURIComponent(refSegment) : void 0;
-        var section = findSection(sourceRoot, path5);
-        if (section) {
-          for (var key in section) {
-            if (section.hasOwnProperty(key) && !target.hasOwnProperty(key)) {
-              target[key] = section[key];
-            }
-          }
-        } else {
-          resolveErrors.push(localize3("json.schema.invalidref", "$ref '{0}' in '{1}' can not be resolved.", path5, sourceURI));
-        }
-      };
-      var resolveExternalLink = function(node, uri, refSegment, parentSchemaURL, parentSchemaDependencies) {
-        if (contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/\/.*/.test(uri)) {
-          uri = contextService.resolveRelativePath(uri, parentSchemaURL);
-        }
-        uri = normalizeId(uri);
-        var referencedHandle = _this.getOrAddSchemaHandle(uri);
-        return referencedHandle.getUnresolvedSchema().then(function(unresolvedSchema) {
-          parentSchemaDependencies[uri] = true;
-          if (unresolvedSchema.errors.length) {
-            var loc = refSegment ? uri + "#" + refSegment : uri;
-            resolveErrors.push(localize3("json.schema.problemloadingref", "Problems loading reference '{0}': {1}", loc, unresolvedSchema.errors[0]));
-          }
-          merge(node, unresolvedSchema.schema, uri, refSegment);
-          return resolveRefs(node, unresolvedSchema.schema, uri, referencedHandle.dependencies);
+          return [];
         });
       };
-      var resolveRefs = function(node, parentSchema, parentSchemaURL, parentSchemaDependencies) {
-        if (!node || typeof node !== "object") {
-          return Promise.resolve(null);
-        }
-        var toWalk = [node];
-        var seen = [];
-        var openPromises = [];
-        var collectEntries = function() {
-          var entries = [];
-          for (var _i = 0; _i < arguments.length; _i++) {
-            entries[_i] = arguments[_i];
-          }
-          for (var _a3 = 0, entries_1 = entries; _a3 < entries_1.length; _a3++) {
-            var entry = entries_1[_a3];
-            if (typeof entry === "object") {
-              toWalk.push(entry);
-            }
-          }
-        };
-        var collectMapEntries = function() {
-          var maps = [];
-          for (var _i = 0; _i < arguments.length; _i++) {
-            maps[_i] = arguments[_i];
-          }
-          for (var _a3 = 0, maps_1 = maps; _a3 < maps_1.length; _a3++) {
-            var map2 = maps_1[_a3];
-            if (typeof map2 === "object") {
-              for (var k in map2) {
-                var key = k;
-                var entry = map2[key];
-                if (typeof entry === "object") {
-                  toWalk.push(entry);
-                }
-              }
-            }
-          }
-        };
-        var collectArrayEntries = function() {
-          var arrays = [];
-          for (var _i = 0; _i < arguments.length; _i++) {
-            arrays[_i] = arguments[_i];
-          }
-          for (var _a3 = 0, arrays_1 = arrays; _a3 < arrays_1.length; _a3++) {
-            var array = arrays_1[_a3];
-            if (Array.isArray(array)) {
-              for (var _b = 0, array_1 = array; _b < array_1.length; _b++) {
-                var entry = array_1[_b];
-                if (typeof entry === "object") {
-                  toWalk.push(entry);
-                }
-              }
-            }
-          }
-        };
-        var handleRef = function(next2) {
-          var seenRefs = [];
-          while (next2.$ref) {
-            var ref = next2.$ref;
-            var segments = ref.split("#", 2);
-            delete next2.$ref;
-            if (segments[0].length > 0) {
-              openPromises.push(resolveExternalLink(next2, segments[0], segments[1], parentSchemaURL, parentSchemaDependencies));
-              return;
-            } else {
-              if (seenRefs.indexOf(ref) === -1) {
-                merge(next2, parentSchema, parentSchemaURL, segments[1]);
-                seenRefs.push(ref);
-              }
-            }
-          }
-          collectEntries(next2.items, next2.additionalItems, next2.additionalProperties, next2.not, next2.contains, next2.propertyNames, next2.if, next2.then, next2.else);
-          collectMapEntries(next2.definitions, next2.properties, next2.patternProperties, next2.dependencies);
-          collectArrayEntries(next2.anyOf, next2.allOf, next2.oneOf, next2.items);
-        };
-        while (toWalk.length) {
-          var next = toWalk.pop();
-          if (seen.indexOf(next) >= 0) {
-            continue;
-          }
-          seen.push(next);
-          handleRef(next);
-        }
-        return _this.promise.all(openPromises);
-      };
-      return resolveRefs(schema5, schema5, schemaURL, dependencies).then(function(_) {
-        return new ResolvedSchema(schema5, resolveErrors);
-      });
-    };
-    JSONSchemaService2.prototype.getSchemaForResource = function(resource, document2) {
-      if (document2 && document2.root && document2.root.type === "object") {
-        var schemaProperties = document2.root.properties.filter(function(p) {
-          return p.keyNode.value === "$schema" && p.valueNode && p.valueNode.type === "string";
-        });
-        if (schemaProperties.length > 0) {
-          var valueNode = schemaProperties[0].valueNode;
-          if (valueNode && valueNode.type === "string") {
-            var schemeId = getNodeValue22(valueNode);
-            if (schemeId && startsWith(schemeId, ".") && this.contextService) {
-              schemeId = this.contextService.resolveRelativePath(schemeId, resource);
-            }
-            if (schemeId) {
-              var id = normalizeId(schemeId);
-              return this.getOrAddSchemaHandle(id).getResolvedSchema();
-            }
-          }
-        }
-      }
-      if (this.cachedSchemaForResource && this.cachedSchemaForResource.resource === resource) {
-        return this.cachedSchemaForResource.resolvedSchema;
-      }
-      var seen = /* @__PURE__ */ Object.create(null);
-      var schemas2 = [];
-      var normalizedResource = normalizeResourceForMatching(resource);
-      for (var _i = 0, _a3 = this.filePatternAssociations; _i < _a3.length; _i++) {
-        var entry = _a3[_i];
-        if (entry.matchesPattern(normalizedResource)) {
-          for (var _b = 0, _c = entry.getURIs(); _b < _c.length; _b++) {
-            var schemaId = _c[_b];
-            if (!seen[schemaId]) {
-              schemas2.push(schemaId);
-              seen[schemaId] = true;
-            }
-          }
-        }
-      }
-      var resolvedSchema = schemas2.length > 0 ? this.createCombinedSchema(resource, schemas2).getResolvedSchema() : this.promise.resolve(void 0);
-      this.cachedSchemaForResource = { resource, resolvedSchema };
-      return resolvedSchema;
-    };
-    JSONSchemaService2.prototype.createCombinedSchema = function(resource, schemaIds) {
-      if (schemaIds.length === 1) {
-        return this.getOrAddSchemaHandle(schemaIds[0]);
-      } else {
-        var combinedSchemaId = "schemaservice://combinedSchema/" + encodeURIComponent(resource);
-        var combinedSchema = {
-          allOf: schemaIds.map(function(schemaId) {
-            return { $ref: schemaId };
-          })
-        };
-        return this.addSchemaHandle(combinedSchemaId, combinedSchema);
-      }
-    };
-    JSONSchemaService2.prototype.getMatchingSchemas = function(document2, jsonDocument, schema5) {
-      if (schema5) {
-        var id = schema5.id || "schemaservice://untitled/matchingSchemas/" + idCounter++;
-        return this.resolveSchemaContent(new UnresolvedSchema(schema5), id, {}).then(function(resolvedSchema) {
-          return jsonDocument.getMatchingSchemas(resolvedSchema.schema).filter(function(s) {
-            return !s.inverted;
-          });
-        });
-      }
-      return this.getSchemaForResource(document2.uri, jsonDocument).then(function(schema22) {
-        if (schema22) {
-          return jsonDocument.getMatchingSchemas(schema22.schema).filter(function(s) {
-            return !s.inverted;
-          });
-        }
-        return [];
-      });
-    };
-    return JSONSchemaService2;
-  }();
+      return JSONSchemaService2;
+    }()
+  );
   var idCounter = 0;
   function normalizeId(id) {
     try {
@@ -35686,7 +38990,10 @@ ${end.comment}` : end.comment;
     }
     return url;
   }
-  function getIndentation(lineContent, position) {
+  function convertSimple2RegExpPattern(pattern) {
+    return pattern.replace(/[-\\{}+?|^$.,[\]()#\s]/g, "\\$&").replace(/[*]/g, ".*");
+  }
+  function getIndentation2(lineContent, position) {
     if (lineContent.length < position) {
       return 0;
     }
@@ -35774,7 +39081,7 @@ ${end.comment}` : end.comment;
   function isBoolean2(val) {
     return typeof val === "boolean";
   }
-  function isString2(val) {
+  function isString22(val) {
     return typeof val === "string";
   }
   function isIterable(val) {
@@ -35785,7 +39092,7 @@ ${end.comment}` : end.comment;
     if (!err)
       return "null";
     if (err instanceof Error) {
-      return (_a3 = err.stack) !== null && _a3 !== void 0 ? _a3 : err.toString();
+      return (_a3 = err.stack) != null ? _a3 : err.toString();
     }
     return err.toString();
   }
@@ -35794,15 +39101,12 @@ ${end.comment}` : end.comment;
       return schema5.title;
     }
     if (schema5.$id) {
-      const type = getSchemaRefTypeTitle(schema5.$id);
-      return type;
+      return getSchemaRefTypeTitle(schema5.$id);
     }
     if (schema5.$ref || schema5._$ref) {
-      const type = getSchemaRefTypeTitle(schema5.$ref || schema5._$ref);
-      return type;
+      return getSchemaRefTypeTitle(schema5.$ref || schema5._$ref);
     }
-    const typeStr = schema5.closestTitle || (Array.isArray(schema5.type) ? schema5.type.join(" | ") : schema5.type);
-    return typeStr;
+    return schema5.closestTitle || (Array.isArray(schema5.type) ? schema5.type.join(" | ") : schema5.type);
   }
   function getSchemaRefTypeTitle($ref) {
     const match = $ref.match(/^(?:.*\/)?(.*?)(?:\.schema\.json)?$/);
@@ -35822,9 +39126,15 @@ ${end.comment}` : end.comment;
     if (Object.getOwnPropertyDescriptor(schema5, "name")) {
       return Object.getOwnPropertyDescriptor(schema5, "name").value + ` (${baseName})`;
     } else if (schema5.title) {
-      return schema5.title + ` (${baseName})`;
+      return schema5.description ? schema5.title + " - " + schema5.description + ` (${baseName})` : schema5.title + ` (${baseName})`;
     }
     return baseName;
+  }
+  function isPrimitiveType(schema5) {
+    return schema5.type !== "object" && !isAnyOfAllOfOneOfType(schema5);
+  }
+  function isAnyOfAllOfOneOfType(schema5) {
+    return !!(schema5.anyOf || schema5.allOf || schema5.oneOf);
   }
   function stringifyObject(obj, indent, stringifyLiteral) {
     if (obj !== null && typeof obj === "object") {
@@ -35866,205 +39176,234 @@ ${end.comment}` : end.comment;
   var localize4 = loadMessageBundle();
   var valueCommitCharacters = [",", "}", "]"];
   var propertyCommitCharacters = [":"];
-  var JSONCompletion = function() {
-    function JSONCompletion2(schemaService, contributions, promiseConstructor, clientCapabilities) {
-      if (contributions === void 0) {
-        contributions = [];
+  var JSONCompletion = (
+    /** @class */
+    function() {
+      function JSONCompletion2(schemaService, contributions, promiseConstructor, clientCapabilities) {
+        if (contributions === void 0) {
+          contributions = [];
+        }
+        if (promiseConstructor === void 0) {
+          promiseConstructor = Promise;
+        }
+        if (clientCapabilities === void 0) {
+          clientCapabilities = {};
+        }
+        this.schemaService = schemaService;
+        this.contributions = contributions;
+        this.promiseConstructor = promiseConstructor;
+        this.clientCapabilities = clientCapabilities;
       }
-      if (promiseConstructor === void 0) {
-        promiseConstructor = Promise;
-      }
-      if (clientCapabilities === void 0) {
-        clientCapabilities = {};
-      }
-      this.schemaService = schemaService;
-      this.contributions = contributions;
-      this.promiseConstructor = promiseConstructor;
-      this.clientCapabilities = clientCapabilities;
-    }
-    JSONCompletion2.prototype.doResolve = function(item) {
-      for (var i = this.contributions.length - 1; i >= 0; i--) {
-        var resolveCompletion = this.contributions[i].resolveCompletion;
-        if (resolveCompletion) {
-          var resolver = resolveCompletion(item);
-          if (resolver) {
-            return resolver;
+      JSONCompletion2.prototype.doResolve = function(item) {
+        for (var i = this.contributions.length - 1; i >= 0; i--) {
+          var resolveCompletion = this.contributions[i].resolveCompletion;
+          if (resolveCompletion) {
+            var resolver = resolveCompletion(item);
+            if (resolver) {
+              return resolver;
+            }
           }
         }
-      }
-      return this.promiseConstructor.resolve(item);
-    };
-    JSONCompletion2.prototype.doComplete = function(document2, position, doc) {
-      var _this = this;
-      var result = {
-        items: [],
-        isIncomplete: false
+        return this.promiseConstructor.resolve(item);
       };
-      var text = document2.getText();
-      var offset = document2.offsetAt(position);
-      var node = doc.getNodeFromOffset(offset, true);
-      if (this.isInComment(document2, node ? node.offset : 0, offset)) {
-        return Promise.resolve(result);
-      }
-      if (node && offset === node.offset + node.length && offset > 0) {
-        var ch = text[offset - 1];
-        if (node.type === "object" && ch === "}" || node.type === "array" && ch === "]") {
-          node = node.parent;
+      JSONCompletion2.prototype.doComplete = function(document2, position, doc) {
+        var _this = this;
+        var result = {
+          items: [],
+          isIncomplete: false
+        };
+        var text = document2.getText();
+        var offset = document2.offsetAt(position);
+        var node = doc.getNodeFromOffset(offset, true);
+        if (this.isInComment(document2, node ? node.offset : 0, offset)) {
+          return Promise.resolve(result);
         }
-      }
-      var currentWord = this.getCurrentWord(document2, offset);
-      var overwriteRange;
-      if (node && (node.type === "string" || node.type === "number" || node.type === "boolean" || node.type === "null")) {
-        overwriteRange = Range2.create(document2.positionAt(node.offset), document2.positionAt(node.offset + node.length));
-      } else {
-        var overwriteStart = offset - currentWord.length;
-        if (overwriteStart > 0 && text[overwriteStart - 1] === '"') {
-          overwriteStart--;
-        }
-        overwriteRange = Range2.create(document2.positionAt(overwriteStart), position);
-      }
-      var supportsCommitCharacters = false;
-      var proposed = {};
-      var collector = {
-        add: function(suggestion) {
-          var label = suggestion.label;
-          var existing = proposed[label];
-          if (!existing) {
-            label = label.replace(/[\n]/g, "\u21B5");
-            if (label.length > 60) {
-              var shortendedLabel = label.substr(0, 57).trim() + "...";
-              if (!proposed[shortendedLabel]) {
-                label = shortendedLabel;
-              }
-            }
-            if (overwriteRange && suggestion.insertText !== void 0) {
-              suggestion.textEdit = TextEdit.replace(overwriteRange, suggestion.insertText);
-            }
-            if (supportsCommitCharacters) {
-              suggestion.commitCharacters = suggestion.kind === CompletionItemKind2.Property ? propertyCommitCharacters : valueCommitCharacters;
-            }
-            suggestion.label = label;
-            proposed[label] = suggestion;
-            result.items.push(suggestion);
-          } else {
-            if (!existing.documentation) {
-              existing.documentation = suggestion.documentation;
-            }
-            if (!existing.detail) {
-              existing.detail = suggestion.detail;
-            }
-          }
-        },
-        setAsIncomplete: function() {
-          result.isIncomplete = true;
-        },
-        error: function(message) {
-          console.error(message);
-        },
-        log: function(message) {
-          console.log(message);
-        },
-        getNumberOfProposals: function() {
-          return result.items.length;
-        }
-      };
-      return this.schemaService.getSchemaForResource(document2.uri, doc).then(function(schema5) {
-        var collectionPromises = [];
-        var addValue = true;
-        var currentKey = "";
-        var currentProperty = void 0;
-        if (node) {
-          if (node.type === "string") {
-            var parent = node.parent;
-            if (parent && parent.type === "property" && parent.keyNode === node) {
-              addValue = !parent.valueNode;
-              currentProperty = parent;
-              currentKey = text.substr(node.offset + 1, node.length - 2);
-              if (parent) {
-                node = parent.parent;
-              }
-            }
+        if (node && offset === node.offset + node.length && offset > 0) {
+          var ch = text[offset - 1];
+          if (node.type === "object" && ch === "}" || node.type === "array" && ch === "]") {
+            node = node.parent;
           }
         }
-        if (node && node.type === "object") {
-          if (node.offset === offset) {
-            return result;
-          }
-          var properties = node.properties;
-          properties.forEach(function(p) {
-            if (!currentProperty || currentProperty !== p) {
-              proposed[p.keyNode.value] = CompletionItem.create("__");
-            }
-          });
-          var separatorAfter_1 = "";
-          if (addValue) {
-            separatorAfter_1 = _this.evaluateSeparatorAfter(document2, document2.offsetAt(overwriteRange.end));
-          }
-          if (schema5) {
-            _this.getPropertyCompletions(schema5, doc, node, addValue, separatorAfter_1, collector);
-          } else {
-            _this.getSchemaLessPropertyCompletions(doc, node, currentKey, collector);
-          }
-          var location_1 = getNodePath22(node);
-          _this.contributions.forEach(function(contribution) {
-            var collectPromise = contribution.collectPropertyCompletions(document2.uri, location_1, currentWord, addValue, separatorAfter_1 === "", collector);
-            if (collectPromise) {
-              collectionPromises.push(collectPromise);
-            }
-          });
-          if (!schema5 && currentWord.length > 0 && text.charAt(offset - currentWord.length - 1) !== '"') {
-            collector.add({
-              kind: CompletionItemKind2.Property,
-              label: _this.getLabelForValue(currentWord),
-              insertText: _this.getInsertTextForProperty(currentWord, void 0, false, separatorAfter_1),
-              insertTextFormat: InsertTextFormat.Snippet,
-              documentation: ""
-            });
-            collector.setAsIncomplete();
-          }
-        }
-        var types = {};
-        if (schema5) {
-          _this.getValueCompletions(schema5, doc, node, offset, document2, collector, types);
+        var currentWord = this.getCurrentWord(document2, offset);
+        var overwriteRange;
+        if (node && (node.type === "string" || node.type === "number" || node.type === "boolean" || node.type === "null")) {
+          overwriteRange = Range2.create(document2.positionAt(node.offset), document2.positionAt(node.offset + node.length));
         } else {
-          _this.getSchemaLessValueCompletions(doc, node, offset, document2, collector);
-        }
-        if (_this.contributions.length > 0) {
-          _this.getContributedValueCompletions(doc, node, offset, document2, collector, collectionPromises);
-        }
-        return _this.promiseConstructor.all(collectionPromises).then(function() {
-          if (collector.getNumberOfProposals() === 0) {
-            var offsetForSeparator = offset;
-            if (node && (node.type === "string" || node.type === "number" || node.type === "boolean" || node.type === "null")) {
-              offsetForSeparator = node.offset + node.length;
-            }
-            var separatorAfter = _this.evaluateSeparatorAfter(document2, offsetForSeparator);
-            _this.addFillerValueCompletions(types, separatorAfter, collector);
+          var overwriteStart = offset - currentWord.length;
+          if (overwriteStart > 0 && text[overwriteStart - 1] === '"') {
+            overwriteStart--;
           }
-          return result;
+          overwriteRange = Range2.create(document2.positionAt(overwriteStart), position);
+        }
+        var supportsCommitCharacters = false;
+        var proposed = {};
+        var collector = {
+          add: function(suggestion) {
+            var label = suggestion.label;
+            var existing = proposed[label];
+            if (!existing) {
+              label = label.replace(/[\n]/g, "\u21B5");
+              if (label.length > 60) {
+                var shortendedLabel = label.substr(0, 57).trim() + "...";
+                if (!proposed[shortendedLabel]) {
+                  label = shortendedLabel;
+                }
+              }
+              if (overwriteRange && suggestion.insertText !== void 0) {
+                suggestion.textEdit = TextEdit.replace(overwriteRange, suggestion.insertText);
+              }
+              if (supportsCommitCharacters) {
+                suggestion.commitCharacters = suggestion.kind === CompletionItemKind2.Property ? propertyCommitCharacters : valueCommitCharacters;
+              }
+              suggestion.label = label;
+              proposed[label] = suggestion;
+              result.items.push(suggestion);
+            } else {
+              if (!existing.documentation) {
+                existing.documentation = suggestion.documentation;
+              }
+              if (!existing.detail) {
+                existing.detail = suggestion.detail;
+              }
+            }
+          },
+          setAsIncomplete: function() {
+            result.isIncomplete = true;
+          },
+          error: function(message) {
+            console.error(message);
+          },
+          log: function(message) {
+            console.log(message);
+          },
+          getNumberOfProposals: function() {
+            return result.items.length;
+          }
+        };
+        return this.schemaService.getSchemaForResource(document2.uri, doc).then(function(schema5) {
+          var collectionPromises = [];
+          var addValue = true;
+          var currentKey = "";
+          var currentProperty = void 0;
+          if (node) {
+            if (node.type === "string") {
+              var parent = node.parent;
+              if (parent && parent.type === "property" && parent.keyNode === node) {
+                addValue = !parent.valueNode;
+                currentProperty = parent;
+                currentKey = text.substr(node.offset + 1, node.length - 2);
+                if (parent) {
+                  node = parent.parent;
+                }
+              }
+            }
+          }
+          if (node && node.type === "object") {
+            if (node.offset === offset) {
+              return result;
+            }
+            var properties = node.properties;
+            properties.forEach(function(p) {
+              if (!currentProperty || currentProperty !== p) {
+                proposed[p.keyNode.value] = CompletionItem.create("__");
+              }
+            });
+            var separatorAfter_1 = "";
+            if (addValue) {
+              separatorAfter_1 = _this.evaluateSeparatorAfter(document2, document2.offsetAt(overwriteRange.end));
+            }
+            if (schema5) {
+              _this.getPropertyCompletions(schema5, doc, node, addValue, separatorAfter_1, collector);
+            } else {
+              _this.getSchemaLessPropertyCompletions(doc, node, currentKey, collector);
+            }
+            var location_1 = getNodePath22(node);
+            _this.contributions.forEach(function(contribution) {
+              var collectPromise = contribution.collectPropertyCompletions(document2.uri, location_1, currentWord, addValue, separatorAfter_1 === "", collector);
+              if (collectPromise) {
+                collectionPromises.push(collectPromise);
+              }
+            });
+            if (!schema5 && currentWord.length > 0 && text.charAt(offset - currentWord.length - 1) !== '"') {
+              collector.add({
+                kind: CompletionItemKind2.Property,
+                label: _this.getLabelForValue(currentWord),
+                insertText: _this.getInsertTextForProperty(currentWord, void 0, false, separatorAfter_1),
+                insertTextFormat: InsertTextFormat.Snippet,
+                documentation: ""
+              });
+              collector.setAsIncomplete();
+            }
+          }
+          var types = {};
+          if (schema5) {
+            _this.getValueCompletions(schema5, doc, node, offset, document2, collector, types);
+          } else {
+            _this.getSchemaLessValueCompletions(doc, node, offset, document2, collector);
+          }
+          if (_this.contributions.length > 0) {
+            _this.getContributedValueCompletions(doc, node, offset, document2, collector, collectionPromises);
+          }
+          return _this.promiseConstructor.all(collectionPromises).then(function() {
+            if (collector.getNumberOfProposals() === 0) {
+              var offsetForSeparator = offset;
+              if (node && (node.type === "string" || node.type === "number" || node.type === "boolean" || node.type === "null")) {
+                offsetForSeparator = node.offset + node.length;
+              }
+              var separatorAfter = _this.evaluateSeparatorAfter(document2, offsetForSeparator);
+              _this.addFillerValueCompletions(types, separatorAfter, collector);
+            }
+            return result;
+          });
         });
-      });
-    };
-    JSONCompletion2.prototype.getPropertyCompletions = function(schema5, doc, node, addValue, separatorAfter, collector) {
-      var _this = this;
-      var matchingSchemas = doc.getMatchingSchemas(schema5.schema, node.offset);
-      matchingSchemas.forEach(function(s) {
-        if (s.node === node && !s.inverted) {
-          var schemaProperties_1 = s.schema.properties;
-          if (schemaProperties_1) {
-            Object.keys(schemaProperties_1).forEach(function(key) {
-              var propertySchema = schemaProperties_1[key];
-              if (typeof propertySchema === "object" && !propertySchema.deprecationMessage && !propertySchema.doNotSuggest) {
+      };
+      JSONCompletion2.prototype.getPropertyCompletions = function(schema5, doc, node, addValue, separatorAfter, collector) {
+        var _this = this;
+        var matchingSchemas = doc.getMatchingSchemas(schema5.schema, node.offset);
+        matchingSchemas.forEach(function(s) {
+          if (s.node === node && !s.inverted) {
+            var schemaProperties_1 = s.schema.properties;
+            if (schemaProperties_1) {
+              Object.keys(schemaProperties_1).forEach(function(key) {
+                var propertySchema = schemaProperties_1[key];
+                if (typeof propertySchema === "object" && !propertySchema.deprecationMessage && !propertySchema.doNotSuggest) {
+                  var proposal = {
+                    kind: CompletionItemKind2.Property,
+                    label: key,
+                    insertText: _this.getInsertTextForProperty(key, propertySchema, addValue, separatorAfter),
+                    insertTextFormat: InsertTextFormat.Snippet,
+                    filterText: _this.getFilterTextForValue(key),
+                    documentation: _this.fromMarkup(propertySchema.markdownDescription) || propertySchema.description || ""
+                  };
+                  if (propertySchema.suggestSortText !== void 0) {
+                    proposal.sortText = propertySchema.suggestSortText;
+                  }
+                  if (proposal.insertText && endsWith(proposal.insertText, "$1" + separatorAfter)) {
+                    proposal.command = {
+                      title: "Suggest",
+                      command: "editor.action.triggerSuggest"
+                    };
+                  }
+                  collector.add(proposal);
+                }
+              });
+            }
+            var schemaPropertyNames_1 = s.schema.propertyNames;
+            if (typeof schemaPropertyNames_1 === "object" && !schemaPropertyNames_1.deprecationMessage && !schemaPropertyNames_1.doNotSuggest) {
+              var propertyNameCompletionItem = function(name, enumDescription2) {
+                if (enumDescription2 === void 0) {
+                  enumDescription2 = void 0;
+                }
                 var proposal = {
                   kind: CompletionItemKind2.Property,
-                  label: key,
-                  insertText: _this.getInsertTextForProperty(key, propertySchema, addValue, separatorAfter),
+                  label: name,
+                  insertText: _this.getInsertTextForProperty(name, void 0, addValue, separatorAfter),
                   insertTextFormat: InsertTextFormat.Snippet,
-                  filterText: _this.getFilterTextForValue(key),
-                  documentation: _this.fromMarkup(propertySchema.markdownDescription) || propertySchema.description || ""
+                  filterText: _this.getFilterTextForValue(name),
+                  documentation: enumDescription2 || _this.fromMarkup(schemaPropertyNames_1.markdownDescription) || schemaPropertyNames_1.description || ""
                 };
-                if (propertySchema.suggestSortText !== void 0) {
-                  proposal.sortText = propertySchema.suggestSortText;
+                if (schemaPropertyNames_1.suggestSortText !== void 0) {
+                  proposal.sortText = schemaPropertyNames_1.suggestSortText;
                 }
                 if (proposal.insertText && endsWith(proposal.insertText, "$1" + separatorAfter)) {
                   proposal.command = {
@@ -36073,809 +39412,786 @@ ${end.comment}` : end.comment;
                   };
                 }
                 collector.add(proposal);
+              };
+              if (schemaPropertyNames_1.enum) {
+                for (var i = 0; i < schemaPropertyNames_1.enum.length; i++) {
+                  var enumDescription = void 0;
+                  if (schemaPropertyNames_1.markdownEnumDescriptions && i < schemaPropertyNames_1.markdownEnumDescriptions.length) {
+                    enumDescription = _this.fromMarkup(schemaPropertyNames_1.markdownEnumDescriptions[i]);
+                  } else if (schemaPropertyNames_1.enumDescriptions && i < schemaPropertyNames_1.enumDescriptions.length) {
+                    enumDescription = schemaPropertyNames_1.enumDescriptions[i];
+                  }
+                  propertyNameCompletionItem(schemaPropertyNames_1.enum[i], enumDescription);
+                }
+              }
+              if (schemaPropertyNames_1.const) {
+                propertyNameCompletionItem(schemaPropertyNames_1.const);
+              }
+            }
+          }
+        });
+      };
+      JSONCompletion2.prototype.getSchemaLessPropertyCompletions = function(doc, node, currentKey, collector) {
+        var _this = this;
+        var collectCompletionsForSimilarObject = function(obj) {
+          obj.properties.forEach(function(p) {
+            var key = p.keyNode.value;
+            collector.add({
+              kind: CompletionItemKind2.Property,
+              label: key,
+              insertText: _this.getInsertTextForValue(key, ""),
+              insertTextFormat: InsertTextFormat.Snippet,
+              filterText: _this.getFilterTextForValue(key),
+              documentation: ""
+            });
+          });
+        };
+        if (node.parent) {
+          if (node.parent.type === "property") {
+            var parentKey_1 = node.parent.keyNode.value;
+            doc.visit(function(n) {
+              if (n.type === "property" && n !== node.parent && n.keyNode.value === parentKey_1 && n.valueNode && n.valueNode.type === "object") {
+                collectCompletionsForSimilarObject(n.valueNode);
+              }
+              return true;
+            });
+          } else if (node.parent.type === "array") {
+            node.parent.items.forEach(function(n) {
+              if (n.type === "object" && n !== node) {
+                collectCompletionsForSimilarObject(n);
               }
             });
           }
-          var schemaPropertyNames_1 = s.schema.propertyNames;
-          if (typeof schemaPropertyNames_1 === "object" && !schemaPropertyNames_1.deprecationMessage && !schemaPropertyNames_1.doNotSuggest) {
-            var propertyNameCompletionItem = function(name, enumDescription2) {
-              if (enumDescription2 === void 0) {
-                enumDescription2 = void 0;
-              }
-              var proposal = {
-                kind: CompletionItemKind2.Property,
-                label: name,
-                insertText: _this.getInsertTextForProperty(name, void 0, addValue, separatorAfter),
-                insertTextFormat: InsertTextFormat.Snippet,
-                filterText: _this.getFilterTextForValue(name),
-                documentation: enumDescription2 || _this.fromMarkup(schemaPropertyNames_1.markdownDescription) || schemaPropertyNames_1.description || ""
-              };
-              if (schemaPropertyNames_1.suggestSortText !== void 0) {
-                proposal.sortText = schemaPropertyNames_1.suggestSortText;
-              }
-              if (proposal.insertText && endsWith(proposal.insertText, "$1" + separatorAfter)) {
-                proposal.command = {
-                  title: "Suggest",
-                  command: "editor.action.triggerSuggest"
-                };
-              }
-              collector.add(proposal);
-            };
-            if (schemaPropertyNames_1.enum) {
-              for (var i = 0; i < schemaPropertyNames_1.enum.length; i++) {
-                var enumDescription = void 0;
-                if (schemaPropertyNames_1.markdownEnumDescriptions && i < schemaPropertyNames_1.markdownEnumDescriptions.length) {
-                  enumDescription = _this.fromMarkup(schemaPropertyNames_1.markdownEnumDescriptions[i]);
-                } else if (schemaPropertyNames_1.enumDescriptions && i < schemaPropertyNames_1.enumDescriptions.length) {
-                  enumDescription = schemaPropertyNames_1.enumDescriptions[i];
-                }
-                propertyNameCompletionItem(schemaPropertyNames_1.enum[i], enumDescription);
-              }
-            }
-            if (schemaPropertyNames_1.const) {
-              propertyNameCompletionItem(schemaPropertyNames_1.const);
-            }
-          }
-        }
-      });
-    };
-    JSONCompletion2.prototype.getSchemaLessPropertyCompletions = function(doc, node, currentKey, collector) {
-      var _this = this;
-      var collectCompletionsForSimilarObject = function(obj) {
-        obj.properties.forEach(function(p) {
-          var key = p.keyNode.value;
+        } else if (node.type === "object") {
           collector.add({
             kind: CompletionItemKind2.Property,
-            label: key,
-            insertText: _this.getInsertTextForValue(key, ""),
+            label: "$schema",
+            insertText: this.getInsertTextForProperty("$schema", void 0, true, ""),
             insertTextFormat: InsertTextFormat.Snippet,
-            filterText: _this.getFilterTextForValue(key),
-            documentation: ""
-          });
-        });
-      };
-      if (node.parent) {
-        if (node.parent.type === "property") {
-          var parentKey_1 = node.parent.keyNode.value;
-          doc.visit(function(n) {
-            if (n.type === "property" && n !== node.parent && n.keyNode.value === parentKey_1 && n.valueNode && n.valueNode.type === "object") {
-              collectCompletionsForSimilarObject(n.valueNode);
-            }
-            return true;
-          });
-        } else if (node.parent.type === "array") {
-          node.parent.items.forEach(function(n) {
-            if (n.type === "object" && n !== node) {
-              collectCompletionsForSimilarObject(n);
-            }
+            documentation: "",
+            filterText: this.getFilterTextForValue("$schema")
           });
         }
-      } else if (node.type === "object") {
-        collector.add({
-          kind: CompletionItemKind2.Property,
-          label: "$schema",
-          insertText: this.getInsertTextForProperty("$schema", void 0, true, ""),
-          insertTextFormat: InsertTextFormat.Snippet,
-          documentation: "",
-          filterText: this.getFilterTextForValue("$schema")
-        });
-      }
-    };
-    JSONCompletion2.prototype.getSchemaLessValueCompletions = function(doc, node, offset, document2, collector) {
-      var _this = this;
-      var offsetForSeparator = offset;
-      if (node && (node.type === "string" || node.type === "number" || node.type === "boolean" || node.type === "null")) {
-        offsetForSeparator = node.offset + node.length;
-        node = node.parent;
-      }
-      if (!node) {
-        collector.add({
-          kind: this.getSuggestionKind("object"),
-          label: "Empty object",
-          insertText: this.getInsertTextForValue({}, ""),
-          insertTextFormat: InsertTextFormat.Snippet,
-          documentation: ""
-        });
-        collector.add({
-          kind: this.getSuggestionKind("array"),
-          label: "Empty array",
-          insertText: this.getInsertTextForValue([], ""),
-          insertTextFormat: InsertTextFormat.Snippet,
-          documentation: ""
-        });
-        return;
-      }
-      var separatorAfter = this.evaluateSeparatorAfter(document2, offsetForSeparator);
-      var collectSuggestionsForValues = function(value) {
-        if (value.parent && !contains2(value.parent, offset, true)) {
+      };
+      JSONCompletion2.prototype.getSchemaLessValueCompletions = function(doc, node, offset, document2, collector) {
+        var _this = this;
+        var offsetForSeparator = offset;
+        if (node && (node.type === "string" || node.type === "number" || node.type === "boolean" || node.type === "null")) {
+          offsetForSeparator = node.offset + node.length;
+          node = node.parent;
+        }
+        if (!node) {
           collector.add({
-            kind: _this.getSuggestionKind(value.type),
-            label: _this.getLabelTextForMatchingNode(value, document2),
-            insertText: _this.getInsertTextForMatchingNode(value, document2, separatorAfter),
+            kind: this.getSuggestionKind("object"),
+            label: "Empty object",
+            insertText: this.getInsertTextForValue({}, ""),
             insertTextFormat: InsertTextFormat.Snippet,
             documentation: ""
           });
-        }
-        if (value.type === "boolean") {
-          _this.addBooleanValueCompletion(!value.value, separatorAfter, collector);
-        }
-      };
-      if (node.type === "property") {
-        if (offset > (node.colonOffset || 0)) {
-          var valueNode = node.valueNode;
-          if (valueNode && (offset > valueNode.offset + valueNode.length || valueNode.type === "object" || valueNode.type === "array")) {
-            return;
-          }
-          var parentKey_2 = node.keyNode.value;
-          doc.visit(function(n) {
-            if (n.type === "property" && n.keyNode.value === parentKey_2 && n.valueNode) {
-              collectSuggestionsForValues(n.valueNode);
-            }
-            return true;
+          collector.add({
+            kind: this.getSuggestionKind("array"),
+            label: "Empty array",
+            insertText: this.getInsertTextForValue([], ""),
+            insertTextFormat: InsertTextFormat.Snippet,
+            documentation: ""
           });
-          if (parentKey_2 === "$schema" && node.parent && !node.parent.parent) {
-            this.addDollarSchemaCompletions(separatorAfter, collector);
-          }
-        }
-      }
-      if (node.type === "array") {
-        if (node.parent && node.parent.type === "property") {
-          var parentKey_3 = node.parent.keyNode.value;
-          doc.visit(function(n) {
-            if (n.type === "property" && n.keyNode.value === parentKey_3 && n.valueNode && n.valueNode.type === "array") {
-              n.valueNode.items.forEach(collectSuggestionsForValues);
-            }
-            return true;
-          });
-        } else {
-          node.items.forEach(collectSuggestionsForValues);
-        }
-      }
-    };
-    JSONCompletion2.prototype.getValueCompletions = function(schema5, doc, node, offset, document2, collector, types) {
-      var offsetForSeparator = offset;
-      var parentKey = void 0;
-      var valueNode = void 0;
-      if (node && (node.type === "string" || node.type === "number" || node.type === "boolean" || node.type === "null")) {
-        offsetForSeparator = node.offset + node.length;
-        valueNode = node;
-        node = node.parent;
-      }
-      if (!node) {
-        this.addSchemaValueCompletions(schema5.schema, "", collector, types);
-        return;
-      }
-      if (node.type === "property" && offset > (node.colonOffset || 0)) {
-        var valueNode_1 = node.valueNode;
-        if (valueNode_1 && offset > valueNode_1.offset + valueNode_1.length) {
           return;
         }
-        parentKey = node.keyNode.value;
-        node = node.parent;
-      }
-      if (node && (parentKey !== void 0 || node.type === "array")) {
         var separatorAfter = this.evaluateSeparatorAfter(document2, offsetForSeparator);
-        var matchingSchemas = doc.getMatchingSchemas(schema5.schema, node.offset, valueNode);
-        for (var _i = 0, matchingSchemas_1 = matchingSchemas; _i < matchingSchemas_1.length; _i++) {
-          var s = matchingSchemas_1[_i];
-          if (s.node === node && !s.inverted && s.schema) {
-            if (node.type === "array" && s.schema.items) {
-              if (Array.isArray(s.schema.items)) {
-                var index = this.findItemAtOffset(node, document2, offset);
-                if (index < s.schema.items.length) {
-                  this.addSchemaValueCompletions(s.schema.items[index], separatorAfter, collector, types);
-                }
-              } else {
-                this.addSchemaValueCompletions(s.schema.items, separatorAfter, collector, types);
-              }
+        var collectSuggestionsForValues = function(value) {
+          if (value.parent && !contains2(value.parent, offset, true)) {
+            collector.add({
+              kind: _this.getSuggestionKind(value.type),
+              label: _this.getLabelTextForMatchingNode(value, document2),
+              insertText: _this.getInsertTextForMatchingNode(value, document2, separatorAfter),
+              insertTextFormat: InsertTextFormat.Snippet,
+              documentation: ""
+            });
+          }
+          if (value.type === "boolean") {
+            _this.addBooleanValueCompletion(!value.value, separatorAfter, collector);
+          }
+        };
+        if (node.type === "property") {
+          if (offset > (node.colonOffset || 0)) {
+            var valueNode = node.valueNode;
+            if (valueNode && (offset > valueNode.offset + valueNode.length || valueNode.type === "object" || valueNode.type === "array")) {
+              return;
             }
-            if (parentKey !== void 0) {
-              var propertyMatched = false;
-              if (s.schema.properties) {
-                var propertySchema = s.schema.properties[parentKey];
-                if (propertySchema) {
-                  propertyMatched = true;
-                  this.addSchemaValueCompletions(propertySchema, separatorAfter, collector, types);
+            var parentKey_2 = node.keyNode.value;
+            doc.visit(function(n) {
+              if (n.type === "property" && n.keyNode.value === parentKey_2 && n.valueNode) {
+                collectSuggestionsForValues(n.valueNode);
+              }
+              return true;
+            });
+            if (parentKey_2 === "$schema" && node.parent && !node.parent.parent) {
+              this.addDollarSchemaCompletions(separatorAfter, collector);
+            }
+          }
+        }
+        if (node.type === "array") {
+          if (node.parent && node.parent.type === "property") {
+            var parentKey_3 = node.parent.keyNode.value;
+            doc.visit(function(n) {
+              if (n.type === "property" && n.keyNode.value === parentKey_3 && n.valueNode && n.valueNode.type === "array") {
+                n.valueNode.items.forEach(collectSuggestionsForValues);
+              }
+              return true;
+            });
+          } else {
+            node.items.forEach(collectSuggestionsForValues);
+          }
+        }
+      };
+      JSONCompletion2.prototype.getValueCompletions = function(schema5, doc, node, offset, document2, collector, types) {
+        var offsetForSeparator = offset;
+        var parentKey = void 0;
+        var valueNode = void 0;
+        if (node && (node.type === "string" || node.type === "number" || node.type === "boolean" || node.type === "null")) {
+          offsetForSeparator = node.offset + node.length;
+          valueNode = node;
+          node = node.parent;
+        }
+        if (!node) {
+          this.addSchemaValueCompletions(schema5.schema, "", collector, types);
+          return;
+        }
+        if (node.type === "property" && offset > (node.colonOffset || 0)) {
+          var valueNode_1 = node.valueNode;
+          if (valueNode_1 && offset > valueNode_1.offset + valueNode_1.length) {
+            return;
+          }
+          parentKey = node.keyNode.value;
+          node = node.parent;
+        }
+        if (node && (parentKey !== void 0 || node.type === "array")) {
+          var separatorAfter = this.evaluateSeparatorAfter(document2, offsetForSeparator);
+          var matchingSchemas = doc.getMatchingSchemas(schema5.schema, node.offset, valueNode);
+          for (var _i = 0, matchingSchemas_1 = matchingSchemas; _i < matchingSchemas_1.length; _i++) {
+            var s = matchingSchemas_1[_i];
+            if (s.node === node && !s.inverted && s.schema) {
+              if (node.type === "array" && s.schema.items) {
+                if (Array.isArray(s.schema.items)) {
+                  var index = this.findItemAtOffset(node, document2, offset);
+                  if (index < s.schema.items.length) {
+                    this.addSchemaValueCompletions(s.schema.items[index], separatorAfter, collector, types);
+                  }
+                } else {
+                  this.addSchemaValueCompletions(s.schema.items, separatorAfter, collector, types);
                 }
               }
-              if (s.schema.patternProperties && !propertyMatched) {
-                for (var _a3 = 0, _b = Object.keys(s.schema.patternProperties); _a3 < _b.length; _a3++) {
-                  var pattern = _b[_a3];
-                  var regex = extendedRegExp(pattern);
-                  if (regex.test(parentKey)) {
+              if (parentKey !== void 0) {
+                var propertyMatched = false;
+                if (s.schema.properties) {
+                  var propertySchema = s.schema.properties[parentKey];
+                  if (propertySchema) {
                     propertyMatched = true;
-                    var propertySchema = s.schema.patternProperties[pattern];
                     this.addSchemaValueCompletions(propertySchema, separatorAfter, collector, types);
                   }
                 }
-              }
-              if (s.schema.additionalProperties && !propertyMatched) {
-                var propertySchema = s.schema.additionalProperties;
-                this.addSchemaValueCompletions(propertySchema, separatorAfter, collector, types);
+                if (s.schema.patternProperties && !propertyMatched) {
+                  for (var _a3 = 0, _b = Object.keys(s.schema.patternProperties); _a3 < _b.length; _a3++) {
+                    var pattern = _b[_a3];
+                    var regex = extendedRegExp(pattern);
+                    if (regex.test(parentKey)) {
+                      propertyMatched = true;
+                      var propertySchema = s.schema.patternProperties[pattern];
+                      this.addSchemaValueCompletions(propertySchema, separatorAfter, collector, types);
+                    }
+                  }
+                }
+                if (s.schema.additionalProperties && !propertyMatched) {
+                  var propertySchema = s.schema.additionalProperties;
+                  this.addSchemaValueCompletions(propertySchema, separatorAfter, collector, types);
+                }
               }
             }
           }
-        }
-        if (parentKey === "$schema" && !node.parent) {
-          this.addDollarSchemaCompletions(separatorAfter, collector);
-        }
-        if (types["boolean"]) {
-          this.addBooleanValueCompletion(true, separatorAfter, collector);
-          this.addBooleanValueCompletion(false, separatorAfter, collector);
-        }
-        if (types["null"]) {
-          this.addNullValueCompletion(separatorAfter, collector);
-        }
-      }
-    };
-    JSONCompletion2.prototype.getContributedValueCompletions = function(doc, node, offset, document2, collector, collectionPromises) {
-      if (!node) {
-        this.contributions.forEach(function(contribution) {
-          var collectPromise = contribution.collectDefaultCompletions(document2.uri, collector);
-          if (collectPromise) {
-            collectionPromises.push(collectPromise);
+          if (parentKey === "$schema" && !node.parent) {
+            this.addDollarSchemaCompletions(separatorAfter, collector);
           }
-        });
-      } else {
-        if (node.type === "string" || node.type === "number" || node.type === "boolean" || node.type === "null") {
-          node = node.parent;
+          if (types["boolean"]) {
+            this.addBooleanValueCompletion(true, separatorAfter, collector);
+            this.addBooleanValueCompletion(false, separatorAfter, collector);
+          }
+          if (types["null"]) {
+            this.addNullValueCompletion(separatorAfter, collector);
+          }
         }
-        if (node && node.type === "property" && offset > (node.colonOffset || 0)) {
-          var parentKey_4 = node.keyNode.value;
-          var valueNode = node.valueNode;
-          if ((!valueNode || offset <= valueNode.offset + valueNode.length) && node.parent) {
-            var location_2 = getNodePath22(node.parent);
-            this.contributions.forEach(function(contribution) {
-              var collectPromise = contribution.collectValueCompletions(document2.uri, location_2, parentKey_4, collector);
-              if (collectPromise) {
-                collectionPromises.push(collectPromise);
-              }
+      };
+      JSONCompletion2.prototype.getContributedValueCompletions = function(doc, node, offset, document2, collector, collectionPromises) {
+        if (!node) {
+          this.contributions.forEach(function(contribution) {
+            var collectPromise = contribution.collectDefaultCompletions(document2.uri, collector);
+            if (collectPromise) {
+              collectionPromises.push(collectPromise);
+            }
+          });
+        } else {
+          if (node.type === "string" || node.type === "number" || node.type === "boolean" || node.type === "null") {
+            node = node.parent;
+          }
+          if (node && node.type === "property" && offset > (node.colonOffset || 0)) {
+            var parentKey_4 = node.keyNode.value;
+            var valueNode = node.valueNode;
+            if ((!valueNode || offset <= valueNode.offset + valueNode.length) && node.parent) {
+              var location_2 = getNodePath22(node.parent);
+              this.contributions.forEach(function(contribution) {
+                var collectPromise = contribution.collectValueCompletions(document2.uri, location_2, parentKey_4, collector);
+                if (collectPromise) {
+                  collectionPromises.push(collectPromise);
+                }
+              });
+            }
+          }
+        }
+      };
+      JSONCompletion2.prototype.addSchemaValueCompletions = function(schema5, separatorAfter, collector, types) {
+        var _this = this;
+        if (typeof schema5 === "object") {
+          this.addEnumValueCompletions(schema5, separatorAfter, collector);
+          this.addDefaultValueCompletions(schema5, separatorAfter, collector);
+          this.collectTypes(schema5, types);
+          if (Array.isArray(schema5.allOf)) {
+            schema5.allOf.forEach(function(s) {
+              return _this.addSchemaValueCompletions(s, separatorAfter, collector, types);
+            });
+          }
+          if (Array.isArray(schema5.anyOf)) {
+            schema5.anyOf.forEach(function(s) {
+              return _this.addSchemaValueCompletions(s, separatorAfter, collector, types);
+            });
+          }
+          if (Array.isArray(schema5.oneOf)) {
+            schema5.oneOf.forEach(function(s) {
+              return _this.addSchemaValueCompletions(s, separatorAfter, collector, types);
             });
           }
         }
-      }
-    };
-    JSONCompletion2.prototype.addSchemaValueCompletions = function(schema5, separatorAfter, collector, types) {
-      var _this = this;
-      if (typeof schema5 === "object") {
-        this.addEnumValueCompletions(schema5, separatorAfter, collector);
-        this.addDefaultValueCompletions(schema5, separatorAfter, collector);
-        this.collectTypes(schema5, types);
-        if (Array.isArray(schema5.allOf)) {
-          schema5.allOf.forEach(function(s) {
-            return _this.addSchemaValueCompletions(s, separatorAfter, collector, types);
-          });
+      };
+      JSONCompletion2.prototype.addDefaultValueCompletions = function(schema5, separatorAfter, collector, arrayDepth) {
+        var _this = this;
+        if (arrayDepth === void 0) {
+          arrayDepth = 0;
         }
-        if (Array.isArray(schema5.anyOf)) {
-          schema5.anyOf.forEach(function(s) {
-            return _this.addSchemaValueCompletions(s, separatorAfter, collector, types);
-          });
-        }
-        if (Array.isArray(schema5.oneOf)) {
-          schema5.oneOf.forEach(function(s) {
-            return _this.addSchemaValueCompletions(s, separatorAfter, collector, types);
-          });
-        }
-      }
-    };
-    JSONCompletion2.prototype.addDefaultValueCompletions = function(schema5, separatorAfter, collector, arrayDepth) {
-      var _this = this;
-      if (arrayDepth === void 0) {
-        arrayDepth = 0;
-      }
-      var hasProposals = false;
-      if (isDefined(schema5.default)) {
-        var type = schema5.type;
-        var value = schema5.default;
-        for (var i = arrayDepth; i > 0; i--) {
-          value = [value];
-          type = "array";
-        }
-        collector.add({
-          kind: this.getSuggestionKind(type),
-          label: this.getLabelForValue(value),
-          insertText: this.getInsertTextForValue(value, separatorAfter),
-          insertTextFormat: InsertTextFormat.Snippet,
-          detail: localize4("json.suggest.default", "Default value")
-        });
-        hasProposals = true;
-      }
-      if (Array.isArray(schema5.examples)) {
-        schema5.examples.forEach(function(example) {
-          var type2 = schema5.type;
-          var value2 = example;
-          for (var i2 = arrayDepth; i2 > 0; i2--) {
-            value2 = [value2];
-            type2 = "array";
+        var hasProposals = false;
+        if (isDefined(schema5.default)) {
+          var type = schema5.type;
+          var value = schema5.default;
+          for (var i = arrayDepth; i > 0; i--) {
+            value = [value];
+            type = "array";
           }
           collector.add({
-            kind: _this.getSuggestionKind(type2),
-            label: _this.getLabelForValue(value2),
-            insertText: _this.getInsertTextForValue(value2, separatorAfter),
-            insertTextFormat: InsertTextFormat.Snippet
+            kind: this.getSuggestionKind(type),
+            label: this.getLabelForValue(value),
+            insertText: this.getInsertTextForValue(value, separatorAfter),
+            insertTextFormat: InsertTextFormat.Snippet,
+            detail: localize4("json.suggest.default", "Default value")
           });
           hasProposals = true;
-        });
-      }
-      if (Array.isArray(schema5.defaultSnippets)) {
-        schema5.defaultSnippets.forEach(function(s) {
-          var type2 = schema5.type;
-          var value2 = s.body;
-          var label = s.label;
-          var insertText;
-          var filterText;
-          if (isDefined(value2)) {
-            var type_1 = schema5.type;
+        }
+        if (Array.isArray(schema5.examples)) {
+          schema5.examples.forEach(function(example) {
+            var type2 = schema5.type;
+            var value2 = example;
             for (var i2 = arrayDepth; i2 > 0; i2--) {
               value2 = [value2];
-              type_1 = "array";
-            }
-            insertText = _this.getInsertTextForSnippetValue(value2, separatorAfter);
-            filterText = _this.getFilterTextForSnippetValue(value2);
-            label = label || _this.getLabelForSnippetValue(value2);
-          } else if (typeof s.bodyText === "string") {
-            var prefix = "", suffix = "", indent = "";
-            for (var i2 = arrayDepth; i2 > 0; i2--) {
-              prefix = prefix + indent + "[\n";
-              suffix = suffix + "\n" + indent + "]";
-              indent += "	";
               type2 = "array";
             }
-            insertText = prefix + indent + s.bodyText.split("\n").join("\n" + indent) + suffix + separatorAfter;
-            label = label || insertText, filterText = insertText.replace(/[\n]/g, "");
-          } else {
-            return;
-          }
-          collector.add({
-            kind: _this.getSuggestionKind(type2),
-            label,
-            documentation: _this.fromMarkup(s.markdownDescription) || s.description,
-            insertText,
-            insertTextFormat: InsertTextFormat.Snippet,
-            filterText
+            collector.add({
+              kind: _this.getSuggestionKind(type2),
+              label: _this.getLabelForValue(value2),
+              insertText: _this.getInsertTextForValue(value2, separatorAfter),
+              insertTextFormat: InsertTextFormat.Snippet
+            });
+            hasProposals = true;
           });
-          hasProposals = true;
-        });
-      }
-      if (!hasProposals && typeof schema5.items === "object" && !Array.isArray(schema5.items) && arrayDepth < 5) {
-        this.addDefaultValueCompletions(schema5.items, separatorAfter, collector, arrayDepth + 1);
-      }
-    };
-    JSONCompletion2.prototype.addEnumValueCompletions = function(schema5, separatorAfter, collector) {
-      if (isDefined(schema5.const)) {
-        collector.add({
-          kind: this.getSuggestionKind(schema5.type),
-          label: this.getLabelForValue(schema5.const),
-          insertText: this.getInsertTextForValue(schema5.const, separatorAfter),
-          insertTextFormat: InsertTextFormat.Snippet,
-          documentation: this.fromMarkup(schema5.markdownDescription) || schema5.description
-        });
-      }
-      if (Array.isArray(schema5.enum)) {
-        for (var i = 0, length = schema5.enum.length; i < length; i++) {
-          var enm = schema5.enum[i];
-          var documentation = this.fromMarkup(schema5.markdownDescription) || schema5.description;
-          if (schema5.markdownEnumDescriptions && i < schema5.markdownEnumDescriptions.length && this.doesSupportMarkdown()) {
-            documentation = this.fromMarkup(schema5.markdownEnumDescriptions[i]);
-          } else if (schema5.enumDescriptions && i < schema5.enumDescriptions.length) {
-            documentation = schema5.enumDescriptions[i];
-          }
+        }
+        if (Array.isArray(schema5.defaultSnippets)) {
+          schema5.defaultSnippets.forEach(function(s) {
+            var type2 = schema5.type;
+            var value2 = s.body;
+            var label = s.label;
+            var insertText;
+            var filterText;
+            if (isDefined(value2)) {
+              var type_1 = schema5.type;
+              for (var i2 = arrayDepth; i2 > 0; i2--) {
+                value2 = [value2];
+                type_1 = "array";
+              }
+              insertText = _this.getInsertTextForSnippetValue(value2, separatorAfter);
+              filterText = _this.getFilterTextForSnippetValue(value2);
+              label = label || _this.getLabelForSnippetValue(value2);
+            } else if (typeof s.bodyText === "string") {
+              var prefix = "", suffix = "", indent = "";
+              for (var i2 = arrayDepth; i2 > 0; i2--) {
+                prefix = prefix + indent + "[\n";
+                suffix = suffix + "\n" + indent + "]";
+                indent += "	";
+                type2 = "array";
+              }
+              insertText = prefix + indent + s.bodyText.split("\n").join("\n" + indent) + suffix + separatorAfter;
+              label = label || insertText, filterText = insertText.replace(/[\n]/g, "");
+            } else {
+              return;
+            }
+            collector.add({
+              kind: _this.getSuggestionKind(type2),
+              label,
+              documentation: _this.fromMarkup(s.markdownDescription) || s.description,
+              insertText,
+              insertTextFormat: InsertTextFormat.Snippet,
+              filterText
+            });
+            hasProposals = true;
+          });
+        }
+        if (!hasProposals && typeof schema5.items === "object" && !Array.isArray(schema5.items) && arrayDepth < 5) {
+          this.addDefaultValueCompletions(schema5.items, separatorAfter, collector, arrayDepth + 1);
+        }
+      };
+      JSONCompletion2.prototype.addEnumValueCompletions = function(schema5, separatorAfter, collector) {
+        if (isDefined(schema5.const)) {
           collector.add({
             kind: this.getSuggestionKind(schema5.type),
-            label: this.getLabelForValue(enm),
-            insertText: this.getInsertTextForValue(enm, separatorAfter),
+            label: this.getLabelForValue(schema5.const),
+            insertText: this.getInsertTextForValue(schema5.const, separatorAfter),
             insertTextFormat: InsertTextFormat.Snippet,
-            documentation
+            documentation: this.fromMarkup(schema5.markdownDescription) || schema5.description
           });
         }
-      }
-    };
-    JSONCompletion2.prototype.collectTypes = function(schema5, types) {
-      if (Array.isArray(schema5.enum) || isDefined(schema5.const)) {
-        return;
-      }
-      var type = schema5.type;
-      if (Array.isArray(type)) {
-        type.forEach(function(t) {
-          return types[t] = true;
-        });
-      } else if (type) {
-        types[type] = true;
-      }
-    };
-    JSONCompletion2.prototype.addFillerValueCompletions = function(types, separatorAfter, collector) {
-      if (types["object"]) {
-        collector.add({
-          kind: this.getSuggestionKind("object"),
-          label: "{}",
-          insertText: this.getInsertTextForGuessedValue({}, separatorAfter),
-          insertTextFormat: InsertTextFormat.Snippet,
-          detail: localize4("defaults.object", "New object"),
-          documentation: ""
-        });
-      }
-      if (types["array"]) {
-        collector.add({
-          kind: this.getSuggestionKind("array"),
-          label: "[]",
-          insertText: this.getInsertTextForGuessedValue([], separatorAfter),
-          insertTextFormat: InsertTextFormat.Snippet,
-          detail: localize4("defaults.array", "New array"),
-          documentation: ""
-        });
-      }
-    };
-    JSONCompletion2.prototype.addBooleanValueCompletion = function(value, separatorAfter, collector) {
-      collector.add({
-        kind: this.getSuggestionKind("boolean"),
-        label: value ? "true" : "false",
-        insertText: this.getInsertTextForValue(value, separatorAfter),
-        insertTextFormat: InsertTextFormat.Snippet,
-        documentation: ""
-      });
-    };
-    JSONCompletion2.prototype.addNullValueCompletion = function(separatorAfter, collector) {
-      collector.add({
-        kind: this.getSuggestionKind("null"),
-        label: "null",
-        insertText: "null" + separatorAfter,
-        insertTextFormat: InsertTextFormat.Snippet,
-        documentation: ""
-      });
-    };
-    JSONCompletion2.prototype.addDollarSchemaCompletions = function(separatorAfter, collector) {
-      var _this = this;
-      var schemaIds = this.schemaService.getRegisteredSchemaIds(function(schema5) {
-        return schema5 === "http" || schema5 === "https";
-      });
-      schemaIds.forEach(function(schemaId) {
-        return collector.add({
-          kind: CompletionItemKind2.Module,
-          label: _this.getLabelForValue(schemaId),
-          filterText: _this.getFilterTextForValue(schemaId),
-          insertText: _this.getInsertTextForValue(schemaId, separatorAfter),
-          insertTextFormat: InsertTextFormat.Snippet,
-          documentation: ""
-        });
-      });
-    };
-    JSONCompletion2.prototype.getLabelForValue = function(value) {
-      return JSON.stringify(value);
-    };
-    JSONCompletion2.prototype.getFilterTextForValue = function(value) {
-      return JSON.stringify(value);
-    };
-    JSONCompletion2.prototype.getFilterTextForSnippetValue = function(value) {
-      return JSON.stringify(value).replace(/\$\{\d+:([^}]+)\}|\$\d+/g, "$1");
-    };
-    JSONCompletion2.prototype.getLabelForSnippetValue = function(value) {
-      var label = JSON.stringify(value);
-      return label.replace(/\$\{\d+:([^}]+)\}|\$\d+/g, "$1");
-    };
-    JSONCompletion2.prototype.getInsertTextForPlainText = function(text) {
-      return text.replace(/[\\\$\}]/g, "\\$&");
-    };
-    JSONCompletion2.prototype.getInsertTextForValue = function(value, separatorAfter) {
-      var text = JSON.stringify(value, null, "	");
-      if (text === "{}") {
-        return "{$1}" + separatorAfter;
-      } else if (text === "[]") {
-        return "[$1]" + separatorAfter;
-      }
-      return this.getInsertTextForPlainText(text + separatorAfter);
-    };
-    JSONCompletion2.prototype.getInsertTextForSnippetValue = function(value, separatorAfter) {
-      var replacer = function(value2) {
-        if (typeof value2 === "string") {
-          if (value2[0] === "^") {
-            return value2.substr(1);
-          }
-        }
-        return JSON.stringify(value2);
-      };
-      return stringifyObject(value, "", replacer) + separatorAfter;
-    };
-    JSONCompletion2.prototype.getInsertTextForGuessedValue = function(value, separatorAfter) {
-      switch (typeof value) {
-        case "object":
-          if (value === null) {
-            return "${1:null}" + separatorAfter;
-          }
-          return this.getInsertTextForValue(value, separatorAfter);
-        case "string":
-          var snippetValue = JSON.stringify(value);
-          snippetValue = snippetValue.substr(1, snippetValue.length - 2);
-          snippetValue = this.getInsertTextForPlainText(snippetValue);
-          return '"${1:' + snippetValue + '}"' + separatorAfter;
-        case "number":
-        case "boolean":
-          return "${1:" + JSON.stringify(value) + "}" + separatorAfter;
-      }
-      return this.getInsertTextForValue(value, separatorAfter);
-    };
-    JSONCompletion2.prototype.getSuggestionKind = function(type) {
-      if (Array.isArray(type)) {
-        var array = type;
-        type = array.length > 0 ? array[0] : void 0;
-      }
-      if (!type) {
-        return CompletionItemKind2.Value;
-      }
-      switch (type) {
-        case "string":
-          return CompletionItemKind2.Value;
-        case "object":
-          return CompletionItemKind2.Module;
-        case "property":
-          return CompletionItemKind2.Property;
-        default:
-          return CompletionItemKind2.Value;
-      }
-    };
-    JSONCompletion2.prototype.getLabelTextForMatchingNode = function(node, document2) {
-      switch (node.type) {
-        case "array":
-          return "[]";
-        case "object":
-          return "{}";
-        default:
-          var content = document2.getText().substr(node.offset, node.length);
-          return content;
-      }
-    };
-    JSONCompletion2.prototype.getInsertTextForMatchingNode = function(node, document2, separatorAfter) {
-      switch (node.type) {
-        case "array":
-          return this.getInsertTextForValue([], separatorAfter);
-        case "object":
-          return this.getInsertTextForValue({}, separatorAfter);
-        default:
-          var content = document2.getText().substr(node.offset, node.length) + separatorAfter;
-          return this.getInsertTextForPlainText(content);
-      }
-    };
-    JSONCompletion2.prototype.getInsertTextForProperty = function(key, propertySchema, addValue, separatorAfter) {
-      var propertyText = this.getInsertTextForValue(key, "");
-      if (!addValue) {
-        return propertyText;
-      }
-      var resultText = propertyText + ": ";
-      var value;
-      var nValueProposals = 0;
-      if (propertySchema) {
-        if (Array.isArray(propertySchema.defaultSnippets)) {
-          if (propertySchema.defaultSnippets.length === 1) {
-            var body = propertySchema.defaultSnippets[0].body;
-            if (isDefined(body)) {
-              value = this.getInsertTextForSnippetValue(body, "");
+        if (Array.isArray(schema5.enum)) {
+          for (var i = 0, length = schema5.enum.length; i < length; i++) {
+            var enm = schema5.enum[i];
+            var documentation = this.fromMarkup(schema5.markdownDescription) || schema5.description;
+            if (schema5.markdownEnumDescriptions && i < schema5.markdownEnumDescriptions.length && this.doesSupportMarkdown()) {
+              documentation = this.fromMarkup(schema5.markdownEnumDescriptions[i]);
+            } else if (schema5.enumDescriptions && i < schema5.enumDescriptions.length) {
+              documentation = schema5.enumDescriptions[i];
             }
-          }
-          nValueProposals += propertySchema.defaultSnippets.length;
-        }
-        if (propertySchema.enum) {
-          if (!value && propertySchema.enum.length === 1) {
-            value = this.getInsertTextForGuessedValue(propertySchema.enum[0], "");
-          }
-          nValueProposals += propertySchema.enum.length;
-        }
-        if (isDefined(propertySchema.default)) {
-          if (!value) {
-            value = this.getInsertTextForGuessedValue(propertySchema.default, "");
-          }
-          nValueProposals++;
-        }
-        if (Array.isArray(propertySchema.examples) && propertySchema.examples.length) {
-          if (!value) {
-            value = this.getInsertTextForGuessedValue(propertySchema.examples[0], "");
-          }
-          nValueProposals += propertySchema.examples.length;
-        }
-        if (nValueProposals === 0) {
-          var type = Array.isArray(propertySchema.type) ? propertySchema.type[0] : propertySchema.type;
-          if (!type) {
-            if (propertySchema.properties) {
-              type = "object";
-            } else if (propertySchema.items) {
-              type = "array";
-            }
-          }
-          switch (type) {
-            case "boolean":
-              value = "$1";
-              break;
-            case "string":
-              value = '"$1"';
-              break;
-            case "object":
-              value = "{$1}";
-              break;
-            case "array":
-              value = "[$1]";
-              break;
-            case "number":
-            case "integer":
-              value = "${1:0}";
-              break;
-            case "null":
-              value = "${1:null}";
-              break;
-            default:
-              return propertyText;
+            collector.add({
+              kind: this.getSuggestionKind(schema5.type),
+              label: this.getLabelForValue(enm),
+              insertText: this.getInsertTextForValue(enm, separatorAfter),
+              insertTextFormat: InsertTextFormat.Snippet,
+              documentation
+            });
           }
         }
-      }
-      if (!value || nValueProposals > 1) {
-        value = "$1";
-      }
-      return resultText + value + separatorAfter;
-    };
-    JSONCompletion2.prototype.getCurrentWord = function(document2, offset) {
-      var i = offset - 1;
-      var text = document2.getText();
-      while (i >= 0 && ' 	\n\r\v":{[,]}'.indexOf(text.charAt(i)) === -1) {
-        i--;
-      }
-      return text.substring(i + 1, offset);
-    };
-    JSONCompletion2.prototype.evaluateSeparatorAfter = function(document2, offset) {
-      var scanner = createScanner2(document2.getText(), true);
-      scanner.setPosition(offset);
-      var token = scanner.scan();
-      switch (token) {
-        case 5:
-        case 2:
-        case 4:
-        case 17:
-          return "";
-        default:
-          return ",";
-      }
-    };
-    JSONCompletion2.prototype.findItemAtOffset = function(node, document2, offset) {
-      var scanner = createScanner2(document2.getText(), true);
-      var children = node.items;
-      for (var i = children.length - 1; i >= 0; i--) {
-        var child = children[i];
-        if (offset > child.offset + child.length) {
-          scanner.setPosition(child.offset + child.length);
-          var token = scanner.scan();
-          if (token === 5 && offset >= scanner.getTokenOffset() + scanner.getTokenLength()) {
-            return i + 1;
-          }
-          return i;
-        } else if (offset >= child.offset) {
-          return i;
-        }
-      }
-      return 0;
-    };
-    JSONCompletion2.prototype.isInComment = function(document2, start, offset) {
-      var scanner = createScanner2(document2.getText(), false);
-      scanner.setPosition(start);
-      var token = scanner.scan();
-      while (token !== 17 && scanner.getTokenOffset() + scanner.getTokenLength() < offset) {
-        token = scanner.scan();
-      }
-      return (token === 12 || token === 13) && scanner.getTokenOffset() <= offset;
-    };
-    JSONCompletion2.prototype.fromMarkup = function(markupString) {
-      if (markupString && this.doesSupportMarkdown()) {
-        return {
-          kind: MarkupKind.Markdown,
-          value: markupString
-        };
-      }
-      return void 0;
-    };
-    JSONCompletion2.prototype.doesSupportMarkdown = function() {
-      if (!isDefined(this.supportsMarkdown)) {
-        var completion = this.clientCapabilities.textDocument && this.clientCapabilities.textDocument.completion;
-        this.supportsMarkdown = completion && completion.completionItem && Array.isArray(completion.completionItem.documentationFormat) && completion.completionItem.documentationFormat.indexOf(MarkupKind.Markdown) !== -1;
-      }
-      return this.supportsMarkdown;
-    };
-    JSONCompletion2.prototype.doesSupportsCommitCharacters = function() {
-      if (!isDefined(this.supportsCommitCharacters)) {
-        var completion = this.clientCapabilities.textDocument && this.clientCapabilities.textDocument.completion;
-        this.supportsCommitCharacters = completion && completion.completionItem && !!completion.completionItem.commitCharactersSupport;
-      }
-      return this.supportsCommitCharacters;
-    };
-    return JSONCompletion2;
-  }();
-  var JSONHover = function() {
-    function JSONHover2(schemaService, contributions, promiseConstructor) {
-      if (contributions === void 0) {
-        contributions = [];
-      }
-      this.schemaService = schemaService;
-      this.contributions = contributions;
-      this.promise = promiseConstructor || Promise;
-    }
-    JSONHover2.prototype.doHover = function(document2, position, doc) {
-      var offset = document2.offsetAt(position);
-      var node = doc.getNodeFromOffset(offset);
-      if (!node || (node.type === "object" || node.type === "array") && offset > node.offset + 1 && offset < node.offset + node.length - 1) {
-        return this.promise.resolve(null);
-      }
-      var hoverRangeNode = node;
-      if (node.type === "string") {
-        var parent = node.parent;
-        if (parent && parent.type === "property" && parent.keyNode === node) {
-          node = parent.valueNode;
-          if (!node) {
-            return this.promise.resolve(null);
-          }
-        }
-      }
-      var hoverRange = Range2.create(document2.positionAt(hoverRangeNode.offset), document2.positionAt(hoverRangeNode.offset + hoverRangeNode.length));
-      var createHover = function(contents) {
-        var result = {
-          contents,
-          range: hoverRange
-        };
-        return result;
       };
-      var location = getNodePath22(node);
-      for (var i = this.contributions.length - 1; i >= 0; i--) {
-        var contribution = this.contributions[i];
-        var promise = contribution.getInfoContribution(document2.uri, location);
-        if (promise) {
-          return promise.then(function(htmlContent) {
-            return createHover(htmlContent);
+      JSONCompletion2.prototype.collectTypes = function(schema5, types) {
+        if (Array.isArray(schema5.enum) || isDefined(schema5.const)) {
+          return;
+        }
+        var type = schema5.type;
+        if (Array.isArray(type)) {
+          type.forEach(function(t) {
+            return types[t] = true;
+          });
+        } else if (type) {
+          types[type] = true;
+        }
+      };
+      JSONCompletion2.prototype.addFillerValueCompletions = function(types, separatorAfter, collector) {
+        if (types["object"]) {
+          collector.add({
+            kind: this.getSuggestionKind("object"),
+            label: "{}",
+            insertText: this.getInsertTextForGuessedValue({}, separatorAfter),
+            insertTextFormat: InsertTextFormat.Snippet,
+            detail: localize4("defaults.object", "New object"),
+            documentation: ""
           });
         }
+        if (types["array"]) {
+          collector.add({
+            kind: this.getSuggestionKind("array"),
+            label: "[]",
+            insertText: this.getInsertTextForGuessedValue([], separatorAfter),
+            insertTextFormat: InsertTextFormat.Snippet,
+            detail: localize4("defaults.array", "New array"),
+            documentation: ""
+          });
+        }
+      };
+      JSONCompletion2.prototype.addBooleanValueCompletion = function(value, separatorAfter, collector) {
+        collector.add({
+          kind: this.getSuggestionKind("boolean"),
+          label: value ? "true" : "false",
+          insertText: this.getInsertTextForValue(value, separatorAfter),
+          insertTextFormat: InsertTextFormat.Snippet,
+          documentation: ""
+        });
+      };
+      JSONCompletion2.prototype.addNullValueCompletion = function(separatorAfter, collector) {
+        collector.add({
+          kind: this.getSuggestionKind("null"),
+          label: "null",
+          insertText: "null" + separatorAfter,
+          insertTextFormat: InsertTextFormat.Snippet,
+          documentation: ""
+        });
+      };
+      JSONCompletion2.prototype.addDollarSchemaCompletions = function(separatorAfter, collector) {
+        var _this = this;
+        var schemaIds = this.schemaService.getRegisteredSchemaIds(function(schema5) {
+          return schema5 === "http" || schema5 === "https";
+        });
+        schemaIds.forEach(function(schemaId) {
+          return collector.add({
+            kind: CompletionItemKind2.Module,
+            label: _this.getLabelForValue(schemaId),
+            filterText: _this.getFilterTextForValue(schemaId),
+            insertText: _this.getInsertTextForValue(schemaId, separatorAfter),
+            insertTextFormat: InsertTextFormat.Snippet,
+            documentation: ""
+          });
+        });
+      };
+      JSONCompletion2.prototype.getLabelForValue = function(value) {
+        return JSON.stringify(value);
+      };
+      JSONCompletion2.prototype.getFilterTextForValue = function(value) {
+        return JSON.stringify(value);
+      };
+      JSONCompletion2.prototype.getFilterTextForSnippetValue = function(value) {
+        return JSON.stringify(value).replace(/\$\{\d+:([^}]+)\}|\$\d+/g, "$1");
+      };
+      JSONCompletion2.prototype.getLabelForSnippetValue = function(value) {
+        var label = JSON.stringify(value);
+        return label.replace(/\$\{\d+:([^}]+)\}|\$\d+/g, "$1");
+      };
+      JSONCompletion2.prototype.getInsertTextForPlainText = function(text) {
+        return text.replace(/[\\\$\}]/g, "\\$&");
+      };
+      JSONCompletion2.prototype.getInsertTextForValue = function(value, separatorAfter) {
+        var text = JSON.stringify(value, null, "	");
+        if (text === "{}") {
+          return "{$1}" + separatorAfter;
+        } else if (text === "[]") {
+          return "[$1]" + separatorAfter;
+        }
+        return this.getInsertTextForPlainText(text + separatorAfter);
+      };
+      JSONCompletion2.prototype.getInsertTextForSnippetValue = function(value, separatorAfter) {
+        var replacer = function(value2) {
+          if (typeof value2 === "string") {
+            if (value2[0] === "^") {
+              return value2.substr(1);
+            }
+          }
+          return JSON.stringify(value2);
+        };
+        return stringifyObject(value, "", replacer) + separatorAfter;
+      };
+      JSONCompletion2.prototype.getInsertTextForGuessedValue = function(value, separatorAfter) {
+        switch (typeof value) {
+          case "object":
+            if (value === null) {
+              return "${1:null}" + separatorAfter;
+            }
+            return this.getInsertTextForValue(value, separatorAfter);
+          case "string":
+            var snippetValue = JSON.stringify(value);
+            snippetValue = snippetValue.substr(1, snippetValue.length - 2);
+            snippetValue = this.getInsertTextForPlainText(snippetValue);
+            return '"${1:' + snippetValue + '}"' + separatorAfter;
+          case "number":
+          case "boolean":
+            return "${1:" + JSON.stringify(value) + "}" + separatorAfter;
+        }
+        return this.getInsertTextForValue(value, separatorAfter);
+      };
+      JSONCompletion2.prototype.getSuggestionKind = function(type) {
+        if (Array.isArray(type)) {
+          var array = type;
+          type = array.length > 0 ? array[0] : void 0;
+        }
+        if (!type) {
+          return CompletionItemKind2.Value;
+        }
+        switch (type) {
+          case "string":
+            return CompletionItemKind2.Value;
+          case "object":
+            return CompletionItemKind2.Module;
+          case "property":
+            return CompletionItemKind2.Property;
+          default:
+            return CompletionItemKind2.Value;
+        }
+      };
+      JSONCompletion2.prototype.getLabelTextForMatchingNode = function(node, document2) {
+        switch (node.type) {
+          case "array":
+            return "[]";
+          case "object":
+            return "{}";
+          default:
+            var content = document2.getText().substr(node.offset, node.length);
+            return content;
+        }
+      };
+      JSONCompletion2.prototype.getInsertTextForMatchingNode = function(node, document2, separatorAfter) {
+        switch (node.type) {
+          case "array":
+            return this.getInsertTextForValue([], separatorAfter);
+          case "object":
+            return this.getInsertTextForValue({}, separatorAfter);
+          default:
+            var content = document2.getText().substr(node.offset, node.length) + separatorAfter;
+            return this.getInsertTextForPlainText(content);
+        }
+      };
+      JSONCompletion2.prototype.getInsertTextForProperty = function(key, propertySchema, addValue, separatorAfter) {
+        var propertyText = this.getInsertTextForValue(key, "");
+        if (!addValue) {
+          return propertyText;
+        }
+        var resultText = propertyText + ": ";
+        var value;
+        var nValueProposals = 0;
+        if (propertySchema) {
+          if (Array.isArray(propertySchema.defaultSnippets)) {
+            if (propertySchema.defaultSnippets.length === 1) {
+              var body = propertySchema.defaultSnippets[0].body;
+              if (isDefined(body)) {
+                value = this.getInsertTextForSnippetValue(body, "");
+              }
+            }
+            nValueProposals += propertySchema.defaultSnippets.length;
+          }
+          if (propertySchema.enum) {
+            if (!value && propertySchema.enum.length === 1) {
+              value = this.getInsertTextForGuessedValue(propertySchema.enum[0], "");
+            }
+            nValueProposals += propertySchema.enum.length;
+          }
+          if (isDefined(propertySchema.default)) {
+            if (!value) {
+              value = this.getInsertTextForGuessedValue(propertySchema.default, "");
+            }
+            nValueProposals++;
+          }
+          if (Array.isArray(propertySchema.examples) && propertySchema.examples.length) {
+            if (!value) {
+              value = this.getInsertTextForGuessedValue(propertySchema.examples[0], "");
+            }
+            nValueProposals += propertySchema.examples.length;
+          }
+          if (nValueProposals === 0) {
+            var type = Array.isArray(propertySchema.type) ? propertySchema.type[0] : propertySchema.type;
+            if (!type) {
+              if (propertySchema.properties) {
+                type = "object";
+              } else if (propertySchema.items) {
+                type = "array";
+              }
+            }
+            switch (type) {
+              case "boolean":
+                value = "$1";
+                break;
+              case "string":
+                value = '"$1"';
+                break;
+              case "object":
+                value = "{$1}";
+                break;
+              case "array":
+                value = "[$1]";
+                break;
+              case "number":
+              case "integer":
+                value = "${1:0}";
+                break;
+              case "null":
+                value = "${1:null}";
+                break;
+              default:
+                return propertyText;
+            }
+          }
+        }
+        if (!value || nValueProposals > 1) {
+          value = "$1";
+        }
+        return resultText + value + separatorAfter;
+      };
+      JSONCompletion2.prototype.getCurrentWord = function(document2, offset) {
+        var i = offset - 1;
+        var text = document2.getText();
+        while (i >= 0 && ' 	\n\r\v":{[,]}'.indexOf(text.charAt(i)) === -1) {
+          i--;
+        }
+        return text.substring(i + 1, offset);
+      };
+      JSONCompletion2.prototype.evaluateSeparatorAfter = function(document2, offset) {
+        var scanner = createScanner2(document2.getText(), true);
+        scanner.setPosition(offset);
+        var token = scanner.scan();
+        switch (token) {
+          case 5:
+          case 2:
+          case 4:
+          case 17:
+            return "";
+          default:
+            return ",";
+        }
+      };
+      JSONCompletion2.prototype.findItemAtOffset = function(node, document2, offset) {
+        var scanner = createScanner2(document2.getText(), true);
+        var children = node.items;
+        for (var i = children.length - 1; i >= 0; i--) {
+          var child = children[i];
+          if (offset > child.offset + child.length) {
+            scanner.setPosition(child.offset + child.length);
+            var token = scanner.scan();
+            if (token === 5 && offset >= scanner.getTokenOffset() + scanner.getTokenLength()) {
+              return i + 1;
+            }
+            return i;
+          } else if (offset >= child.offset) {
+            return i;
+          }
+        }
+        return 0;
+      };
+      JSONCompletion2.prototype.isInComment = function(document2, start, offset) {
+        var scanner = createScanner2(document2.getText(), false);
+        scanner.setPosition(start);
+        var token = scanner.scan();
+        while (token !== 17 && scanner.getTokenOffset() + scanner.getTokenLength() < offset) {
+          token = scanner.scan();
+        }
+        return (token === 12 || token === 13) && scanner.getTokenOffset() <= offset;
+      };
+      JSONCompletion2.prototype.fromMarkup = function(markupString) {
+        if (markupString && this.doesSupportMarkdown()) {
+          return {
+            kind: MarkupKind.Markdown,
+            value: markupString
+          };
+        }
+        return void 0;
+      };
+      JSONCompletion2.prototype.doesSupportMarkdown = function() {
+        if (!isDefined(this.supportsMarkdown)) {
+          var completion = this.clientCapabilities.textDocument && this.clientCapabilities.textDocument.completion;
+          this.supportsMarkdown = completion && completion.completionItem && Array.isArray(completion.completionItem.documentationFormat) && completion.completionItem.documentationFormat.indexOf(MarkupKind.Markdown) !== -1;
+        }
+        return this.supportsMarkdown;
+      };
+      JSONCompletion2.prototype.doesSupportsCommitCharacters = function() {
+        if (!isDefined(this.supportsCommitCharacters)) {
+          var completion = this.clientCapabilities.textDocument && this.clientCapabilities.textDocument.completion;
+          this.supportsCommitCharacters = completion && completion.completionItem && !!completion.completionItem.commitCharactersSupport;
+        }
+        return this.supportsCommitCharacters;
+      };
+      return JSONCompletion2;
+    }()
+  );
+  var JSONHover = (
+    /** @class */
+    function() {
+      function JSONHover2(schemaService, contributions, promiseConstructor) {
+        if (contributions === void 0) {
+          contributions = [];
+        }
+        this.schemaService = schemaService;
+        this.contributions = contributions;
+        this.promise = promiseConstructor || Promise;
       }
-      return this.schemaService.getSchemaForResource(document2.uri, doc).then(function(schema5) {
-        if (schema5 && node) {
-          var matchingSchemas = doc.getMatchingSchemas(schema5.schema, node.offset);
-          var title_1 = void 0;
-          var markdownDescription_1 = void 0;
-          var markdownEnumValueDescription_1 = void 0, enumValue_1 = void 0;
-          matchingSchemas.every(function(s) {
-            if (s.node === node && !s.inverted && s.schema) {
-              title_1 = title_1 || s.schema.title;
-              markdownDescription_1 = markdownDescription_1 || s.schema.markdownDescription || toMarkdown(s.schema.description);
-              if (s.schema.enum) {
-                var idx = s.schema.enum.indexOf(getNodeValue22(node));
-                if (s.schema.markdownEnumDescriptions) {
-                  markdownEnumValueDescription_1 = s.schema.markdownEnumDescriptions[idx];
-                } else if (s.schema.enumDescriptions) {
-                  markdownEnumValueDescription_1 = toMarkdown(s.schema.enumDescriptions[idx]);
-                }
-                if (markdownEnumValueDescription_1) {
-                  enumValue_1 = s.schema.enum[idx];
-                  if (typeof enumValue_1 !== "string") {
-                    enumValue_1 = JSON.stringify(enumValue_1);
+      JSONHover2.prototype.doHover = function(document2, position, doc) {
+        var offset = document2.offsetAt(position);
+        var node = doc.getNodeFromOffset(offset);
+        if (!node || (node.type === "object" || node.type === "array") && offset > node.offset + 1 && offset < node.offset + node.length - 1) {
+          return this.promise.resolve(null);
+        }
+        var hoverRangeNode = node;
+        if (node.type === "string") {
+          var parent = node.parent;
+          if (parent && parent.type === "property" && parent.keyNode === node) {
+            node = parent.valueNode;
+            if (!node) {
+              return this.promise.resolve(null);
+            }
+          }
+        }
+        var hoverRange = Range2.create(document2.positionAt(hoverRangeNode.offset), document2.positionAt(hoverRangeNode.offset + hoverRangeNode.length));
+        var createHover = function(contents) {
+          var result = {
+            contents,
+            range: hoverRange
+          };
+          return result;
+        };
+        var location = getNodePath22(node);
+        for (var i = this.contributions.length - 1; i >= 0; i--) {
+          var contribution = this.contributions[i];
+          var promise = contribution.getInfoContribution(document2.uri, location);
+          if (promise) {
+            return promise.then(function(htmlContent) {
+              return createHover(htmlContent);
+            });
+          }
+        }
+        return this.schemaService.getSchemaForResource(document2.uri, doc).then(function(schema5) {
+          if (schema5 && node) {
+            var matchingSchemas = doc.getMatchingSchemas(schema5.schema, node.offset);
+            var title_1 = void 0;
+            var markdownDescription_1 = void 0;
+            var markdownEnumValueDescription_1 = void 0, enumValue_1 = void 0;
+            matchingSchemas.every(function(s) {
+              if (s.node === node && !s.inverted && s.schema) {
+                title_1 = title_1 || s.schema.title;
+                markdownDescription_1 = markdownDescription_1 || s.schema.markdownDescription || toMarkdown(s.schema.description);
+                if (s.schema.enum) {
+                  var idx = s.schema.enum.indexOf(getNodeValue22(node));
+                  if (s.schema.markdownEnumDescriptions) {
+                    markdownEnumValueDescription_1 = s.schema.markdownEnumDescriptions[idx];
+                  } else if (s.schema.enumDescriptions) {
+                    markdownEnumValueDescription_1 = toMarkdown(s.schema.enumDescriptions[idx]);
+                  }
+                  if (markdownEnumValueDescription_1) {
+                    enumValue_1 = s.schema.enum[idx];
+                    if (typeof enumValue_1 !== "string") {
+                      enumValue_1 = JSON.stringify(enumValue_1);
+                    }
                   }
                 }
               }
+              return true;
+            });
+            var result = "";
+            if (title_1) {
+              result = toMarkdown(title_1);
             }
-            return true;
-          });
-          var result = "";
-          if (title_1) {
-            result = toMarkdown(title_1);
-          }
-          if (markdownDescription_1) {
-            if (result.length > 0) {
-              result += "\n\n";
+            if (markdownDescription_1) {
+              if (result.length > 0) {
+                result += "\n\n";
+              }
+              result += markdownDescription_1;
             }
-            result += markdownDescription_1;
-          }
-          if (markdownEnumValueDescription_1) {
-            if (result.length > 0) {
-              result += "\n\n";
+            if (markdownEnumValueDescription_1) {
+              if (result.length > 0) {
+                result += "\n\n";
+              }
+              result += "`" + toMarkdownCodeBlock(enumValue_1) + "`: " + markdownEnumValueDescription_1;
             }
-            result += "`" + toMarkdownCodeBlock(enumValue_1) + "`: " + markdownEnumValueDescription_1;
+            return createHover([result]);
           }
-          return createHover([result]);
-        }
-        return null;
-      });
-    };
-    return JSONHover2;
-  }();
+          return null;
+        });
+      };
+      return JSONHover2;
+    }()
+  );
   function toMarkdown(plain) {
     if (plain) {
       var res = plain.replace(/([^\n\r])(\r?\n)([^\n\r])/gm, "$1\n\n$3");
@@ -36890,92 +40206,95 @@ ${end.comment}` : end.comment;
     return content;
   }
   var localize5 = loadMessageBundle();
-  var JSONValidation = function() {
-    function JSONValidation2(jsonSchemaService, promiseConstructor) {
-      this.jsonSchemaService = jsonSchemaService;
-      this.promise = promiseConstructor;
-      this.validationEnabled = true;
-    }
-    JSONValidation2.prototype.configure = function(raw) {
-      if (raw) {
-        this.validationEnabled = raw.validate !== false;
-        this.commentSeverity = raw.allowComments ? void 0 : DiagnosticSeverity.Error;
+  var JSONValidation = (
+    /** @class */
+    function() {
+      function JSONValidation2(jsonSchemaService, promiseConstructor) {
+        this.jsonSchemaService = jsonSchemaService;
+        this.promise = promiseConstructor;
+        this.validationEnabled = true;
       }
-    };
-    JSONValidation2.prototype.doValidation = function(textDocument, jsonDocument, documentSettings, schema5) {
-      var _this = this;
-      if (!this.validationEnabled) {
-        return this.promise.resolve([]);
-      }
-      var diagnostics = [];
-      var added = {};
-      var addProblem = function(problem) {
-        var signature = problem.range.start.line + " " + problem.range.start.character + " " + problem.message;
-        if (!added[signature]) {
-          added[signature] = true;
-          diagnostics.push(problem);
+      JSONValidation2.prototype.configure = function(raw) {
+        if (raw) {
+          this.validationEnabled = raw.validate !== false;
+          this.commentSeverity = raw.allowComments ? void 0 : DiagnosticSeverity.Error;
         }
       };
-      var getDiagnostics = function(schema22) {
-        var trailingCommaSeverity = (documentSettings === null || documentSettings === void 0 ? void 0 : documentSettings.trailingCommas) ? toDiagnosticSeverity(documentSettings.trailingCommas) : DiagnosticSeverity.Error;
-        var commentSeverity = (documentSettings === null || documentSettings === void 0 ? void 0 : documentSettings.comments) ? toDiagnosticSeverity(documentSettings.comments) : _this.commentSeverity;
-        var schemaValidation = (documentSettings === null || documentSettings === void 0 ? void 0 : documentSettings.schemaValidation) ? toDiagnosticSeverity(documentSettings.schemaValidation) : DiagnosticSeverity.Warning;
-        var schemaRequest = (documentSettings === null || documentSettings === void 0 ? void 0 : documentSettings.schemaRequest) ? toDiagnosticSeverity(documentSettings.schemaRequest) : DiagnosticSeverity.Warning;
-        if (schema22) {
-          if (schema22.errors.length && jsonDocument.root && schemaRequest) {
-            var astRoot = jsonDocument.root;
-            var property2 = astRoot.type === "object" ? astRoot.properties[0] : void 0;
-            if (property2 && property2.keyNode.value === "$schema") {
-              var node = property2.valueNode || property2;
-              var range = Range2.create(textDocument.positionAt(node.offset), textDocument.positionAt(node.offset + node.length));
-              addProblem(Diagnostic.create(range, schema22.errors[0], schemaRequest, ErrorCode.SchemaResolveError));
-            } else {
-              var range = Range2.create(textDocument.positionAt(astRoot.offset), textDocument.positionAt(astRoot.offset + 1));
-              addProblem(Diagnostic.create(range, schema22.errors[0], schemaRequest, ErrorCode.SchemaResolveError));
-            }
-          } else if (schemaValidation) {
-            var semanticErrors = jsonDocument.validate(textDocument, schema22.schema, schemaValidation);
-            if (semanticErrors) {
-              semanticErrors.forEach(addProblem);
-            }
-          }
-          if (schemaAllowsComments(schema22.schema)) {
-            commentSeverity = void 0;
-          }
-          if (schemaAllowsTrailingCommas(schema22.schema)) {
-            trailingCommaSeverity = void 0;
-          }
+      JSONValidation2.prototype.doValidation = function(textDocument, jsonDocument, documentSettings, schema5) {
+        var _this = this;
+        if (!this.validationEnabled) {
+          return this.promise.resolve([]);
         }
-        for (var _i = 0, _a3 = jsonDocument.syntaxErrors; _i < _a3.length; _i++) {
-          var p = _a3[_i];
-          if (p.code === ErrorCode.TrailingComma) {
-            if (typeof trailingCommaSeverity !== "number") {
-              continue;
-            }
-            p.severity = trailingCommaSeverity;
+        var diagnostics = [];
+        var added = {};
+        var addProblem = function(problem) {
+          var signature = problem.range.start.line + " " + problem.range.start.character + " " + problem.message;
+          if (!added[signature]) {
+            added[signature] = true;
+            diagnostics.push(problem);
           }
-          addProblem(p);
-        }
-        if (typeof commentSeverity === "number") {
-          var message_1 = localize5("InvalidCommentToken", "Comments are not permitted in JSON.");
-          jsonDocument.comments.forEach(function(c) {
-            addProblem(Diagnostic.create(c, message_1, commentSeverity, ErrorCode.CommentNotPermitted));
+        };
+        var getDiagnostics = function(schema22) {
+          var trailingCommaSeverity = (documentSettings === null || documentSettings === void 0 ? void 0 : documentSettings.trailingCommas) ? toDiagnosticSeverity(documentSettings.trailingCommas) : DiagnosticSeverity.Error;
+          var commentSeverity = (documentSettings === null || documentSettings === void 0 ? void 0 : documentSettings.comments) ? toDiagnosticSeverity(documentSettings.comments) : _this.commentSeverity;
+          var schemaValidation = (documentSettings === null || documentSettings === void 0 ? void 0 : documentSettings.schemaValidation) ? toDiagnosticSeverity(documentSettings.schemaValidation) : DiagnosticSeverity.Warning;
+          var schemaRequest = (documentSettings === null || documentSettings === void 0 ? void 0 : documentSettings.schemaRequest) ? toDiagnosticSeverity(documentSettings.schemaRequest) : DiagnosticSeverity.Warning;
+          if (schema22) {
+            if (schema22.errors.length && jsonDocument.root && schemaRequest) {
+              var astRoot = jsonDocument.root;
+              var property2 = astRoot.type === "object" ? astRoot.properties[0] : void 0;
+              if (property2 && property2.keyNode.value === "$schema") {
+                var node = property2.valueNode || property2;
+                var range = Range2.create(textDocument.positionAt(node.offset), textDocument.positionAt(node.offset + node.length));
+                addProblem(Diagnostic.create(range, schema22.errors[0], schemaRequest, ErrorCode.SchemaResolveError));
+              } else {
+                var range = Range2.create(textDocument.positionAt(astRoot.offset), textDocument.positionAt(astRoot.offset + 1));
+                addProblem(Diagnostic.create(range, schema22.errors[0], schemaRequest, ErrorCode.SchemaResolveError));
+              }
+            } else if (schemaValidation) {
+              var semanticErrors = jsonDocument.validate(textDocument, schema22.schema, schemaValidation);
+              if (semanticErrors) {
+                semanticErrors.forEach(addProblem);
+              }
+            }
+            if (schemaAllowsComments(schema22.schema)) {
+              commentSeverity = void 0;
+            }
+            if (schemaAllowsTrailingCommas(schema22.schema)) {
+              trailingCommaSeverity = void 0;
+            }
+          }
+          for (var _i = 0, _a3 = jsonDocument.syntaxErrors; _i < _a3.length; _i++) {
+            var p = _a3[_i];
+            if (p.code === ErrorCode.TrailingComma) {
+              if (typeof trailingCommaSeverity !== "number") {
+                continue;
+              }
+              p.severity = trailingCommaSeverity;
+            }
+            addProblem(p);
+          }
+          if (typeof commentSeverity === "number") {
+            var message_1 = localize5("InvalidCommentToken", "Comments are not permitted in JSON.");
+            jsonDocument.comments.forEach(function(c) {
+              addProblem(Diagnostic.create(c, message_1, commentSeverity, ErrorCode.CommentNotPermitted));
+            });
+          }
+          return diagnostics;
+        };
+        if (schema5) {
+          var id = schema5.id || "schemaservice://untitled/" + idCounter2++;
+          return this.jsonSchemaService.resolveSchemaContent(new UnresolvedSchema(schema5), id, {}).then(function(resolvedSchema) {
+            return getDiagnostics(resolvedSchema);
           });
         }
-        return diagnostics;
-      };
-      if (schema5) {
-        var id = schema5.id || "schemaservice://untitled/" + idCounter2++;
-        return this.jsonSchemaService.resolveSchemaContent(new UnresolvedSchema(schema5), id, {}).then(function(resolvedSchema) {
-          return getDiagnostics(resolvedSchema);
+        return this.jsonSchemaService.getSchemaForResource(textDocument.uri, jsonDocument).then(function(schema22) {
+          return getDiagnostics(schema22);
         });
-      }
-      return this.jsonSchemaService.getSchemaForResource(textDocument.uri, jsonDocument).then(function(schema22) {
-        return getDiagnostics(schema22);
-      });
-    };
-    return JSONValidation2;
-  }();
+      };
+      return JSONValidation2;
+    }()
+  );
   var idCounter2 = 0;
   function schemaAllowsComments(schemaRef) {
     if (schemaRef && typeof schemaRef === "object") {
@@ -37082,264 +40401,267 @@ ${end.comment}` : end.comment;
     }
     return void 0;
   }
-  var JSONDocumentSymbols = function() {
-    function JSONDocumentSymbols2(schemaService) {
-      this.schemaService = schemaService;
-    }
-    JSONDocumentSymbols2.prototype.findDocumentSymbols = function(document2, doc, context) {
-      var _this = this;
-      if (context === void 0) {
-        context = { resultLimit: Number.MAX_VALUE };
+  var JSONDocumentSymbols = (
+    /** @class */
+    function() {
+      function JSONDocumentSymbols2(schemaService) {
+        this.schemaService = schemaService;
       }
-      var root = doc.root;
-      if (!root) {
-        return [];
-      }
-      var limit = context.resultLimit || Number.MAX_VALUE;
-      var resourceString = document2.uri;
-      if (resourceString === "vscode://defaultsettings/keybindings.json" || endsWith(resourceString.toLowerCase(), "/user/keybindings.json")) {
-        if (root.type === "array") {
-          var result_1 = [];
-          for (var _i = 0, _a3 = root.items; _i < _a3.length; _i++) {
-            var item = _a3[_i];
-            if (item.type === "object") {
-              for (var _b = 0, _c = item.properties; _b < _c.length; _b++) {
-                var property2 = _c[_b];
-                if (property2.keyNode.value === "key" && property2.valueNode) {
-                  var location = Location.create(document2.uri, getRange(document2, item));
-                  result_1.push({ name: getNodeValue22(property2.valueNode), kind: SymbolKind2.Function, location });
-                  limit--;
-                  if (limit <= 0) {
-                    if (context && context.onResultLimitExceeded) {
-                      context.onResultLimitExceeded(resourceString);
+      JSONDocumentSymbols2.prototype.findDocumentSymbols = function(document2, doc, context) {
+        var _this = this;
+        if (context === void 0) {
+          context = { resultLimit: Number.MAX_VALUE };
+        }
+        var root = doc.root;
+        if (!root) {
+          return [];
+        }
+        var limit = context.resultLimit || Number.MAX_VALUE;
+        var resourceString = document2.uri;
+        if (resourceString === "vscode://defaultsettings/keybindings.json" || endsWith(resourceString.toLowerCase(), "/user/keybindings.json")) {
+          if (root.type === "array") {
+            var result_1 = [];
+            for (var _i = 0, _a3 = root.items; _i < _a3.length; _i++) {
+              var item = _a3[_i];
+              if (item.type === "object") {
+                for (var _b = 0, _c = item.properties; _b < _c.length; _b++) {
+                  var property2 = _c[_b];
+                  if (property2.keyNode.value === "key" && property2.valueNode) {
+                    var location = Location.create(document2.uri, getRange(document2, item));
+                    result_1.push({ name: getNodeValue22(property2.valueNode), kind: SymbolKind2.Function, location });
+                    limit--;
+                    if (limit <= 0) {
+                      if (context && context.onResultLimitExceeded) {
+                        context.onResultLimitExceeded(resourceString);
+                      }
+                      return result_1;
                     }
-                    return result_1;
                   }
                 }
               }
             }
+            return result_1;
           }
-          return result_1;
         }
-      }
-      var toVisit = [
-        { node: root, containerName: "" }
-      ];
-      var nextToVisit = 0;
-      var limitExceeded = false;
-      var result = [];
-      var collectOutlineEntries = function(node, containerName) {
-        if (node.type === "array") {
-          node.items.forEach(function(node2) {
-            if (node2) {
-              toVisit.push({ node: node2, containerName });
-            }
-          });
-        } else if (node.type === "object") {
-          node.properties.forEach(function(property22) {
-            var valueNode = property22.valueNode;
-            if (valueNode) {
-              if (limit > 0) {
-                limit--;
-                var location2 = Location.create(document2.uri, getRange(document2, property22));
-                var childContainerName = containerName ? containerName + "." + property22.keyNode.value : property22.keyNode.value;
-                result.push({ name: _this.getKeyLabel(property22), kind: _this.getSymbolKind(valueNode.type), location: location2, containerName });
-                toVisit.push({ node: valueNode, containerName: childContainerName });
-              } else {
-                limitExceeded = true;
-              }
-            }
-          });
-        }
-      };
-      while (nextToVisit < toVisit.length) {
-        var next = toVisit[nextToVisit++];
-        collectOutlineEntries(next.node, next.containerName);
-      }
-      if (limitExceeded && context && context.onResultLimitExceeded) {
-        context.onResultLimitExceeded(resourceString);
-      }
-      return result;
-    };
-    JSONDocumentSymbols2.prototype.findDocumentSymbols2 = function(document2, doc, context) {
-      var _this = this;
-      if (context === void 0) {
-        context = { resultLimit: Number.MAX_VALUE };
-      }
-      var root = doc.root;
-      if (!root) {
-        return [];
-      }
-      var limit = context.resultLimit || Number.MAX_VALUE;
-      var resourceString = document2.uri;
-      if (resourceString === "vscode://defaultsettings/keybindings.json" || endsWith(resourceString.toLowerCase(), "/user/keybindings.json")) {
-        if (root.type === "array") {
-          var result_2 = [];
-          for (var _i = 0, _a3 = root.items; _i < _a3.length; _i++) {
-            var item = _a3[_i];
-            if (item.type === "object") {
-              for (var _b = 0, _c = item.properties; _b < _c.length; _b++) {
-                var property2 = _c[_b];
-                if (property2.keyNode.value === "key" && property2.valueNode) {
-                  var range = getRange(document2, item);
-                  var selectionRange = getRange(document2, property2.keyNode);
-                  result_2.push({ name: getNodeValue22(property2.valueNode), kind: SymbolKind2.Function, range, selectionRange });
-                  limit--;
-                  if (limit <= 0) {
-                    if (context && context.onResultLimitExceeded) {
-                      context.onResultLimitExceeded(resourceString);
-                    }
-                    return result_2;
-                  }
-                }
-              }
-            }
-          }
-          return result_2;
-        }
-      }
-      var result = [];
-      var toVisit = [
-        { node: root, result }
-      ];
-      var nextToVisit = 0;
-      var limitExceeded = false;
-      var collectOutlineEntries = function(node, result2) {
-        if (node.type === "array") {
-          node.items.forEach(function(node2, index) {
-            if (node2) {
-              if (limit > 0) {
-                limit--;
-                var range2 = getRange(document2, node2);
-                var selectionRange2 = range2;
-                var name = String(index);
-                var symbol = { name, kind: _this.getSymbolKind(node2.type), range: range2, selectionRange: selectionRange2, children: [] };
-                result2.push(symbol);
-                toVisit.push({ result: symbol.children, node: node2 });
-              } else {
-                limitExceeded = true;
-              }
-            }
-          });
-        } else if (node.type === "object") {
-          node.properties.forEach(function(property22) {
-            var valueNode = property22.valueNode;
-            if (valueNode) {
-              if (limit > 0) {
-                limit--;
-                var range2 = getRange(document2, property22);
-                var selectionRange2 = getRange(document2, property22.keyNode);
-                var children = [];
-                var symbol = { name: _this.getKeyLabel(property22), kind: _this.getSymbolKind(valueNode.type), range: range2, selectionRange: selectionRange2, children, detail: _this.getDetail(valueNode) };
-                result2.push(symbol);
-                toVisit.push({ result: children, node: valueNode });
-              } else {
-                limitExceeded = true;
-              }
-            }
-          });
-        }
-      };
-      while (nextToVisit < toVisit.length) {
-        var next = toVisit[nextToVisit++];
-        collectOutlineEntries(next.node, next.result);
-      }
-      if (limitExceeded && context && context.onResultLimitExceeded) {
-        context.onResultLimitExceeded(resourceString);
-      }
-      return result;
-    };
-    JSONDocumentSymbols2.prototype.getSymbolKind = function(nodeType) {
-      switch (nodeType) {
-        case "object":
-          return SymbolKind2.Module;
-        case "string":
-          return SymbolKind2.String;
-        case "number":
-          return SymbolKind2.Number;
-        case "array":
-          return SymbolKind2.Array;
-        case "boolean":
-          return SymbolKind2.Boolean;
-        default:
-          return SymbolKind2.Variable;
-      }
-    };
-    JSONDocumentSymbols2.prototype.getKeyLabel = function(property2) {
-      var name = property2.keyNode.value;
-      if (name) {
-        name = name.replace(/[\n]/g, "\u21B5");
-      }
-      if (name && name.trim()) {
-        return name;
-      }
-      return '"' + name + '"';
-    };
-    JSONDocumentSymbols2.prototype.getDetail = function(node) {
-      if (!node) {
-        return void 0;
-      }
-      if (node.type === "boolean" || node.type === "number" || node.type === "null" || node.type === "string") {
-        return String(node.value);
-      } else {
-        if (node.type === "array") {
-          return node.children.length ? void 0 : "[]";
-        } else if (node.type === "object") {
-          return node.children.length ? void 0 : "{}";
-        }
-      }
-      return void 0;
-    };
-    JSONDocumentSymbols2.prototype.findDocumentColors = function(document2, doc, context) {
-      return this.schemaService.getSchemaForResource(document2.uri, doc).then(function(schema5) {
+        var toVisit = [
+          { node: root, containerName: "" }
+        ];
+        var nextToVisit = 0;
+        var limitExceeded = false;
         var result = [];
-        if (schema5) {
-          var limit = context && typeof context.resultLimit === "number" ? context.resultLimit : Number.MAX_VALUE;
-          var matchingSchemas = doc.getMatchingSchemas(schema5.schema);
-          var visitedNode = {};
-          for (var _i = 0, matchingSchemas_1 = matchingSchemas; _i < matchingSchemas_1.length; _i++) {
-            var s = matchingSchemas_1[_i];
-            if (!s.inverted && s.schema && (s.schema.format === "color" || s.schema.format === "color-hex") && s.node && s.node.type === "string") {
-              var nodeId = String(s.node.offset);
-              if (!visitedNode[nodeId]) {
-                var color = colorFromHex(getNodeValue22(s.node));
-                if (color) {
-                  var range = getRange(document2, s.node);
-                  result.push({ color, range });
-                }
-                visitedNode[nodeId] = true;
-                limit--;
-                if (limit <= 0) {
-                  if (context && context.onResultLimitExceeded) {
-                    context.onResultLimitExceeded(document2.uri);
-                  }
-                  return result;
+        var collectOutlineEntries = function(node, containerName) {
+          if (node.type === "array") {
+            node.items.forEach(function(node2) {
+              if (node2) {
+                toVisit.push({ node: node2, containerName });
+              }
+            });
+          } else if (node.type === "object") {
+            node.properties.forEach(function(property22) {
+              var valueNode = property22.valueNode;
+              if (valueNode) {
+                if (limit > 0) {
+                  limit--;
+                  var location2 = Location.create(document2.uri, getRange(document2, property22));
+                  var childContainerName = containerName ? containerName + "." + property22.keyNode.value : property22.keyNode.value;
+                  result.push({ name: _this.getKeyLabel(property22), kind: _this.getSymbolKind(valueNode.type), location: location2, containerName });
+                  toVisit.push({ node: valueNode, containerName: childContainerName });
+                } else {
+                  limitExceeded = true;
                 }
               }
-            }
+            });
           }
+        };
+        while (nextToVisit < toVisit.length) {
+          var next = toVisit[nextToVisit++];
+          collectOutlineEntries(next.node, next.containerName);
+        }
+        if (limitExceeded && context && context.onResultLimitExceeded) {
+          context.onResultLimitExceeded(resourceString);
         }
         return result;
-      });
-    };
-    JSONDocumentSymbols2.prototype.getColorPresentations = function(document2, doc, color, range) {
-      var result = [];
-      var red256 = Math.round(color.red * 255), green256 = Math.round(color.green * 255), blue256 = Math.round(color.blue * 255);
-      function toTwoDigitHex(n) {
-        var r = n.toString(16);
-        return r.length !== 2 ? "0" + r : r;
-      }
-      var label;
-      if (color.alpha === 1) {
-        label = "#" + toTwoDigitHex(red256) + toTwoDigitHex(green256) + toTwoDigitHex(blue256);
-      } else {
-        label = "#" + toTwoDigitHex(red256) + toTwoDigitHex(green256) + toTwoDigitHex(blue256) + toTwoDigitHex(Math.round(color.alpha * 255));
-      }
-      result.push({ label, textEdit: TextEdit.replace(range, JSON.stringify(label)) });
-      return result;
-    };
-    return JSONDocumentSymbols2;
-  }();
+      };
+      JSONDocumentSymbols2.prototype.findDocumentSymbols2 = function(document2, doc, context) {
+        var _this = this;
+        if (context === void 0) {
+          context = { resultLimit: Number.MAX_VALUE };
+        }
+        var root = doc.root;
+        if (!root) {
+          return [];
+        }
+        var limit = context.resultLimit || Number.MAX_VALUE;
+        var resourceString = document2.uri;
+        if (resourceString === "vscode://defaultsettings/keybindings.json" || endsWith(resourceString.toLowerCase(), "/user/keybindings.json")) {
+          if (root.type === "array") {
+            var result_2 = [];
+            for (var _i = 0, _a3 = root.items; _i < _a3.length; _i++) {
+              var item = _a3[_i];
+              if (item.type === "object") {
+                for (var _b = 0, _c = item.properties; _b < _c.length; _b++) {
+                  var property2 = _c[_b];
+                  if (property2.keyNode.value === "key" && property2.valueNode) {
+                    var range = getRange(document2, item);
+                    var selectionRange = getRange(document2, property2.keyNode);
+                    result_2.push({ name: getNodeValue22(property2.valueNode), kind: SymbolKind2.Function, range, selectionRange });
+                    limit--;
+                    if (limit <= 0) {
+                      if (context && context.onResultLimitExceeded) {
+                        context.onResultLimitExceeded(resourceString);
+                      }
+                      return result_2;
+                    }
+                  }
+                }
+              }
+            }
+            return result_2;
+          }
+        }
+        var result = [];
+        var toVisit = [
+          { node: root, result }
+        ];
+        var nextToVisit = 0;
+        var limitExceeded = false;
+        var collectOutlineEntries = function(node, result2) {
+          if (node.type === "array") {
+            node.items.forEach(function(node2, index) {
+              if (node2) {
+                if (limit > 0) {
+                  limit--;
+                  var range2 = getRange(document2, node2);
+                  var selectionRange2 = range2;
+                  var name = String(index);
+                  var symbol = { name, kind: _this.getSymbolKind(node2.type), range: range2, selectionRange: selectionRange2, children: [] };
+                  result2.push(symbol);
+                  toVisit.push({ result: symbol.children, node: node2 });
+                } else {
+                  limitExceeded = true;
+                }
+              }
+            });
+          } else if (node.type === "object") {
+            node.properties.forEach(function(property22) {
+              var valueNode = property22.valueNode;
+              if (valueNode) {
+                if (limit > 0) {
+                  limit--;
+                  var range2 = getRange(document2, property22);
+                  var selectionRange2 = getRange(document2, property22.keyNode);
+                  var children = [];
+                  var symbol = { name: _this.getKeyLabel(property22), kind: _this.getSymbolKind(valueNode.type), range: range2, selectionRange: selectionRange2, children, detail: _this.getDetail(valueNode) };
+                  result2.push(symbol);
+                  toVisit.push({ result: children, node: valueNode });
+                } else {
+                  limitExceeded = true;
+                }
+              }
+            });
+          }
+        };
+        while (nextToVisit < toVisit.length) {
+          var next = toVisit[nextToVisit++];
+          collectOutlineEntries(next.node, next.result);
+        }
+        if (limitExceeded && context && context.onResultLimitExceeded) {
+          context.onResultLimitExceeded(resourceString);
+        }
+        return result;
+      };
+      JSONDocumentSymbols2.prototype.getSymbolKind = function(nodeType) {
+        switch (nodeType) {
+          case "object":
+            return SymbolKind2.Module;
+          case "string":
+            return SymbolKind2.String;
+          case "number":
+            return SymbolKind2.Number;
+          case "array":
+            return SymbolKind2.Array;
+          case "boolean":
+            return SymbolKind2.Boolean;
+          default:
+            return SymbolKind2.Variable;
+        }
+      };
+      JSONDocumentSymbols2.prototype.getKeyLabel = function(property2) {
+        var name = property2.keyNode.value;
+        if (name) {
+          name = name.replace(/[\n]/g, "\u21B5");
+        }
+        if (name && name.trim()) {
+          return name;
+        }
+        return '"' + name + '"';
+      };
+      JSONDocumentSymbols2.prototype.getDetail = function(node) {
+        if (!node) {
+          return void 0;
+        }
+        if (node.type === "boolean" || node.type === "number" || node.type === "null" || node.type === "string") {
+          return String(node.value);
+        } else {
+          if (node.type === "array") {
+            return node.children.length ? void 0 : "[]";
+          } else if (node.type === "object") {
+            return node.children.length ? void 0 : "{}";
+          }
+        }
+        return void 0;
+      };
+      JSONDocumentSymbols2.prototype.findDocumentColors = function(document2, doc, context) {
+        return this.schemaService.getSchemaForResource(document2.uri, doc).then(function(schema5) {
+          var result = [];
+          if (schema5) {
+            var limit = context && typeof context.resultLimit === "number" ? context.resultLimit : Number.MAX_VALUE;
+            var matchingSchemas = doc.getMatchingSchemas(schema5.schema);
+            var visitedNode = {};
+            for (var _i = 0, matchingSchemas_1 = matchingSchemas; _i < matchingSchemas_1.length; _i++) {
+              var s = matchingSchemas_1[_i];
+              if (!s.inverted && s.schema && (s.schema.format === "color" || s.schema.format === "color-hex") && s.node && s.node.type === "string") {
+                var nodeId = String(s.node.offset);
+                if (!visitedNode[nodeId]) {
+                  var color = colorFromHex(getNodeValue22(s.node));
+                  if (color) {
+                    var range = getRange(document2, s.node);
+                    result.push({ color, range });
+                  }
+                  visitedNode[nodeId] = true;
+                  limit--;
+                  if (limit <= 0) {
+                    if (context && context.onResultLimitExceeded) {
+                      context.onResultLimitExceeded(document2.uri);
+                    }
+                    return result;
+                  }
+                }
+              }
+            }
+          }
+          return result;
+        });
+      };
+      JSONDocumentSymbols2.prototype.getColorPresentations = function(document2, doc, color, range) {
+        var result = [];
+        var red256 = Math.round(color.red * 255), green256 = Math.round(color.green * 255), blue256 = Math.round(color.blue * 255);
+        function toTwoDigitHex(n) {
+          var r = n.toString(16);
+          return r.length !== 2 ? "0" + r : r;
+        }
+        var label;
+        if (color.alpha === 1) {
+          label = "#" + toTwoDigitHex(red256) + toTwoDigitHex(green256) + toTwoDigitHex(blue256);
+        } else {
+          label = "#" + toTwoDigitHex(red256) + toTwoDigitHex(green256) + toTwoDigitHex(blue256) + toTwoDigitHex(Math.round(color.alpha * 255));
+        }
+        result.push({ label, textEdit: TextEdit.replace(range, JSON.stringify(label)) });
+        return result;
+      };
+      return JSONDocumentSymbols2;
+    }()
+  );
   function getRange(document2, node) {
     return Range2.create(document2.positionAt(node.offset), document2.positionAt(node.offset + node.length));
   }
@@ -37347,9 +40669,11 @@ ${end.comment}` : end.comment;
   var schemaContributions = {
     schemaAssociations: [],
     schemas: {
+      // refer to the latest schema
       "http://json-schema.org/schema#": {
         $ref: "http://json-schema.org/draft-07/schema#"
       },
+      // bundle the schema-schema to include (localized) descriptions
       "http://json-schema.org/draft-04/schema#": {
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {
@@ -37980,6 +41304,7 @@ ${end.comment}` : end.comment;
     return true;
   }
   var localize7 = loadMessageBundle();
+  var MSG_PROPERTY_NOT_ALLOWED = "Property {0} is not allowed.";
   var formats2 = {
     "color-hex": {
       errorMessage: localize7("colorHexFormatWarning", "Invalid color format. Use #RGB, #RGBA, #RRGGBB or #RRGGBBAA."),
@@ -38157,13 +41482,17 @@ ${end.comment}` : end.comment;
   var NoOpSchemaCollector2 = class {
     constructor() {
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     get schemas() {
       return [];
     }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     add(schema5) {
     }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     merge(other) {
     }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     include(node) {
       return true;
     }
@@ -38208,13 +41537,17 @@ ${end.comment}` : end.comment;
         }
       }
     }
+    /**
+     * Merge multiple warnings with same problemType together
+     * @param subValidationResult another possible result
+     */
     mergeWarningGeneric(subValidationResult, problemTypesToMerge) {
-      var _b, _c;
-      if ((_b = this.problems) === null || _b === void 0 ? void 0 : _b.length) {
+      var _a3, _b;
+      if ((_a3 = this.problems) == null ? void 0 : _a3.length) {
         for (const problemType of problemTypesToMerge) {
           const bestResults = this.problems.filter((p) => p.problemType === problemType);
           for (const bestResult of bestResults) {
-            const mergingResult = (_c = subValidationResult.problems) === null || _c === void 0 ? void 0 : _c.find(
+            const mergingResult = (_b = subValidationResult.problems) == null ? void 0 : _b.find(
               (p) => p.problemType === problemType && bestResult.location.offset === p.location.offset && (problemType !== ProblemType.missingRequiredPropWarning || isArrayEqual(p.problemArgs, bestResult.problemArgs))
             );
             if (mergingResult) {
@@ -38363,23 +41696,39 @@ ${end.comment}` : end.comment;
         const validationResult = new ValidationResult2(this.isKubernetes);
         validate2(this.root, schema5, schema5, validationResult, NoOpSchemaCollector2.instance, {
           isKubernetes: this.isKubernetes,
-          disableAdditionalProperties: this.disableAdditionalProperties
+          disableAdditionalProperties: this.disableAdditionalProperties,
+          uri: this.uri
         });
         return validationResult.problems.map((p) => {
           const range = Range2.create(textDocument.positionAt(p.location.offset), textDocument.positionAt(p.location.offset + p.location.length));
           const diagnostic = Diagnostic.create(range, p.message, p.severity, p.code ? p.code : ErrorCode.Undefined, p.source);
-          diagnostic.data = { schemaUri: p.schemaUri };
+          diagnostic.data = { schemaUri: p.schemaUri, ...p.data };
           return diagnostic;
         });
       }
       return null;
     }
+    /**
+     * This method returns the list of applicable schemas
+     *
+     * currently used @param didCallFromAutoComplete flag to differentiate the method call, when it is from auto complete
+     * then user still types something and skip the validation for timebeing untill completed.
+     * On https://github.com/redhat-developer/yaml-language-server/pull/719 the auto completes need to populate the list of enum string which matches to the enum
+     * and on https://github.com/redhat-developer/vscode-yaml/issues/803 the validation should throw the error based on the enum string.
+     *
+     * @param schema schema
+     * @param focusOffset  offsetValue
+     * @param exclude excluded Node
+     * @param didCallFromAutoComplete true if method called from AutoComplete
+     * @returns array of applicable schemas
+     */
     getMatchingSchemas(schema5, focusOffset = -1, exclude = null, didCallFromAutoComplete) {
       const matchingSchemas = new SchemaCollector2(focusOffset, exclude);
       if (this.root && schema5) {
         validate2(this.root, schema5, schema5, new ValidationResult2(this.isKubernetes), matchingSchemas, {
           isKubernetes: this.isKubernetes,
           disableAdditionalProperties: this.disableAdditionalProperties,
+          uri: this.uri,
           callFromAutoComplete: didCallFromAutoComplete
         });
       }
@@ -38470,17 +41819,22 @@ ${end.comment}` : end.comment;
       }
       const testAlternatives = (alternatives, maxOneMatch) => {
         const matches = [];
+        const subMatches = [];
         const noPropertyMatches = [];
         let bestMatch = null;
         for (const subSchemaRef of alternatives) {
-          const subSchema = Object.assign({}, asSchema2(subSchemaRef));
+          const subSchema = { ...asSchema2(subSchemaRef) };
           const subValidationResult = new ValidationResult2(isKubernetes);
           const subMatchingSchemas = matchingSchemas.newSub();
           validate2(node, subSchema, schema5, subValidationResult, subMatchingSchemas, options);
           if (!subValidationResult.hasProblems() || callFromAutoComplete) {
             matches.push(subSchema);
+            subMatches.push(subSchema);
             if (subValidationResult.propertiesMatches === 0) {
               noPropertyMatches.push(subSchema);
+            }
+            if (subSchema.format) {
+              subMatches.pop();
             }
           }
           if (!bestMatch) {
@@ -38495,11 +41849,11 @@ ${end.comment}` : end.comment;
             bestMatch = genericComparison(node, maxOneMatch, subValidationResult, bestMatch, subSchema, subMatchingSchemas);
           }
         }
-        if (matches.length > 1 && noPropertyMatches.length === 0 && maxOneMatch) {
+        if (subMatches.length > 1 && (subMatches.length > 1 || noPropertyMatches.length === 0) && maxOneMatch) {
           validationResult.problems.push({
             location: { offset: node.offset, length: 1 },
             severity: DiagnosticSeverity.Warning,
-            message: localize7("oneOfWarning", "Minimum one schema should validate."),
+            message: localize7("oneOfWarning", "Matches multiple schemas when only one must validate."),
             source: getSchemaSource(schema5, originalSchema),
             schemaUri: getSchemaUri(schema5, originalSchema)
           });
@@ -38533,6 +41887,19 @@ ${end.comment}` : end.comment;
         const subMatchingSchemas = matchingSchemas.newSub();
         validate2(node, subSchema, originalSchema2, subValidationResult, subMatchingSchemas, options);
         matchingSchemas.merge(subMatchingSchemas);
+        const { filePatternAssociation } = subSchema;
+        if (filePatternAssociation) {
+          const association = new FilePatternAssociation2(filePatternAssociation);
+          if (!association.matchesPattern(options.uri)) {
+            subValidationResult.problems.push({
+              location: { offset: node.offset, length: node.length },
+              severity: DiagnosticSeverity.Warning,
+              message: localize7("ifFilePatternAssociation", `filePatternAssociation '${filePatternAssociation}' does not match with doc uri '${options.uri}'.`),
+              source: getSchemaSource(schema5, originalSchema2),
+              schemaUri: getSchemaUri(schema5, originalSchema2)
+            });
+          }
+        }
         if (!subValidationResult.hasProblems()) {
           if (thenSchema) {
             testBranch(thenSchema, originalSchema2);
@@ -38549,7 +41916,7 @@ ${end.comment}` : end.comment;
         const val = getNodeValue3(node);
         let enumValueMatch = false;
         for (const e of schema5.enum) {
-          if (equals22(val, e) || callFromAutoComplete && isString2(val) && isString2(e) && val && e.startsWith(val)) {
+          if (equals22(val, e) || callFromAutoComplete && isString22(val) && isString22(e) && val && e.startsWith(val)) {
             enumValueMatch = true;
             break;
           }
@@ -38686,7 +42053,7 @@ ${end.comment}` : end.comment;
           schemaUri: getSchemaUri(schema22, originalSchema)
         });
       }
-      if (isString2(schema22.pattern)) {
+      if (isString22(schema22.pattern)) {
         const regex = safeCreateUnicodeRegExp(schema22.pattern);
         if (!regex.test(node2.value)) {
           validationResult2.problems.push({
@@ -38790,7 +42157,7 @@ ${end.comment}` : end.comment;
           node2.items.forEach((item) => {
             if (itemSchema.oneOf && itemSchema.oneOf.length === 1) {
               const subSchemaRef = itemSchema.oneOf[0];
-              const subSchema = Object.assign({}, asSchema2(subSchemaRef));
+              const subSchema = { ...asSchema2(subSchemaRef) };
               subSchema.title = schema22.title;
               subSchema.closestTitle = schema22.closestTitle;
               validate2(item, subSchema, schema22, itemValidationResult, matchingSchemas2, options);
@@ -38856,7 +42223,7 @@ ${end.comment}` : end.comment;
       }
     }
     function _validateObjectNode(node2, schema22, validationResult2, matchingSchemas2) {
-      var _b;
+      var _a3;
       const seenKeys = /* @__PURE__ */ Object.create(null);
       const unprocessedProperties = [];
       const unprocessedNodes = [...node2.properties];
@@ -38925,7 +42292,7 @@ ${end.comment}` : end.comment;
                     length: propertyNode.keyNode.length
                   },
                   severity: DiagnosticSeverity.Warning,
-                  message: schema22.errorMessage || localize7("DisallowedExtraPropWarning", "Property {0} is not allowed.", propertyName),
+                  message: schema22.errorMessage || localize7("DisallowedExtraPropWarning", MSG_PROPERTY_NOT_ALLOWED, propertyName),
                   source: getSchemaSource(schema22, originalSchema),
                   schemaUri: getSchemaUri(schema22, originalSchema)
                 });
@@ -38934,7 +42301,7 @@ ${end.comment}` : end.comment;
                 validationResult2.propertiesValueMatches++;
               }
             } else {
-              propertySchema.url = (_b = schema22.url) !== null && _b !== void 0 ? _b : originalSchema.url;
+              propertySchema.url = (_a3 = schema22.url) != null ? _a3 : originalSchema.url;
               const propertyValidationResult = new ValidationResult2(isKubernetes);
               validate2(child, propertySchema, schema22, propertyValidationResult, matchingSchemas2, options);
               validationResult2.mergePropertyMatch(propertyValidationResult);
@@ -38961,7 +42328,7 @@ ${end.comment}` : end.comment;
                         length: propertyNode.keyNode.length
                       },
                       severity: DiagnosticSeverity.Warning,
-                      message: schema22.errorMessage || localize7("DisallowedExtraPropWarning", "Property {0} is not allowed.", propertyName),
+                      message: schema22.errorMessage || localize7("DisallowedExtraPropWarning", MSG_PROPERTY_NOT_ALLOWED, propertyName),
                       source: getSchemaSource(schema22, originalSchema),
                       schemaUri: getSchemaUri(schema22, originalSchema)
                     });
@@ -38992,6 +42359,7 @@ ${end.comment}` : end.comment;
         }
       } else if (schema22.additionalProperties === false || schema22.type === "object" && schema22.additionalProperties === void 0 && options.disableAdditionalProperties === true) {
         if (unprocessedProperties.length > 0) {
+          const possibleProperties = schema22.properties && Object.keys(schema22.properties).filter((prop) => !seenKeys[prop]);
           for (const propertyName of unprocessedProperties) {
             const child = seenKeys[propertyName];
             if (child) {
@@ -39004,16 +42372,20 @@ ${end.comment}` : end.comment;
               } else {
                 propertyNode = child;
               }
-              validationResult2.problems.push({
+              const problem = {
                 location: {
                   offset: propertyNode.keyNode.offset,
                   length: propertyNode.keyNode.length
                 },
                 severity: DiagnosticSeverity.Warning,
-                message: schema22.errorMessage || localize7("DisallowedExtraPropWarning", "Property {0} is not allowed.", propertyName),
+                message: schema22.errorMessage || localize7("DisallowedExtraPropWarning", MSG_PROPERTY_NOT_ALLOWED, propertyName),
                 source: getSchemaSource(schema22, originalSchema),
                 schemaUri: getSchemaUri(schema22, originalSchema)
-              });
+              };
+              if (possibleProperties == null ? void 0 : possibleProperties.length) {
+                problem.data = { properties: possibleProperties };
+              }
+              validationResult2.problems.push(problem);
             }
           }
         }
@@ -39122,7 +42494,7 @@ ${end.comment}` : end.comment;
     }
   }
   function getSchemaSource(schema5, originalSchema) {
-    var _b;
+    var _a3;
     if (schema5) {
       let label;
       if (schema5.title) {
@@ -39132,7 +42504,7 @@ ${end.comment}` : end.comment;
       } else if (originalSchema.closestTitle) {
         label = originalSchema.closestTitle;
       } else {
-        const uriString = (_b = schema5.url) !== null && _b !== void 0 ? _b : originalSchema.url;
+        const uriString = (_a3 = schema5.url) != null ? _a3 : originalSchema.url;
         if (uriString) {
           const url = URI2.parse(uriString);
           if (url.scheme === "file") {
@@ -39148,8 +42520,8 @@ ${end.comment}` : end.comment;
     return YAML_SOURCE;
   }
   function getSchemaUri(schema5, originalSchema) {
-    var _b;
-    const uriString = (_b = schema5.url) !== null && _b !== void 0 ? _b : originalSchema.url;
+    var _a3;
+    const uriString = (_a3 = schema5.url) != null ? _a3 : originalSchema.url;
     return uriString ? [uriString] : [];
   }
   function getWarningMessage(problemType, args) {
@@ -39316,10 +42688,7 @@ ${end.comment}` : end.comment;
       return false;
     }
     const pair = map2.items[0];
-    if (isScalar(pair.key) && isScalar(pair.value) && pair.key.value === "" && !pair.value.value) {
-      return true;
-    }
-    return false;
+    return isScalar(pair.key) && isScalar(pair.value) && pair.key.value === "" && !pair.value.value;
   }
   function indexOf(seq2, item) {
     for (const [i, obj] of seq2.items.entries()) {
@@ -39335,7 +42704,7 @@ ${end.comment}` : end.comment;
       if (token.type === "document") {
         _visit2([], token, (item) => {
           var _a3;
-          if (isCollectionItem(item) && ((_a3 = item.value) === null || _a3 === void 0 ? void 0 : _a3.type) === "comment") {
+          if (isCollectionItem(item) && ((_a3 = item.value) == null ? void 0 : _a3.type) === "comment") {
             if (token.offset <= offset && item.value.source.length + item.value.offset >= offset) {
               inComment = true;
               return visit2.BREAK;
@@ -39402,10 +42771,14 @@ ${end.comment}` : end.comment;
       super(null, []);
       this.lineCounter = lineCounter;
     }
+    /**
+     * Create a deep copy of this document
+     */
     clone() {
       const copy = new SingleYAMLDocument(this.lineCounter);
       copy.isKubernetes = this.isKubernetes;
       copy.disableAdditionalProperties = this.disableAdditionalProperties;
+      copy.uri = this.uri;
       copy.currentDocIndex = this.currentDocIndex;
       copy._lineComments = this.lineComments.slice();
       copy.internalDocument = this._internalDocument.clone();
@@ -39418,11 +42791,11 @@ ${end.comment}` : end.comment;
         comments.forEach((comment) => this._lineComments.push(`#${comment}`));
       }
       visit2(this.internalDocument, (_key, node) => {
-        if (node === null || node === void 0 ? void 0 : node.commentBefore) {
-          const comments = node === null || node === void 0 ? void 0 : node.commentBefore.split("\n");
+        if (node == null ? void 0 : node.commentBefore) {
+          const comments = node == null ? void 0 : node.commentBefore.split("\n");
           comments.forEach((comment) => this._lineComments.push(`#${comment}`));
         }
-        if (node === null || node === void 0 ? void 0 : node.comment) {
+        if (node == null ? void 0 : node.comment) {
           this._lineComments.push(`#${node.comment}`);
         }
       });
@@ -39461,7 +42834,7 @@ ${end.comment}` : end.comment;
       const textAfterPosition = lineContent.substring(position.character);
       const spacesAfterPositionMatch = textAfterPosition.match(/^([ ]+)\n?$/);
       const areOnlySpacesAfterPosition = !!spacesAfterPositionMatch;
-      const countOfSpacesAfterPosition = spacesAfterPositionMatch === null || spacesAfterPositionMatch === void 0 ? void 0 : spacesAfterPositionMatch[1].length;
+      const countOfSpacesAfterPosition = spacesAfterPositionMatch == null ? void 0 : spacesAfterPositionMatch[1].length;
       let closestNode;
       visit2(this.internalDocument, (key, node) => {
         if (!node) {
@@ -39501,7 +42874,7 @@ ${end.comment}` : end.comment;
       });
       const position = textBuffer.getPosition(offset);
       const lineContent = textBuffer.getLineContent(position.line);
-      const indentation = getIndentation(lineContent, position.character);
+      const indentation = getIndentation2(lineContent, position.character);
       if (isScalar(closestNode) && closestNode.value === null) {
         return closestNode;
       }
@@ -39560,10 +42933,20 @@ ${end.comment}` : end.comment;
     constructor() {
       this.cache = /* @__PURE__ */ new Map();
     }
+    /**
+     * Get cached YAMLDocument
+     * @param document TextDocument to parse
+     * @param parserOptions YAML parserOptions
+     * @param addRootObject if true and document is empty add empty object {} to force schema usage
+     * @returns the YAMLDocument
+     */
     getYamlDocument(document2, parserOptions, addRootObject = false) {
-      this.ensureCache(document2, parserOptions !== null && parserOptions !== void 0 ? parserOptions : defaultOptions, addRootObject);
+      this.ensureCache(document2, parserOptions != null ? parserOptions : defaultOptions, addRootObject);
       return this.cache.get(document2.uri).document;
     }
+    /**
+     * For test purpose only!
+     */
     clear() {
       this.cache.clear();
     }
@@ -39694,7 +43077,7 @@ ${end.comment}` : end.comment;
     const options = {
       strict: false,
       customTags: getCustomTags(parserOptions.customTags),
-      version: (_a3 = parserOptions.yamlVersion) !== null && _a3 !== void 0 ? _a3 : defaultOptions.yamlVersion,
+      version: (_a3 = parserOptions.yamlVersion) != null ? _a3 : defaultOptions.yamlVersion,
       keepSourceTokens: true
     };
     const composer = new Composer(options);
@@ -39740,36 +43123,10 @@ ${end.comment}` : end.comment;
     return matchModeline !== null && matchModeline.length === 1;
   }
   var AJVStub = class {
+    // eslint-disable-next-line class-methods-use-this
     compile() {
       return () => true;
     }
-  };
-  var __awaiter3 = function(thisArg, _arguments, P, generator) {
-    function adopt(value) {
-      return value instanceof P ? value : new P(function(resolve22) {
-        resolve22(value);
-      });
-    }
-    return new (P || (P = Promise))(function(resolve22, reject) {
-      function fulfilled(value) {
-        try {
-          step(generator.next(value));
-        } catch (e) {
-          reject(e);
-        }
-      }
-      function rejected(value) {
-        try {
-          step(generator["throw"](value));
-        } catch (e) {
-          reject(e);
-        }
-      }
-      function step(result) {
-        result.done ? resolve22(result.value) : adopt(result.value).then(fulfilled, rejected);
-      }
-      step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
   };
   var localize8 = loadMessageBundle();
   var ajv = new AJVStub();
@@ -39781,6 +43138,25 @@ ${end.comment}` : end.comment;
     MODIFICATION_ACTIONS2[MODIFICATION_ACTIONS2["add"] = 1] = "add";
     MODIFICATION_ACTIONS2[MODIFICATION_ACTIONS2["deleteAll"] = 2] = "deleteAll";
   })(MODIFICATION_ACTIONS || (MODIFICATION_ACTIONS = {}));
+  var FilePatternAssociation2 = class {
+    constructor(pattern) {
+      try {
+        this.patternRegExp = new RegExp(convertSimple2RegExpPattern(pattern) + "$");
+      } catch (e) {
+        this.patternRegExp = null;
+      }
+      this.schemas = [];
+    }
+    addSchema(id) {
+      this.schemas.push(id);
+    }
+    matchesPattern(fileName) {
+      return this.patternRegExp && this.patternRegExp.test(fileName);
+    }
+    getSchemas() {
+      return this.schemas;
+    }
+  };
   var YAMLSchemaService = class extends JSONSchemaService {
     constructor(requestService, contextService, promiseConstructor) {
       super(requestService, contextService, promiseConstructor);
@@ -39817,154 +43193,150 @@ ${end.comment}` : end.comment;
       }
       return result;
     }
-    resolveSchemaContent(schemaToResolve, schemaURL, dependencies) {
-      return __awaiter3(this, void 0, void 0, function* () {
-        const resolveErrors = schemaToResolve.errors.slice(0);
-        let schema5 = schemaToResolve.schema;
-        const contextService = this.contextService;
-        if (!schema07Validator(schema5)) {
-          const errs = [];
-          for (const err of schema07Validator.errors) {
-            errs.push(`${err.instancePath} : ${err.message}`);
-          }
-          resolveErrors.push(`Schema '${getSchemaTitle(schemaToResolve.schema, schemaURL)}' is not valid:
-${errs.join("\n")}`);
+    async resolveSchemaContent(schemaToResolve, schemaURL, dependencies) {
+      const resolveErrors = schemaToResolve.errors.slice(0);
+      let schema5 = schemaToResolve.schema;
+      const contextService = this.contextService;
+      if (!schema07Validator(schema5)) {
+        const errs = [];
+        for (const err of schema07Validator.errors) {
+          errs.push(`${err.instancePath} : ${err.message}`);
         }
-        const findSection = (schema22, path5) => {
-          if (!path5) {
-            return schema22;
-          }
-          let current = schema22;
-          if (path5[0] === "/") {
-            path5 = path5.substr(1);
-          }
-          path5.split("/").some((part) => {
-            current = current[part];
-            return !current;
-          });
-          return current;
-        };
-        const merge = (target, sourceRoot, sourceURI, path5) => {
-          const section = findSection(sourceRoot, path5);
-          if (section) {
-            for (const key in section) {
-              if (Object.prototype.hasOwnProperty.call(section, key) && !Object.prototype.hasOwnProperty.call(target, key)) {
-                target[key] = section[key];
-              }
-            }
-          } else {
-            resolveErrors.push(localize8("json.schema.invalidref", "$ref '{0}' in '{1}' can not be resolved.", path5, sourceURI));
-          }
-        };
-        const resolveExternalLink = (node, uri, linkPath, parentSchemaURL, parentSchemaDependencies) => {
-          if (contextService && !/^\w+:\/\/.*/.test(uri)) {
-            uri = contextService.resolveRelativePath(uri, parentSchemaURL);
-          }
-          uri = this.normalizeId(uri);
-          const referencedHandle = this.getOrAddSchemaHandle(uri);
-          return referencedHandle.getUnresolvedSchema().then((unresolvedSchema) => {
-            parentSchemaDependencies[uri] = true;
-            if (unresolvedSchema.errors.length) {
-              const loc = linkPath ? uri + "#" + linkPath : uri;
-              resolveErrors.push(localize8("json.schema.problemloadingref", "Problems loading reference '{0}': {1}", loc, unresolvedSchema.errors[0]));
-            }
-            merge(node, unresolvedSchema.schema, uri, linkPath);
-            node.url = uri;
-            return resolveRefs(node, unresolvedSchema.schema, uri, referencedHandle.dependencies);
-          });
-        };
-        const resolveRefs = (node, parentSchema, parentSchemaURL, parentSchemaDependencies) => __awaiter3(this, void 0, void 0, function* () {
-          if (!node || typeof node !== "object") {
-            return null;
-          }
-          const toWalk = [node];
-          const seen = [];
-          const openPromises = [];
-          const collectEntries = (...entries) => {
-            for (const entry of entries) {
-              if (typeof entry === "object") {
-                toWalk.push(entry);
-              }
-            }
-          };
-          const collectMapEntries = (...maps) => {
-            for (const map2 of maps) {
-              if (typeof map2 === "object") {
-                for (const key in map2) {
-                  const entry = map2[key];
-                  if (typeof entry === "object") {
-                    toWalk.push(entry);
-                  }
-                }
-              }
-            }
-          };
-          const collectArrayEntries = (...arrays) => {
-            for (const array of arrays) {
-              if (Array.isArray(array)) {
-                for (const entry of array) {
-                  if (typeof entry === "object") {
-                    toWalk.push(entry);
-                  }
-                }
-              }
-            }
-          };
-          const handleRef = (next) => {
-            const seenRefs = [];
-            while (next.$ref) {
-              const ref = next.$ref;
-              const segments = ref.split("#", 2);
-              next._$ref = next.$ref;
-              delete next.$ref;
-              if (segments[0].length > 0) {
-                openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentSchemaURL, parentSchemaDependencies));
-                return;
-              } else {
-                if (seenRefs.indexOf(ref) === -1) {
-                  merge(next, parentSchema, parentSchemaURL, segments[1]);
-                  seenRefs.push(ref);
-                }
-              }
-            }
-            collectEntries(next.items, next.additionalItems, next.additionalProperties, next.not, next.contains, next.propertyNames, next.if, next.then, next.else);
-            collectMapEntries(next.definitions, next.properties, next.patternProperties, next.dependencies);
-            collectArrayEntries(next.anyOf, next.allOf, next.oneOf, next.items, next.schemaSequence);
-          };
-          if (parentSchemaURL.indexOf("#") > 0) {
-            const segments = parentSchemaURL.split("#", 2);
-            if (segments[0].length > 0 && segments[1].length > 0) {
-              const newSchema = {};
-              yield resolveExternalLink(newSchema, segments[0], segments[1], parentSchemaURL, parentSchemaDependencies);
-              for (const key in schema5) {
-                if (key === "required") {
-                  continue;
-                }
-                if (Object.prototype.hasOwnProperty.call(schema5, key) && !Object.prototype.hasOwnProperty.call(newSchema, key)) {
-                  newSchema[key] = schema5[key];
-                }
-              }
-              schema5 = newSchema;
-            }
-          }
-          while (toWalk.length) {
-            const next = toWalk.pop();
-            if (seen.indexOf(next) >= 0) {
-              continue;
-            }
-            seen.push(next);
-            handleRef(next);
-          }
-          return Promise.all(openPromises);
+        resolveErrors.push(`Schema '${getSchemaTitle(schemaToResolve.schema, schemaURL)}' is not valid:
+${errs.join("\n")}`);
+      }
+      const findSection = (schema22, path5) => {
+        if (!path5) {
+          return schema22;
+        }
+        let current = schema22;
+        if (path5[0] === "/") {
+          path5 = path5.substr(1);
+        }
+        path5.split("/").some((part) => {
+          current = current[part];
+          return !current;
         });
-        yield resolveRefs(schema5, schema5, schemaURL, dependencies);
-        return new ResolvedSchema(schema5, resolveErrors);
-      });
+        return current;
+      };
+      const merge = (target, sourceRoot, sourceURI, path5) => {
+        const section = findSection(sourceRoot, path5);
+        if (section) {
+          for (const key in section) {
+            if (Object.prototype.hasOwnProperty.call(section, key) && !Object.prototype.hasOwnProperty.call(target, key)) {
+              target[key] = section[key];
+            }
+          }
+        } else {
+          resolveErrors.push(localize8("json.schema.invalidref", "$ref '{0}' in '{1}' can not be resolved.", path5, sourceURI));
+        }
+      };
+      const resolveExternalLink = (node, uri, linkPath, parentSchemaURL, parentSchemaDependencies) => {
+        if (contextService && !/^\w+:\/\/.*/.test(uri)) {
+          uri = contextService.resolveRelativePath(uri, parentSchemaURL);
+        }
+        uri = this.normalizeId(uri);
+        const referencedHandle = this.getOrAddSchemaHandle(uri);
+        return referencedHandle.getUnresolvedSchema().then((unresolvedSchema) => {
+          parentSchemaDependencies[uri] = true;
+          if (unresolvedSchema.errors.length) {
+            const loc = linkPath ? uri + "#" + linkPath : uri;
+            resolveErrors.push(localize8("json.schema.problemloadingref", "Problems loading reference '{0}': {1}", loc, unresolvedSchema.errors[0]));
+          }
+          merge(node, unresolvedSchema.schema, uri, linkPath);
+          node.url = uri;
+          return resolveRefs(node, unresolvedSchema.schema, uri, referencedHandle.dependencies);
+        });
+      };
+      const resolveRefs = async (node, parentSchema, parentSchemaURL, parentSchemaDependencies) => {
+        if (!node || typeof node !== "object") {
+          return null;
+        }
+        const toWalk = [node];
+        const seen = [];
+        const openPromises = [];
+        const collectEntries = (...entries) => {
+          for (const entry of entries) {
+            if (typeof entry === "object") {
+              toWalk.push(entry);
+            }
+          }
+        };
+        const collectMapEntries = (...maps) => {
+          for (const map2 of maps) {
+            if (typeof map2 === "object") {
+              for (const key in map2) {
+                const entry = map2[key];
+                if (typeof entry === "object") {
+                  toWalk.push(entry);
+                }
+              }
+            }
+          }
+        };
+        const collectArrayEntries = (...arrays) => {
+          for (const array of arrays) {
+            if (Array.isArray(array)) {
+              for (const entry of array) {
+                if (typeof entry === "object") {
+                  toWalk.push(entry);
+                }
+              }
+            }
+          }
+        };
+        const handleRef = (next) => {
+          const seenRefs = [];
+          while (next.$ref) {
+            const ref = next.$ref;
+            const segments = ref.split("#", 2);
+            next._$ref = next.$ref;
+            delete next.$ref;
+            if (segments[0].length > 0) {
+              openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentSchemaURL, parentSchemaDependencies));
+              return;
+            } else {
+              if (seenRefs.indexOf(ref) === -1) {
+                merge(next, parentSchema, parentSchemaURL, segments[1]);
+                seenRefs.push(ref);
+              }
+            }
+          }
+          collectEntries(next.items, next.additionalItems, next.additionalProperties, next.not, next.contains, next.propertyNames, next.if, next.then, next.else);
+          collectMapEntries(next.definitions, next.properties, next.patternProperties, next.dependencies);
+          collectArrayEntries(next.anyOf, next.allOf, next.oneOf, next.items, next.schemaSequence);
+        };
+        if (parentSchemaURL.indexOf("#") > 0) {
+          const segments = parentSchemaURL.split("#", 2);
+          if (segments[0].length > 0 && segments[1].length > 0) {
+            const newSchema = {};
+            await resolveExternalLink(newSchema, segments[0], segments[1], parentSchemaURL, parentSchemaDependencies);
+            for (const key in schema5) {
+              if (key === "required") {
+                continue;
+              }
+              if (Object.prototype.hasOwnProperty.call(schema5, key) && !Object.prototype.hasOwnProperty.call(newSchema, key)) {
+                newSchema[key] = schema5[key];
+              }
+            }
+            schema5 = newSchema;
+          }
+        }
+        while (toWalk.length) {
+          const next = toWalk.pop();
+          if (seen.indexOf(next) >= 0) {
+            continue;
+          }
+          seen.push(next);
+          handleRef(next);
+        }
+        return Promise.all(openPromises);
+      };
+      await resolveRefs(schema5, schema5, schemaURL, dependencies);
+      return new ResolvedSchema(schema5, resolveErrors);
     }
     getSchemaForResource(resource, doc) {
-      const resolveSchema = () => {
-        const seen = /* @__PURE__ */ Object.create(null);
-        const schemas2 = [];
+      const resolveModelineSchema = () => {
         let schemaFromModeline = getSchemaFromModeline(doc);
         if (schemaFromModeline !== void 0) {
           if (!schemaFromModeline.startsWith("file:") && !schemaFromModeline.startsWith("http")) {
@@ -39984,10 +43356,24 @@ ${errs.join("\n")}`);
               schemaFromModeline += "#" + appendix;
             }
           }
-          this.addSchemaPriority(schemaFromModeline, SchemaPriority.Modeline);
-          schemas2.push(schemaFromModeline);
-          seen[schemaFromModeline] = true;
+          return schemaFromModeline;
         }
+      };
+      const resolveSchemaForResource = (schemas2) => {
+        const schemaHandle = super.createCombinedSchema(resource, schemas2);
+        return schemaHandle.getResolvedSchema().then((schema5) => {
+          if (schema5.schema && typeof schema5.schema === "object") {
+            schema5.schema.url = schemaHandle.url;
+          }
+          if (schema5.schema && schema5.schema.schemaSequence && schema5.schema.schemaSequence[doc.currentDocIndex]) {
+            return new ResolvedSchema(schema5.schema.schemaSequence[doc.currentDocIndex]);
+          }
+          return schema5;
+        });
+      };
+      const resolveSchema = () => {
+        const seen = /* @__PURE__ */ Object.create(null);
+        const schemas2 = [];
         for (const entry of this.filePatternAssociations) {
           if (entry.matchesPattern(resource)) {
             for (const schemaId of entry.getURIs()) {
@@ -40004,19 +43390,14 @@ ${errs.join("\n")}`);
         }
         if (schemas2.length > 0) {
           const highestPrioSchemas = this.highestPrioritySchemas(schemas2);
-          const schemaHandle = super.createCombinedSchema(resource, highestPrioSchemas);
-          return schemaHandle.getResolvedSchema().then((schema5) => {
-            if (schema5.schema && typeof schema5.schema === "object") {
-              schema5.schema.url = schemaHandle.url;
-            }
-            if (schema5.schema && schema5.schema.schemaSequence && schema5.schema.schemaSequence[doc.currentDocIndex]) {
-              return new ResolvedSchema(schema5.schema.schemaSequence[doc.currentDocIndex]);
-            }
-            return schema5;
-          });
+          return resolveSchemaForResource(highestPrioSchemas);
         }
         return Promise.resolve(null);
       };
+      const modelineSchema = resolveModelineSchema();
+      if (modelineSchema) {
+        return resolveSchemaForResource([modelineSchema]);
+      }
       if (this.customSchemaProvider) {
         return this.customSchemaProvider(resource).then((schemaUri) => {
           if (Array.isArray(schemaUri)) {
@@ -40051,6 +43432,7 @@ ${errs.join("\n")}`);
         return resolveSchema();
       }
     }
+    // Set the priority of a schema in the schema service
     addSchemaPriority(uri, priority) {
       let currSchemaArray = this.schemaPriorityMapping.get(uri);
       if (currSchemaArray) {
@@ -40060,6 +43442,9 @@ ${errs.join("\n")}`);
         this.schemaPriorityMapping.set(uri, (/* @__PURE__ */ new Set()).add(priority));
       }
     }
+    /**
+     * Search through all the schemas and find the ones with the highest priority
+     */
     highestPrioritySchemas(schemas2) {
       let highestPrio = 0;
       const priorityMapping = /* @__PURE__ */ new Map();
@@ -40080,69 +43465,77 @@ ${errs.join("\n")}`);
       });
       return priorityMapping.get(highestPrio) || [];
     }
-    resolveCustomSchema(schemaUri, doc) {
-      return __awaiter3(this, void 0, void 0, function* () {
-        const unresolvedSchema = yield this.loadSchema(schemaUri);
-        const schema5 = yield this.resolveSchemaContent(unresolvedSchema, schemaUri, []);
-        if (schema5.schema) {
-          schema5.schema.url = schemaUri;
+    async resolveCustomSchema(schemaUri, doc) {
+      const unresolvedSchema = await this.loadSchema(schemaUri);
+      const schema5 = await this.resolveSchemaContent(unresolvedSchema, schemaUri, []);
+      if (schema5.schema) {
+        schema5.schema.url = schemaUri;
+      }
+      if (schema5.schema && schema5.schema.schemaSequence && schema5.schema.schemaSequence[doc.currentDocIndex]) {
+        return new ResolvedSchema(schema5.schema.schemaSequence[doc.currentDocIndex]);
+      }
+      return schema5;
+    }
+    /**
+     * Save a schema with schema ID and schema content.
+     * Overrides previous schemas set for that schema ID.
+     */
+    async saveSchema(schemaId, schemaContent) {
+      const id = this.normalizeId(schemaId);
+      this.getOrAddSchemaHandle(id, schemaContent);
+      this.schemaPriorityMapping.set(id, (/* @__PURE__ */ new Set()).add(SchemaPriority.Settings));
+      return Promise.resolve(void 0);
+    }
+    /**
+     * Delete schemas on specific path
+     */
+    async deleteSchemas(deletions) {
+      deletions.schemas.forEach((s) => {
+        this.deleteSchema(s);
+      });
+      return Promise.resolve(void 0);
+    }
+    /**
+     * Delete a schema with schema ID.
+     */
+    async deleteSchema(schemaId) {
+      const id = this.normalizeId(schemaId);
+      if (this.schemasById[id]) {
+        delete this.schemasById[id];
+      }
+      this.schemaPriorityMapping.delete(id);
+      return Promise.resolve(void 0);
+    }
+    /**
+     * Add content to a specified schema at a specified path
+     */
+    async addContent(additions) {
+      const schema5 = await this.getResolvedSchema(additions.schema);
+      if (schema5) {
+        const resolvedSchemaLocation = this.resolveJSONSchemaToSection(schema5.schema, additions.path);
+        if (typeof resolvedSchemaLocation === "object") {
+          resolvedSchemaLocation[additions.key] = additions.content;
         }
-        if (schema5.schema && schema5.schema.schemaSequence && schema5.schema.schemaSequence[doc.currentDocIndex]) {
-          return new ResolvedSchema(schema5.schema.schemaSequence[doc.currentDocIndex]);
+        await this.saveSchema(additions.schema, schema5.schema);
+      }
+    }
+    /**
+     * Delete content in a specified schema at a specified path
+     */
+    async deleteContent(deletions) {
+      const schema5 = await this.getResolvedSchema(deletions.schema);
+      if (schema5) {
+        const resolvedSchemaLocation = this.resolveJSONSchemaToSection(schema5.schema, deletions.path);
+        if (typeof resolvedSchemaLocation === "object") {
+          delete resolvedSchemaLocation[deletions.key];
         }
-        return schema5;
-      });
+        await this.saveSchema(deletions.schema, schema5.schema);
+      }
     }
-    saveSchema(schemaId, schemaContent) {
-      return __awaiter3(this, void 0, void 0, function* () {
-        const id = this.normalizeId(schemaId);
-        this.getOrAddSchemaHandle(id, schemaContent);
-        this.schemaPriorityMapping.set(id, (/* @__PURE__ */ new Set()).add(SchemaPriority.Settings));
-        return Promise.resolve(void 0);
-      });
-    }
-    deleteSchemas(deletions) {
-      return __awaiter3(this, void 0, void 0, function* () {
-        deletions.schemas.forEach((s) => {
-          this.deleteSchema(s);
-        });
-        return Promise.resolve(void 0);
-      });
-    }
-    deleteSchema(schemaId) {
-      return __awaiter3(this, void 0, void 0, function* () {
-        const id = this.normalizeId(schemaId);
-        if (this.schemasById[id]) {
-          delete this.schemasById[id];
-        }
-        this.schemaPriorityMapping.delete(id);
-        return Promise.resolve(void 0);
-      });
-    }
-    addContent(additions) {
-      return __awaiter3(this, void 0, void 0, function* () {
-        const schema5 = yield this.getResolvedSchema(additions.schema);
-        if (schema5) {
-          const resolvedSchemaLocation = this.resolveJSONSchemaToSection(schema5.schema, additions.path);
-          if (typeof resolvedSchemaLocation === "object") {
-            resolvedSchemaLocation[additions.key] = additions.content;
-          }
-          yield this.saveSchema(additions.schema, schema5.schema);
-        }
-      });
-    }
-    deleteContent(deletions) {
-      return __awaiter3(this, void 0, void 0, function* () {
-        const schema5 = yield this.getResolvedSchema(deletions.schema);
-        if (schema5) {
-          const resolvedSchemaLocation = this.resolveJSONSchemaToSection(schema5.schema, deletions.path);
-          if (typeof resolvedSchemaLocation === "object") {
-            delete resolvedSchemaLocation[deletions.key];
-          }
-          yield this.saveSchema(deletions.schema, schema5.schema);
-        }
-      });
-    }
+    /**
+     * Take a JSON Schema and the path that you would like to get to
+     * @returns the JSON Schema resolved at that specific path
+     */
     resolveJSONSchemaToSection(schema5, paths) {
       const splitPathway = paths.split("/");
       let resolvedSchemaLocation = schema5;
@@ -40155,6 +43548,12 @@ ${errs.join("\n")}`);
       }
       return resolvedSchemaLocation;
     }
+    /**
+     * Resolve the next Object if they have compatible types
+     * @param object a location in the JSON Schema
+     * @param token the next token that you want to search for
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolveNext(object, token) {
       if (Array.isArray(object) && isNaN(token)) {
         throw new Error("Expected a number after the array object");
@@ -40162,6 +43561,10 @@ ${errs.join("\n")}`);
         throw new Error("Expected a string after the object");
       }
     }
+    /**
+     * Everything below here is needed because we're importing from vscode-json-languageservice umd and we need
+     * to provide a wrapper around the javascript methods we are calling since they have no type
+     */
     normalizeId(id) {
       try {
         return URI2.parse(id).toString();
@@ -40169,6 +43572,10 @@ ${errs.join("\n")}`);
         return id;
       }
     }
+    /*
+     * Everything below here is needed because we're importing from vscode-json-languageservice umd and we need
+     * to provide a wrapper around the javascript methods we are calling since they have no type
+     */
     getOrAddSchemaHandle(id, unresolvedSchemaContent) {
       return super.getOrAddSchemaHandle(id, unresolvedSchemaContent);
     }
@@ -40190,6 +43597,7 @@ ${errs.join("\n")}`);
                 return new UnresolvedSchema({}, [errorMessage]);
               }
             },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (error) => {
               let errorMessage = error.toString();
               const errorSplit = error.toString().split("Error: ");
@@ -40203,9 +43611,9 @@ ${errs.join("\n")}`);
         unresolvedJsonSchema.uri = schemaUri;
         if (this.schemaUriToNameAndDescription.has(schemaUri)) {
           const { name, description: description2, versions } = this.schemaUriToNameAndDescription.get(schemaUri);
-          unresolvedJsonSchema.schema.title = name !== null && name !== void 0 ? name : unresolvedJsonSchema.schema.title;
-          unresolvedJsonSchema.schema.description = description2 !== null && description2 !== void 0 ? description2 : unresolvedJsonSchema.schema.description;
-          unresolvedJsonSchema.schema.versions = versions !== null && versions !== void 0 ? versions : unresolvedJsonSchema.schema.versions;
+          unresolvedJsonSchema.schema.title = name != null ? name : unresolvedJsonSchema.schema.title;
+          unresolvedJsonSchema.schema.description = description2 != null ? description2 : unresolvedJsonSchema.schema.description;
+          unresolvedJsonSchema.schema.versions = versions != null ? versions : unresolvedJsonSchema.schema.versions;
         }
         return unresolvedJsonSchema;
       });
@@ -40222,6 +43630,7 @@ ${errs.join("\n")}`);
     setSchemaContributions(schemaContributions2) {
       super.setSchemaContributions(schemaContributions2);
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getRegisteredSchemaIds(filter) {
       return super.getRegisteredSchemaIds(filter);
     }
@@ -40243,8 +43652,8 @@ ${errs.join("\n")}`);
     return url;
   }
   var YAMLDocumentSymbols = class {
-    constructor(schemaService, telemetry) {
-      this.telemetry = telemetry;
+    constructor(schemaService, telemetry2) {
+      this.telemetry = telemetry2;
       this.jsonDocumentSymbols = new JSONDocumentSymbols(schemaService);
       this.jsonDocumentSymbols.getKeyLabel = (property2) => {
         const keyNode = property2.keyNode.internalNode;
@@ -40300,8 +43709,8 @@ ${errs.join("\n")}`);
     }
   }
   var YAMLHover = class {
-    constructor(schemaService, telemetry) {
-      this.telemetry = telemetry;
+    constructor(schemaService, telemetry2) {
+      this.telemetry = telemetry2;
       this.shouldHover = true;
       this.schemaService = schemaService;
     }
@@ -40329,6 +43738,7 @@ ${errs.join("\n")}`);
         this.telemetry.sendError("yaml.hover.error", { error: convertErrorToTelemetryMsg(error) });
       }
     }
+    // method copied from https://github.com/microsoft/vscode-json-languageservice/blob/2ea5ad3d2ffbbe40dea11cfe764a502becf113ce/src/services/jsonHover.ts#L23
     getHover(document2, position, doc) {
       const offset = document2.offsetAt(position);
       let node = doc.getNodeFromOffset(offset);
@@ -40357,6 +43767,9 @@ ${errs.join("\n")}`);
         };
         return result;
       };
+      const removePipe = (value) => {
+        return value.replace(/\|\|\s*$/, "");
+      };
       return this.schemaService.getSchemaForResource(document2.uri, doc).then((schema5) => {
         if (schema5 && node && !schema5.errors.length) {
           const matchingSchemas = doc.getMatchingSchemas(schema5.schema, node.offset);
@@ -40382,6 +43795,20 @@ ${errs.join("\n")}`);
                     enumValue = JSON.stringify(enumValue);
                   }
                 }
+              }
+              if (s.schema.anyOf && isAllSchemasMatched(node, matchingSchemas, s.schema)) {
+                title = "";
+                markdownDescription = "";
+                s.schema.anyOf.forEach((childSchema, index) => {
+                  title += childSchema.title || s.schema.closestTitle || "";
+                  markdownDescription += childSchema.markdownDescription || toMarkdown2(childSchema.description) || "";
+                  if (index !== s.schema.anyOf.length - 1) {
+                    title += " || ";
+                    markdownDescription += " || ";
+                  }
+                });
+                title = removePipe(title);
+                markdownDescription = removePipe(markdownDescription);
               }
               if (s.schema.examples) {
                 s.schema.examples.forEach((example) => {
@@ -40452,6 +43879,19 @@ Source: [${getSchemaName(schema5.schema)}](${schema5.schema.url})`;
       return "`` " + content + " ``";
     }
     return content;
+  }
+  function isAllSchemasMatched(node, matchingSchemas, schema5) {
+    let count = 0;
+    for (const matchSchema of matchingSchemas) {
+      if (node === matchSchema.node && matchSchema.schema !== schema5) {
+        schema5.anyOf.forEach((childSchema) => {
+          if (matchSchema.schema.title === childSchema.title && matchSchema.schema.description === childSchema.description && matchSchema.schema.properties === childSchema.properties) {
+            count++;
+          }
+        });
+      }
+    }
+    return count === schema5.anyOf.length;
   }
   var UnusedAnchorsValidator = class {
     validate(document2, yamlDoc) {
@@ -40524,10 +43964,10 @@ Source: [${getSchemaName(schema5.schema)}](${schema5.schema.url})`;
       const result = [];
       visit2(yamlDoc.internalDocument, (key, node) => {
         var _a3, _b;
-        if (this.forbidMapping && isMap(node) && ((_a3 = node.srcToken) === null || _a3 === void 0 ? void 0 : _a3.type) === "flow-collection") {
+        if (this.forbidMapping && isMap(node) && ((_a3 = node.srcToken) == null ? void 0 : _a3.type) === "flow-collection") {
           result.push(Diagnostic.create(this.getRangeOf(document2, node.srcToken), "Flow style mapping is forbidden", DiagnosticSeverity.Error, "flowMap"));
         }
-        if (this.forbidSequence && isSeq(node) && ((_b = node.srcToken) === null || _b === void 0 ? void 0 : _b.type) === "flow-collection") {
+        if (this.forbidSequence && isSeq(node) && ((_b = node.srcToken) == null ? void 0 : _b.type) === "flow-collection") {
           result.push(Diagnostic.create(this.getRangeOf(document2, node.srcToken), "Flow style sequence is forbidden", DiagnosticSeverity.Error, "flowSeq"));
         }
       });
@@ -40536,33 +43976,6 @@ Source: [${getSchemaName(schema5.schema)}](${schema5.schema.url})`;
     getRangeOf(document2, node) {
       return Range2.create(document2.positionAt(node.start.offset), document2.positionAt(node.end.pop().offset));
     }
-  };
-  var __awaiter22 = function(thisArg, _arguments, P, generator) {
-    function adopt(value) {
-      return value instanceof P ? value : new P(function(resolve22) {
-        resolve22(value);
-      });
-    }
-    return new (P || (P = Promise))(function(resolve22, reject) {
-      function fulfilled(value) {
-        try {
-          step(generator.next(value));
-        } catch (e) {
-          reject(e);
-        }
-      }
-      function rejected(value) {
-        try {
-          step(generator["throw"](value));
-        } catch (e) {
-          reject(e);
-        }
-      }
-      function step(result) {
-        result.done ? resolve22(result.value) : adopt(result.value).then(fulfilled, rejected);
-      }
-      step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
   };
   var yamlDiagToLSDiag = (yamlDiag, textDocument) => {
     const start = textDocument.positionAt(yamlDiag.location.start);
@@ -40573,8 +43986,8 @@ Source: [${getSchemaName(schema5.schema)}](${schema5.schema.url})`;
     return Diagnostic.create(range, yamlDiag.message, yamlDiag.severity, yamlDiag.code, YAML_SOURCE);
   };
   var YAMLValidation = class {
-    constructor(schemaService, telemetry) {
-      this.telemetry = telemetry;
+    constructor(schemaService, telemetry2) {
+      this.telemetry = telemetry2;
       this.validators = [];
       this.MATCHES_MULTIPLE = "Matches multiple schemas when only one must validate.";
       this.validationEnabled = true;
@@ -40593,61 +44006,60 @@ Source: [${getSchemaName(schema5.schema)}](${schema5.schema.url})`;
       }
       this.validators.push(new UnusedAnchorsValidator());
     }
-    doValidation(textDocument, isKubernetes = false) {
-      return __awaiter22(this, void 0, void 0, function* () {
-        if (!this.validationEnabled) {
-          return Promise.resolve([]);
+    async doValidation(textDocument, isKubernetes = false) {
+      if (!this.validationEnabled) {
+        return Promise.resolve([]);
+      }
+      const validationResult = [];
+      try {
+        const yamlDocument = yamlDocumentsCache.getYamlDocument(textDocument, { customTags: this.customTags, yamlVersion: this.yamlVersion }, true);
+        let index = 0;
+        for (const currentYAMLDoc of yamlDocument.documents) {
+          currentYAMLDoc.isKubernetes = isKubernetes;
+          currentYAMLDoc.currentDocIndex = index;
+          currentYAMLDoc.disableAdditionalProperties = this.disableAdditionalProperties;
+          currentYAMLDoc.uri = textDocument.uri;
+          const validation = await this.jsonValidation.doValidation(textDocument, currentYAMLDoc);
+          const syd = currentYAMLDoc;
+          if (syd.errors.length > 0) {
+            validationResult.push(...syd.errors);
+          }
+          if (syd.warnings.length > 0) {
+            validationResult.push(...syd.warnings);
+          }
+          validationResult.push(...validation);
+          validationResult.push(...this.runAdditionalValidators(textDocument, currentYAMLDoc));
+          index++;
         }
-        const validationResult = [];
-        try {
-          const yamlDocument = yamlDocumentsCache.getYamlDocument(textDocument, { customTags: this.customTags, yamlVersion: this.yamlVersion }, true);
-          let index = 0;
-          for (const currentYAMLDoc of yamlDocument.documents) {
-            currentYAMLDoc.isKubernetes = isKubernetes;
-            currentYAMLDoc.currentDocIndex = index;
-            currentYAMLDoc.disableAdditionalProperties = this.disableAdditionalProperties;
-            const validation = yield this.jsonValidation.doValidation(textDocument, currentYAMLDoc);
-            const syd = currentYAMLDoc;
-            if (syd.errors.length > 0) {
-              validationResult.push(...syd.errors);
-            }
-            if (syd.warnings.length > 0) {
-              validationResult.push(...syd.warnings);
-            }
-            validationResult.push(...validation);
-            validationResult.push(...this.runAdditionalValidators(textDocument, currentYAMLDoc));
-            index++;
-          }
-        } catch (err) {
-          this.telemetry.sendError("yaml.validation.error", convertErrorToTelemetryMsg(err));
+      } catch (err) {
+        this.telemetry.sendError("yaml.validation.error", { error: convertErrorToTelemetryMsg(err) });
+      }
+      let previousErr;
+      const foundSignatures = /* @__PURE__ */ new Set();
+      const duplicateMessagesRemoved = [];
+      for (let err of validationResult) {
+        if (isKubernetes && err.message === this.MATCHES_MULTIPLE) {
+          continue;
         }
-        let previousErr;
-        const foundSignatures = /* @__PURE__ */ new Set();
-        const duplicateMessagesRemoved = [];
-        for (let err of validationResult) {
-          if (isKubernetes && err.message === this.MATCHES_MULTIPLE) {
-            continue;
-          }
-          if (Object.prototype.hasOwnProperty.call(err, "location")) {
-            err = yamlDiagToLSDiag(err, textDocument);
-          }
-          if (!err.source) {
-            err.source = YAML_SOURCE;
-          }
-          if (previousErr && previousErr.message === err.message && previousErr.range.end.line === err.range.start.line && Math.abs(previousErr.range.end.character - err.range.end.character) >= 1) {
-            previousErr.range.end = err.range.end;
-            continue;
-          } else {
-            previousErr = err;
-          }
-          const errSig = err.range.start.line + " " + err.range.start.character + " " + err.message;
-          if (!foundSignatures.has(errSig)) {
-            duplicateMessagesRemoved.push(err);
-            foundSignatures.add(errSig);
-          }
+        if (Object.prototype.hasOwnProperty.call(err, "location")) {
+          err = yamlDiagToLSDiag(err, textDocument);
         }
-        return duplicateMessagesRemoved;
-      });
+        if (!err.source) {
+          err.source = YAML_SOURCE;
+        }
+        if (previousErr && previousErr.message === err.message && previousErr.range.end.line === err.range.start.line && Math.abs(previousErr.range.end.character - err.range.end.character) >= 1) {
+          previousErr.range.end = err.range.end;
+          continue;
+        } else {
+          previousErr = err;
+        }
+        const errSig = err.range.start.line + " " + err.range.start.character + " " + err.message;
+        if (!foundSignatures.has(errSig)) {
+          duplicateMessagesRemoved.push(err);
+          foundSignatures.add(errSig);
+        }
+      }
+      return duplicateMessagesRemoved;
     }
     runAdditionalValidators(document2, yarnDoc) {
       const result = [];
@@ -40675,9 +44087,12 @@ Source: [${getSchemaName(schema5.schema)}](${schema5.schema.url})`;
         const prettierOptions = {
           parser: "yaml",
           plugins: [parser],
+          // --- FormattingOptions ---
           tabWidth: options.tabWidth || options.tabSize,
+          // --- CustomFormatterOptions ---
           singleQuote: options.singleQuote,
           bracketSpacing: options.bracketSpacing,
+          // 'preserve' is the default for Options.proseWrap. See also server.ts
           proseWrap: "always" === options.proseWrap ? "always" : "never" === options.proseWrap ? "never" : "preserve",
           printWidth: options.printWidth
         };
@@ -40689,8 +44104,8 @@ Source: [${getSchemaName(schema5.schema)}](${schema5.schema.url})`;
     }
   };
   var YamlLinks = class {
-    constructor(telemetry) {
-      this.telemetry = telemetry;
+    constructor(telemetry2) {
+      this.telemetry = telemetry2;
     }
     findLinks(document2) {
       try {
@@ -40717,7 +44132,7 @@ Source: [${getSchemaName(schema5.schema)}](${schema5.schema.url})`;
       }
       ymlDoc.visit((node) => {
         var _a3;
-        if (node.type === "object" && ((_a3 = node.parent) === null || _a3 === void 0 ? void 0 : _a3.type) === "array") {
+        if (node.type === "object" && ((_a3 = node.parent) == null ? void 0 : _a3.type) === "array") {
           result.push(createNormalizedFolding(document2, node));
         }
         if (node.type === "property" && node.valueNode) {
@@ -40835,13 +44250,13 @@ Source: [${getSchemaName(schema5.schema)}](${schema5.schema.url})`;
     }
     getJumpToSchemaActions(diagnostics) {
       var _a3, _b, _c, _d, _e;
-      const isOpenTextDocumentEnabled = (_d = (_c = (_b = (_a3 = this.clientCapabilities) === null || _a3 === void 0 ? void 0 : _a3.window) === null || _b === void 0 ? void 0 : _b.showDocument) === null || _c === void 0 ? void 0 : _c.support) !== null && _d !== void 0 ? _d : false;
+      const isOpenTextDocumentEnabled = (_d = (_c = (_b = (_a3 = this.clientCapabilities) == null ? void 0 : _a3.window) == null ? void 0 : _b.showDocument) == null ? void 0 : _c.support) != null ? _d : false;
       if (!isOpenTextDocumentEnabled) {
         return [];
       }
       const schemaUriToDiagnostic = /* @__PURE__ */ new Map();
       for (const diagnostic of diagnostics) {
-        const schemaUri = ((_e = diagnostic.data) === null || _e === void 0 ? void 0 : _e.schemaUri) || [];
+        const schemaUri = ((_e = diagnostic.data) == null ? void 0 : _e.schemaUri) || [];
         for (const schemaUriStr of schemaUri) {
           if (schemaUriStr) {
             if (!schemaUriToDiagnostic.has(schemaUriStr)) {
@@ -41031,7 +44446,6 @@ Source: [${getSchemaName(schema5.schema)}](${schema5.schema.url})`;
         return [TextEdit.insert(position, "  ")];
       }
     }
-    return;
   }
   function getSchemaUrls(schema5) {
     const result = /* @__PURE__ */ new Map();
@@ -41062,105 +44476,47 @@ Source: [${getSchemaName(schema5.schema)}](${schema5.schema.url})`;
   }
   function addInnerSchemaUrls(schemas2, result) {
     for (const subSchema of schemas2) {
-      if (!isBoolean2(subSchema)) {
-        if (subSchema.url && !result.has(subSchema.url)) {
-          result.set(subSchema.url, subSchema);
-        }
+      if (!isBoolean2(subSchema) && subSchema.url && !result.has(subSchema.url)) {
+        result.set(subSchema.url, subSchema);
       }
     }
   }
-  var __awaiter32 = function(thisArg, _arguments, P, generator) {
-    function adopt(value) {
-      return value instanceof P ? value : new P(function(resolve22) {
-        resolve22(value);
-      });
-    }
-    return new (P || (P = Promise))(function(resolve22, reject) {
-      function fulfilled(value) {
-        try {
-          step(generator.next(value));
-        } catch (e) {
-          reject(e);
-        }
-      }
-      function rejected(value) {
-        try {
-          step(generator["throw"](value));
-        } catch (e) {
-          reject(e);
-        }
-      }
-      function step(result) {
-        result.done ? resolve22(result.value) : adopt(result.value).then(fulfilled, rejected);
-      }
-      step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-  };
   var YamlCodeLens = class {
-    constructor(schemaService, telemetry) {
+    constructor(schemaService, telemetry2) {
       this.schemaService = schemaService;
-      this.telemetry = telemetry;
+      this.telemetry = telemetry2;
     }
-    getCodeLens(document2) {
-      return __awaiter32(this, void 0, void 0, function* () {
-        const result = [];
-        try {
-          const yamlDocument = yamlDocumentsCache.getYamlDocument(document2);
-          let schemaUrls = /* @__PURE__ */ new Map();
-          for (const currentYAMLDoc of yamlDocument.documents) {
-            const schema5 = yield this.schemaService.getSchemaForResource(document2.uri, currentYAMLDoc);
-            if (schema5 === null || schema5 === void 0 ? void 0 : schema5.schema) {
-              schemaUrls = new Map([...getSchemaUrls(schema5 === null || schema5 === void 0 ? void 0 : schema5.schema), ...schemaUrls]);
-            }
+    async getCodeLens(document2) {
+      const result = [];
+      try {
+        const yamlDocument = yamlDocumentsCache.getYamlDocument(document2);
+        let schemaUrls = /* @__PURE__ */ new Map();
+        for (const currentYAMLDoc of yamlDocument.documents) {
+          const schema5 = await this.schemaService.getSchemaForResource(document2.uri, currentYAMLDoc);
+          if (schema5 == null ? void 0 : schema5.schema) {
+            schemaUrls = new Map([...getSchemaUrls(schema5 == null ? void 0 : schema5.schema), ...schemaUrls]);
           }
-          for (const urlToSchema of schemaUrls) {
-            const lens = CodeLens.create(Range2.create(0, 0, 0, 0));
-            lens.command = {
-              title: getSchemaTitle(urlToSchema[1], urlToSchema[0]),
-              command: YamlCommands.JUMP_TO_SCHEMA,
-              arguments: [urlToSchema[0]]
-            };
-            result.push(lens);
-          }
-        } catch (err) {
-          this.telemetry.sendError("yaml.codeLens.error", { error: convertErrorToTelemetryMsg(err) });
         }
-        return result;
-      });
+        for (const urlToSchema of schemaUrls) {
+          const lens = CodeLens.create(Range2.create(0, 0, 0, 0));
+          lens.command = {
+            title: getSchemaTitle(urlToSchema[1], urlToSchema[0]),
+            command: YamlCommands.JUMP_TO_SCHEMA,
+            arguments: [urlToSchema[0]]
+          };
+          result.push(lens);
+        }
+      } catch (err) {
+        this.telemetry.sendError("yaml.codeLens.error", { error: convertErrorToTelemetryMsg(err) });
+      }
+      return result;
     }
     resolveCodeLens(param) {
       return param;
     }
   };
-  var __awaiter4 = function(thisArg, _arguments, P, generator) {
-    function adopt(value) {
-      return value instanceof P ? value : new P(function(resolve22) {
-        resolve22(value);
-      });
-    }
-    return new (P || (P = Promise))(function(resolve22, reject) {
-      function fulfilled(value) {
-        try {
-          step(generator.next(value));
-        } catch (e) {
-          reject(e);
-        }
-      }
-      function rejected(value) {
-        try {
-          step(generator["throw"](value));
-        } catch (e) {
-          reject(e);
-        }
-      }
-      function step(result) {
-        result.done ? resolve22(result.value) : adopt(result.value).then(fulfilled, rejected);
-      }
-      step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-  };
   function registerCommands(commandExecutor2, connection) {
-    commandExecutor2.registerCommand(YamlCommands.JUMP_TO_SCHEMA, (uri) => __awaiter4(this, void 0, void 0, function* () {
+    commandExecutor2.registerCommand(YamlCommands.JUMP_TO_SCHEMA, async (uri) => {
       if (!uri) {
         return;
       }
@@ -41178,11 +44534,11 @@ Source: [${getSchemaName(schema5.schema)}](${schema5.schema.url})`;
         const winUri = URI2.file(uri);
         uri = winUri.toString();
       }
-      const result = yield connection.window.showDocument({ uri, external: false, takeFocus: true });
+      const result = await connection.window.showDocument({ uri, external: false, takeFocus: true });
       if (!result) {
         connection.window.showErrorMessage(`Cannot open ${uri}`);
       }
-    }));
+    });
   }
   var SpacesDiffResult = class {
     constructor() {
@@ -41240,7 +44596,6 @@ Source: [${getSchemaName(schema5.schema)}](${schema5.schema.url})`;
     }
     if (spacesDiff2 % tabsDiff === 0) {
       result.spacesDiff = spacesDiff2 / tabsDiff;
-      return;
     }
   }
   function guessIndentation(source, defaultTabSize, defaultInsertSpaces) {
@@ -41378,42 +44733,15 @@ Source: [${getSchemaName(schema5.schema)}](${schema5.schema.url})`;
     }
     return newObj;
   }
-  var __awaiter5 = function(thisArg, _arguments, P, generator) {
-    function adopt(value) {
-      return value instanceof P ? value : new P(function(resolve22) {
-        resolve22(value);
-      });
-    }
-    return new (P || (P = Promise))(function(resolve22, reject) {
-      function fulfilled(value) {
-        try {
-          step(generator.next(value));
-        } catch (e) {
-          reject(e);
-        }
-      }
-      function rejected(value) {
-        try {
-          step(generator["throw"](value));
-        } catch (e) {
-          reject(e);
-        }
-      }
-      function step(result) {
-        result.done ? resolve22(result.value) : adopt(result.value).then(fulfilled, rejected);
-      }
-      step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-  };
   var localize9 = loadMessageBundle();
   var doubleQuotesEscapeRegExp = /[\\]+"/g;
   var parentCompletionKind = CompletionItemKind2.Class;
   var YamlCompletion = class {
-    constructor(schemaService, clientCapabilities = {}, yamlDocument, telemetry) {
+    constructor(schemaService, clientCapabilities = {}, yamlDocument, telemetry2) {
       this.schemaService = schemaService;
       this.clientCapabilities = clientCapabilities;
       this.yamlDocument = yamlDocument;
-      this.telemetry = telemetry;
+      this.telemetry = telemetry2;
       this.completionEnabled = true;
       this.arrayPrefixIndentation = "";
     }
@@ -41427,359 +44755,386 @@ Source: [${getSchemaName(schema5.schema)}](${schema5.schema.url})`;
       this.disableDefaultProperties = languageSettings.disableDefaultProperties;
       this.parentSkeletonSelectedFirst = languageSettings.parentSkeletonSelectedFirst;
     }
-    doComplete(document2, position, isKubernetes = false, doComplete = true) {
-      return __awaiter5(this, void 0, void 0, function* () {
-        const result = CompletionList.create([], false);
-        if (!this.completionEnabled) {
-          return result;
-        }
-        const doc = this.yamlDocument.getYamlDocument(document2, { customTags: this.customTags, yamlVersion: this.yamlVersion }, true);
-        const textBuffer = new TextBuffer(document2);
-        if (!this.configuredIndentation) {
-          const indent = guessIndentation(textBuffer, 2, true);
-          this.indentation = indent.insertSpaces ? " ".repeat(indent.tabSize) : "	";
-        } else {
-          this.indentation = this.configuredIndentation;
-        }
-        setKubernetesParserOption(doc.documents, isKubernetes);
-        const offset = document2.offsetAt(position);
-        const text = document2.getText();
-        if (text.charAt(offset - 1) === ":") {
-          return Promise.resolve(result);
-        }
-        let currentDoc = matchOffsetToDocument(offset, doc);
-        if (currentDoc === null) {
-          return Promise.resolve(result);
-        }
-        currentDoc = currentDoc.clone();
-        let [node, foundByClosest] = currentDoc.getNodeFromPosition(offset, textBuffer, this.indentation.length);
-        const currentWord = this.getCurrentWord(document2, offset);
-        let lineContent = textBuffer.getLineContent(position.line);
-        const lineAfterPosition = lineContent.substring(position.character);
-        const areOnlySpacesAfterPosition = /^[ ]+\n?$/.test(lineAfterPosition);
-        this.arrayPrefixIndentation = "";
-        let overwriteRange = null;
-        if (areOnlySpacesAfterPosition) {
-          overwriteRange = Range2.create(position, Position2.create(position.line, lineContent.length));
-          const isOnlyWhitespace = lineContent.trim().length === 0;
-          const isOnlyDash = lineContent.match(/^\s*(-)\s*$/);
-          if (node && isScalar(node) && !isOnlyWhitespace && !isOnlyDash) {
-            const matches = lineContent.match(/^([\s-]*)[^:]+[ \t]+\n?$/);
-            if (matches === null || matches === void 0 ? void 0 : matches.length) {
-              overwriteRange = Range2.create(Position2.create(position.line, matches[1].length), Position2.create(position.line, lineContent.length));
-            }
+    async doComplete(document2, position, isKubernetes = false, doComplete = true) {
+      const result = CompletionList.create([], false);
+      if (!this.completionEnabled) {
+        return result;
+      }
+      const doc = this.yamlDocument.getYamlDocument(document2, { customTags: this.customTags, yamlVersion: this.yamlVersion }, true);
+      const textBuffer = new TextBuffer(document2);
+      if (!this.configuredIndentation) {
+        const indent = guessIndentation(textBuffer, 2, true);
+        this.indentation = indent.insertSpaces ? " ".repeat(indent.tabSize) : "	";
+      } else {
+        this.indentation = this.configuredIndentation;
+      }
+      setKubernetesParserOption(doc.documents, isKubernetes);
+      for (const jsonDoc of doc.documents) {
+        jsonDoc.uri = document2.uri;
+      }
+      const offset = document2.offsetAt(position);
+      const text = document2.getText();
+      if (text.charAt(offset - 1) === ":") {
+        return Promise.resolve(result);
+      }
+      let currentDoc = matchOffsetToDocument(offset, doc);
+      if (currentDoc === null) {
+        return Promise.resolve(result);
+      }
+      currentDoc = currentDoc.clone();
+      let [node, foundByClosest] = currentDoc.getNodeFromPosition(offset, textBuffer, this.indentation.length);
+      const currentWord = this.getCurrentWord(document2, offset);
+      let lineContent = textBuffer.getLineContent(position.line);
+      const lineAfterPosition = lineContent.substring(position.character);
+      const areOnlySpacesAfterPosition = /^[ ]+\n?$/.test(lineAfterPosition);
+      this.arrayPrefixIndentation = "";
+      let overwriteRange = null;
+      if (areOnlySpacesAfterPosition) {
+        overwriteRange = Range2.create(position, Position2.create(position.line, lineContent.length));
+        const isOnlyWhitespace = lineContent.trim().length === 0;
+        const isOnlyDash = lineContent.match(/^\s*(-)\s*$/);
+        if (node && isScalar(node) && !isOnlyWhitespace && !isOnlyDash) {
+          const matches = lineContent.match(/^([\s-]*)[^:]+[ \t]+\n?$/);
+          if (matches == null ? void 0 : matches.length) {
+            overwriteRange = Range2.create(Position2.create(position.line, matches[1].length), Position2.create(position.line, lineContent.length));
           }
-        } else if (node && isScalar(node) && node.value === "null") {
-          const nodeStartPos = document2.positionAt(node.range[0]);
-          nodeStartPos.character += 1;
-          const nodeEndPos = document2.positionAt(node.range[2]);
-          nodeEndPos.character += 1;
-          overwriteRange = Range2.create(nodeStartPos, nodeEndPos);
-        } else if (node && isScalar(node) && node.value) {
-          const start = document2.positionAt(node.range[0]);
-          if (offset > 0 && start.character > 0 && text.charAt(offset - 1) === "-") {
-            start.character -= 1;
-          }
-          overwriteRange = Range2.create(start, document2.positionAt(node.range[1]));
-        } else if (node && isScalar(node) && node.value === null && currentWord === "-") {
-          overwriteRange = Range2.create(position, position);
-          this.arrayPrefixIndentation = " ";
-        } else {
-          let overwriteStart = document2.offsetAt(position) - currentWord.length;
-          if (overwriteStart > 0 && text[overwriteStart - 1] === '"') {
-            overwriteStart--;
-          }
-          overwriteRange = Range2.create(document2.positionAt(overwriteStart), position);
         }
-        const proposed = {};
-        const existingProposeItem = "__";
-        const collector = {
-          add: (completionItem) => {
-            const addSuggestionForParent = function(completionItem2) {
-              var _a3;
-              const existsInYaml = ((_a3 = proposed[completionItem2.label]) === null || _a3 === void 0 ? void 0 : _a3.label) === existingProposeItem;
-              if (existsInYaml) {
-                return;
-              }
-              const schema5 = completionItem2.parent.schema;
-              const schemaType = getSchemaTypeName(schema5);
-              const schemaDescription = schema5.markdownDescription || schema5.description;
-              let parentCompletion = result.items.find((item) => {
-                var _a22;
-                return ((_a22 = item.parent) === null || _a22 === void 0 ? void 0 : _a22.schema) === schema5 && item.kind === parentCompletionKind;
-              });
-              if (parentCompletion && parentCompletion.parent.insertTexts.includes(completionItem2.insertText)) {
-                return;
-              } else if (!parentCompletion) {
-                parentCompletion = Object.assign(Object.assign({}, completionItem2), { label: schemaType, documentation: schemaDescription, sortText: "_" + schemaType, kind: parentCompletionKind });
-                parentCompletion.parent.insertTexts = [completionItem2.insertText];
-                result.items.push(parentCompletion);
-              } else {
-                parentCompletion.parent.insertTexts.push(completionItem2.insertText);
-              }
-            };
-            const isForParentCompletion = !!completionItem.parent;
-            let label = completionItem.label;
-            if (!label) {
-              console.warn(`Ignoring CompletionItem without label: ${JSON.stringify(completionItem)}`);
+      } else if (node && isScalar(node) && node.value === "null") {
+        const nodeStartPos = document2.positionAt(node.range[0]);
+        nodeStartPos.character += 1;
+        const nodeEndPos = document2.positionAt(node.range[2]);
+        nodeEndPos.character += 1;
+        overwriteRange = Range2.create(nodeStartPos, nodeEndPos);
+      } else if (node && isScalar(node) && node.value) {
+        const start = document2.positionAt(node.range[0]);
+        if (offset > 0 && start.character > 0 && text.charAt(offset - 1) === "-") {
+          start.character -= 1;
+        }
+        overwriteRange = Range2.create(start, document2.positionAt(node.range[1]));
+      } else if (node && isScalar(node) && node.value === null && currentWord === "-") {
+        overwriteRange = Range2.create(position, position);
+        this.arrayPrefixIndentation = " ";
+      } else {
+        let overwriteStart = document2.offsetAt(position) - currentWord.length;
+        if (overwriteStart > 0 && text[overwriteStart - 1] === '"') {
+          overwriteStart--;
+        }
+        overwriteRange = Range2.create(document2.positionAt(overwriteStart), position);
+      }
+      const proposed = {};
+      const existingProposeItem = "__";
+      const collector = {
+        add: (completionItem, oneOfSchema) => {
+          const addSuggestionForParent = function(completionItem2) {
+            var _a3;
+            const existsInYaml = ((_a3 = proposed[completionItem2.label]) == null ? void 0 : _a3.label) === existingProposeItem;
+            if (existsInYaml) {
               return;
             }
-            if (!isString2(label)) {
-              label = String(label);
-            }
-            label = label.replace(/[\n]/g, "\u21B5");
-            if (label.length > 60) {
-              const shortendedLabel = label.substr(0, 57).trim() + "...";
-              if (!proposed[shortendedLabel]) {
-                label = shortendedLabel;
-              }
-            }
-            if (completionItem.insertText.endsWith("$1") && !isForParentCompletion) {
-              completionItem.insertText = completionItem.insertText.substr(0, completionItem.insertText.length - 2);
-            }
-            if (overwriteRange && overwriteRange.start.line === overwriteRange.end.line) {
-              completionItem.textEdit = TextEdit.replace(overwriteRange, completionItem.insertText);
-            }
-            completionItem.label = label;
-            if (isForParentCompletion) {
-              addSuggestionForParent(completionItem);
+            const schema5 = completionItem2.parent.schema;
+            const schemaType = getSchemaTypeName(schema5);
+            const schemaDescription = schema5.markdownDescription || schema5.description;
+            let parentCompletion = result.items.find((item) => {
+              var _a22;
+              return ((_a22 = item.parent) == null ? void 0 : _a22.schema) === schema5 && item.kind === parentCompletionKind;
+            });
+            if (parentCompletion && parentCompletion.parent.insertTexts.includes(completionItem2.insertText)) {
               return;
+            } else if (!parentCompletion) {
+              parentCompletion = {
+                ...completionItem2,
+                label: schemaType,
+                documentation: schemaDescription,
+                sortText: "_" + schemaType,
+                kind: parentCompletionKind
+              };
+              parentCompletion.label = parentCompletion.label || completionItem2.label;
+              parentCompletion.parent.insertTexts = [completionItem2.insertText];
+              result.items.push(parentCompletion);
+            } else {
+              parentCompletion.parent.insertTexts.push(completionItem2.insertText);
             }
-            if (this.arrayPrefixIndentation) {
-              this.updateCompletionText(completionItem, this.arrayPrefixIndentation + completionItem.insertText);
+          };
+          const isForParentCompletion = !!completionItem.parent;
+          let label = completionItem.label;
+          if (!label) {
+            console.warn(`Ignoring CompletionItem without label: ${JSON.stringify(completionItem)}`);
+            return;
+          }
+          if (!isString22(label)) {
+            label = String(label);
+          }
+          label = label.replace(/[\n]/g, "\u21B5");
+          if (label.length > 60) {
+            const shortendedLabel = label.substr(0, 57).trim() + "...";
+            if (!proposed[shortendedLabel]) {
+              label = shortendedLabel;
             }
-            const existing = proposed[label];
-            const isInsertTextDifferent = (existing === null || existing === void 0 ? void 0 : existing.label) !== existingProposeItem && (existing === null || existing === void 0 ? void 0 : existing.insertText) !== completionItem.insertText;
-            if (!existing) {
+          }
+          if (completionItem.insertText.endsWith("$1") && !isForParentCompletion) {
+            completionItem.insertText = completionItem.insertText.substr(0, completionItem.insertText.length - 2);
+          }
+          if (overwriteRange && overwriteRange.start.line === overwriteRange.end.line) {
+            completionItem.textEdit = TextEdit.replace(overwriteRange, completionItem.insertText);
+          }
+          completionItem.label = label;
+          if (isForParentCompletion) {
+            addSuggestionForParent(completionItem);
+            return;
+          }
+          if (this.arrayPrefixIndentation) {
+            this.updateCompletionText(completionItem, this.arrayPrefixIndentation + completionItem.insertText);
+          }
+          const existing = proposed[label];
+          const isInsertTextDifferent = (existing == null ? void 0 : existing.label) !== existingProposeItem && (existing == null ? void 0 : existing.insertText) !== completionItem.insertText;
+          if (!existing) {
+            proposed[label] = completionItem;
+            result.items.push(completionItem);
+          } else if (isInsertTextDifferent) {
+            const mergedText = this.mergeSimpleInsertTexts(label, existing.insertText, completionItem.insertText, oneOfSchema);
+            if (mergedText) {
+              this.updateCompletionText(existing, mergedText);
+            } else {
               proposed[label] = completionItem;
               result.items.push(completionItem);
-            } else if (isInsertTextDifferent) {
-              const mergedText = this.mergeSimpleInsertTexts(label, existing.insertText, completionItem.insertText);
-              if (mergedText) {
-                this.updateCompletionText(existing, mergedText);
-              } else {
-                proposed[label] = completionItem;
-                result.items.push(completionItem);
-              }
             }
-            if (existing && !existing.documentation && completionItem.documentation) {
-              existing.documentation = completionItem.documentation;
-            }
-          },
-          error: (message) => {
-            this.telemetry.sendError("yaml.completion.error", { error: convertErrorToTelemetryMsg(message) });
-          },
-          log: (message) => {
-            console.log(message);
-          },
-          getNumberOfProposals: () => {
-            return result.items.length;
           }
-        };
-        if (this.customTags.length > 0) {
-          this.getCustomTagValueCompletions(collector);
+          if (existing && !existing.documentation && completionItem.documentation) {
+            existing.documentation = completionItem.documentation;
+          }
+        },
+        error: (message) => {
+          this.telemetry.sendError("yaml.completion.error", { error: convertErrorToTelemetryMsg(message) });
+        },
+        log: (message) => {
+          console.log(message);
+        },
+        getNumberOfProposals: () => {
+          return result.items.length;
+        },
+        result
+      };
+      if (this.customTags.length > 0) {
+        this.getCustomTagValueCompletions(collector);
+      }
+      if (lineContent.endsWith("\n")) {
+        lineContent = lineContent.substr(0, lineContent.length - 1);
+      }
+      try {
+        const schema5 = await this.schemaService.getSchemaForResource(document2.uri, currentDoc);
+        if (!schema5 || schema5.errors.length) {
+          if (position.line === 0 && position.character === 0 && !isModeline(lineContent)) {
+            const inlineSchemaCompletion = {
+              kind: CompletionItemKind2.Text,
+              label: "Inline schema",
+              insertText: "# yaml-language-server: $schema=",
+              insertTextFormat: InsertTextFormat.PlainText
+            };
+            result.items.push(inlineSchemaCompletion);
+          }
         }
-        if (lineContent.endsWith("\n")) {
-          lineContent = lineContent.substr(0, lineContent.length - 1);
-        }
-        try {
-          const schema5 = yield this.schemaService.getSchemaForResource(document2.uri, currentDoc);
-          if (!schema5 || schema5.errors.length) {
-            if (position.line === 0 && position.character === 0 && !isModeline(lineContent)) {
-              const inlineSchemaCompletion = {
-                kind: CompletionItemKind2.Text,
-                label: "Inline schema",
-                insertText: "# yaml-language-server: $schema=",
-                insertTextFormat: InsertTextFormat.PlainText
+        if (isModeline(lineContent) || isInComment(doc.tokens, offset)) {
+          const schemaIndex = lineContent.indexOf("$schema=");
+          if (schemaIndex !== -1 && schemaIndex + "$schema=".length <= position.character) {
+            this.schemaService.getAllSchemas().forEach((schema22) => {
+              var _a3;
+              const schemaIdCompletion = {
+                kind: CompletionItemKind2.Constant,
+                label: (_a3 = schema22.name) != null ? _a3 : schema22.uri,
+                detail: schema22.description,
+                insertText: schema22.uri,
+                insertTextFormat: InsertTextFormat.PlainText,
+                insertTextMode: InsertTextMode.asIs
               };
-              result.items.push(inlineSchemaCompletion);
-            }
+              result.items.push(schemaIdCompletion);
+            });
           }
-          if (isModeline(lineContent) || isInComment(doc.tokens, offset)) {
-            const schemaIndex = lineContent.indexOf("$schema=");
-            if (schemaIndex !== -1 && schemaIndex + "$schema=".length <= position.character) {
-              this.schemaService.getAllSchemas().forEach((schema22) => {
-                var _a3;
-                const schemaIdCompletion = {
-                  kind: CompletionItemKind2.Constant,
-                  label: (_a3 = schema22.name) !== null && _a3 !== void 0 ? _a3 : schema22.uri,
-                  detail: schema22.description,
-                  insertText: schema22.uri,
-                  insertTextFormat: InsertTextFormat.PlainText,
-                  insertTextMode: InsertTextMode.asIs
-                };
-                result.items.push(schemaIdCompletion);
-              });
-            }
-            return result;
+          return result;
+        }
+        if (!schema5 || schema5.errors.length) {
+          return result;
+        }
+        let currentProperty = null;
+        if (!node) {
+          if (!currentDoc.internalDocument.contents || isScalar(currentDoc.internalDocument.contents)) {
+            const map2 = currentDoc.internalDocument.createNode({});
+            map2.range = [offset, offset + 1, offset + 1];
+            currentDoc.internalDocument.contents = map2;
+            currentDoc.internalDocument = currentDoc.internalDocument;
+            node = map2;
+          } else {
+            node = currentDoc.findClosestNode(offset, textBuffer);
+            foundByClosest = true;
           }
-          if (!schema5 || schema5.errors.length) {
-            return result;
-          }
-          let currentProperty = null;
-          if (!node) {
-            if (!currentDoc.internalDocument.contents || isScalar(currentDoc.internalDocument.contents)) {
-              const map2 = currentDoc.internalDocument.createNode({});
-              map2.range = [offset, offset + 1, offset + 1];
-              currentDoc.internalDocument.contents = map2;
-              currentDoc.internalDocument = currentDoc.internalDocument;
-              node = map2;
-            } else {
-              node = currentDoc.findClosestNode(offset, textBuffer);
-              foundByClosest = true;
-            }
-          }
-          const originalNode = node;
-          if (node) {
-            if (lineContent.length === 0) {
-              node = currentDoc.internalDocument.contents;
-            } else {
-              const parent = currentDoc.getParent(node);
-              if (parent) {
-                if (isScalar(node)) {
-                  if (node.value) {
-                    if (isPair(parent)) {
-                      if (parent.value === node) {
-                        if (lineContent.trim().length > 0 && lineContent.indexOf(":") < 0) {
-                          const map2 = this.createTempObjNode(currentWord, node, currentDoc);
-                          const parentParent = currentDoc.getParent(parent);
-                          if (isSeq(currentDoc.internalDocument.contents)) {
-                            const index = indexOf(currentDoc.internalDocument.contents, parent);
-                            if (typeof index === "number") {
-                              currentDoc.internalDocument.set(index, map2);
-                              currentDoc.internalDocument = currentDoc.internalDocument;
-                            }
-                          } else if (parentParent && (isMap(parentParent) || isSeq(parentParent))) {
-                            parentParent.set(parent.key, map2);
-                            currentDoc.internalDocument = currentDoc.internalDocument;
-                          } else {
-                            currentDoc.internalDocument.set(parent.key, map2);
-                            currentDoc.internalDocument = currentDoc.internalDocument;
-                          }
-                          currentProperty = map2.items[0];
-                          node = map2;
-                        } else if (lineContent.trim().length === 0) {
-                          const parentParent = currentDoc.getParent(parent);
-                          if (parentParent) {
-                            node = parentParent;
-                          }
-                        }
-                      } else if (parent.key === node) {
+        }
+        const originalNode = node;
+        if (node) {
+          if (lineContent.length === 0) {
+            node = currentDoc.internalDocument.contents;
+          } else {
+            const parent = currentDoc.getParent(node);
+            if (parent) {
+              if (isScalar(node)) {
+                if (node.value) {
+                  if (isPair(parent)) {
+                    if (parent.value === node) {
+                      if (lineContent.trim().length > 0 && lineContent.indexOf(":") < 0) {
+                        const map2 = this.createTempObjNode(currentWord, node, currentDoc);
                         const parentParent = currentDoc.getParent(parent);
-                        currentProperty = parent;
+                        if (isSeq(currentDoc.internalDocument.contents)) {
+                          const index = indexOf(currentDoc.internalDocument.contents, parent);
+                          if (typeof index === "number") {
+                            currentDoc.internalDocument.set(index, map2);
+                            currentDoc.internalDocument = currentDoc.internalDocument;
+                          }
+                        } else if (parentParent && (isMap(parentParent) || isSeq(parentParent))) {
+                          parentParent.set(parent.key, map2);
+                          currentDoc.internalDocument = currentDoc.internalDocument;
+                        } else {
+                          currentDoc.internalDocument.set(parent.key, map2);
+                          currentDoc.internalDocument = currentDoc.internalDocument;
+                        }
+                        currentProperty = map2.items[0];
+                        node = map2;
+                      } else if (lineContent.trim().length === 0) {
+                        const parentParent = currentDoc.getParent(parent);
                         if (parentParent) {
                           node = parentParent;
                         }
                       }
-                    } else if (isSeq(parent)) {
-                      if (lineContent.trim().length > 0) {
-                        const map2 = this.createTempObjNode(currentWord, node, currentDoc);
-                        parent.delete(node);
-                        parent.add(map2);
-                        currentDoc.internalDocument = currentDoc.internalDocument;
-                        node = map2;
-                      } else {
-                        node = parent;
+                    } else if (parent.key === node) {
+                      const parentParent = currentDoc.getParent(parent);
+                      currentProperty = parent;
+                      if (parentParent) {
+                        node = parentParent;
                       }
                     }
-                  } else if (node.value === null) {
-                    if (isPair(parent)) {
-                      if (parent.key === node) {
-                        node = parent;
-                      } else {
-                        if (isNode(parent.key) && parent.key.range) {
-                          const parentParent = currentDoc.getParent(parent);
-                          if (foundByClosest && parentParent && isMap(parentParent) && isMapContainsEmptyPair(parentParent)) {
-                            node = parentParent;
-                          } else {
-                            const parentPosition = document2.positionAt(parent.key.range[0]);
-                            if (position.character > parentPosition.character && position.line !== parentPosition.line) {
-                              const map2 = this.createTempObjNode(currentWord, node, currentDoc);
-                              if (parentParent && (isMap(parentParent) || isSeq(parentParent))) {
-                                parentParent.set(parent.key, map2);
-                                currentDoc.internalDocument = currentDoc.internalDocument;
-                              } else {
-                                currentDoc.internalDocument.set(parent.key, map2);
-                                currentDoc.internalDocument = currentDoc.internalDocument;
-                              }
-                              currentProperty = map2.items[0];
-                              node = map2;
-                            } else if (parentPosition.character === position.character) {
-                              if (parentParent) {
-                                node = parentParent;
-                              }
+                  } else if (isSeq(parent)) {
+                    if (lineContent.trim().length > 0) {
+                      const map2 = this.createTempObjNode(currentWord, node, currentDoc);
+                      parent.delete(node);
+                      parent.add(map2);
+                      currentDoc.internalDocument = currentDoc.internalDocument;
+                      node = map2;
+                    } else {
+                      node = parent;
+                    }
+                  }
+                } else if (node.value === null) {
+                  if (isPair(parent)) {
+                    if (parent.key === node) {
+                      node = parent;
+                    } else {
+                      if (isNode(parent.key) && parent.key.range) {
+                        const parentParent = currentDoc.getParent(parent);
+                        if (foundByClosest && parentParent && isMap(parentParent) && isMapContainsEmptyPair(parentParent)) {
+                          node = parentParent;
+                        } else {
+                          const parentPosition = document2.positionAt(parent.key.range[0]);
+                          if (position.character > parentPosition.character && position.line !== parentPosition.line) {
+                            const map2 = this.createTempObjNode(currentWord, node, currentDoc);
+                            if (parentParent && (isMap(parentParent) || isSeq(parentParent))) {
+                              parentParent.set(parent.key, map2);
+                              currentDoc.internalDocument = currentDoc.internalDocument;
+                            } else {
+                              currentDoc.internalDocument.set(parent.key, map2);
+                              currentDoc.internalDocument = currentDoc.internalDocument;
+                            }
+                            currentProperty = map2.items[0];
+                            node = map2;
+                          } else if (parentPosition.character === position.character) {
+                            if (parentParent) {
+                              node = parentParent;
                             }
                           }
                         }
                       }
-                    } else if (isSeq(parent)) {
-                      if (lineContent.charAt(position.character - 1) !== "-") {
-                        const map2 = this.createTempObjNode(currentWord, node, currentDoc);
-                        parent.delete(node);
-                        parent.add(map2);
-                        currentDoc.internalDocument = currentDoc.internalDocument;
-                        node = map2;
-                      } else if (lineContent.charAt(position.character - 1) === "-") {
-                        const map2 = this.createTempObjNode("", node, currentDoc);
-                        parent.delete(node);
-                        parent.add(map2);
-                        currentDoc.internalDocument = currentDoc.internalDocument;
-                        node = map2;
-                      } else {
-                        node = parent;
-                      }
                     }
-                  }
-                } else if (isMap(node)) {
-                  if (!foundByClosest && lineContent.trim().length === 0 && isSeq(parent)) {
-                    const nextLine = textBuffer.getLineContent(position.line + 1);
-                    if (textBuffer.getLineCount() === position.line + 1 || nextLine.trim().length === 0) {
+                  } else if (isSeq(parent)) {
+                    if (lineContent.charAt(position.character - 1) !== "-") {
+                      const map2 = this.createTempObjNode(currentWord, node, currentDoc);
+                      parent.delete(node);
+                      parent.add(map2);
+                      currentDoc.internalDocument = currentDoc.internalDocument;
+                      node = map2;
+                    } else if (lineContent.charAt(position.character - 1) === "-") {
+                      const map2 = this.createTempObjNode("", node, currentDoc);
+                      parent.delete(node);
+                      parent.add(map2);
+                      currentDoc.internalDocument = currentDoc.internalDocument;
+                      node = map2;
+                    } else {
                       node = parent;
                     }
                   }
                 }
-              } else if (isScalar(node)) {
-                const map2 = this.createTempObjNode(currentWord, node, currentDoc);
-                currentDoc.internalDocument.contents = map2;
-                currentDoc.internalDocument = currentDoc.internalDocument;
-                currentProperty = map2.items[0];
-                node = map2;
               } else if (isMap(node)) {
-                for (const pair of node.items) {
-                  if (isNode(pair.value) && pair.value.range && pair.value.range[0] === offset + 1) {
-                    node = pair.value;
+                if (!foundByClosest && lineContent.trim().length === 0 && isSeq(parent)) {
+                  const nextLine = textBuffer.getLineContent(position.line + 1);
+                  if (textBuffer.getLineCount() === position.line + 1 || nextLine.trim().length === 0) {
+                    node = parent;
                   }
                 }
               }
-            }
-          }
-          if (node && isMap(node)) {
-            const properties = node.items;
-            for (const p of properties) {
-              if (!currentProperty || currentProperty !== p) {
-                if (isScalar(p.key)) {
-                  proposed[p.key.value + ""] = CompletionItem.create(existingProposeItem);
+            } else if (isScalar(node)) {
+              const map2 = this.createTempObjNode(currentWord, node, currentDoc);
+              currentDoc.internalDocument.contents = map2;
+              currentDoc.internalDocument = currentDoc.internalDocument;
+              currentProperty = map2.items[0];
+              node = map2;
+            } else if (isMap(node)) {
+              for (const pair of node.items) {
+                if (isNode(pair.value) && pair.value.range && pair.value.range[0] === offset + 1) {
+                  node = pair.value;
                 }
               }
-            }
-            this.addPropertyCompletions(schema5, currentDoc, node, originalNode, "", collector, textBuffer, overwriteRange, doComplete);
-            if (!schema5 && currentWord.length > 0 && text.charAt(offset - currentWord.length - 1) !== '"') {
-              collector.add({
-                kind: CompletionItemKind2.Property,
-                label: currentWord,
-                insertText: this.getInsertTextForProperty(currentWord, null, ""),
-                insertTextFormat: InsertTextFormat.Snippet
-              });
+            } else if (isSeq(node)) {
+              if (lineContent.charAt(position.character - 1) !== "-") {
+                const map2 = this.createTempObjNode(currentWord, node, currentDoc);
+                map2.items = [];
+                currentDoc.internalDocument = currentDoc.internalDocument;
+                for (const pair of node.items) {
+                  if (isMap(pair)) {
+                    pair.items.forEach((value) => {
+                      map2.items.push(value);
+                    });
+                  }
+                }
+                node = map2;
+              }
             }
           }
-          const types = {};
-          this.getValueCompletions(schema5, currentDoc, node, offset, document2, collector, types, doComplete);
-        } catch (err) {
-          this.telemetry.sendError("yaml.completion.error", { error: convertErrorToTelemetryMsg(err) });
         }
-        this.finalizeParentCompletion(result);
-        return result;
-      });
+        if (node && isMap(node)) {
+          const properties = node.items;
+          for (const p of properties) {
+            if (!currentProperty || currentProperty !== p) {
+              if (isScalar(p.key)) {
+                proposed[p.key.value + ""] = CompletionItem.create(existingProposeItem);
+              }
+            }
+          }
+          this.addPropertyCompletions(schema5, currentDoc, node, originalNode, "", collector, textBuffer, overwriteRange, doComplete);
+          if (!schema5 && currentWord.length > 0 && text.charAt(offset - currentWord.length - 1) !== '"') {
+            collector.add({
+              kind: CompletionItemKind2.Property,
+              label: currentWord,
+              insertText: this.getInsertTextForProperty(currentWord, null, ""),
+              insertTextFormat: InsertTextFormat.Snippet
+            });
+          }
+        }
+        const types = {};
+        this.getValueCompletions(schema5, currentDoc, node, offset, document2, collector, types, doComplete);
+      } catch (err) {
+        this.telemetry.sendError("yaml.completion.error", { error: convertErrorToTelemetryMsg(err) });
+      }
+      this.finalizeParentCompletion(result);
+      const uniqueItems = result.items.filter((arr, index, self2) => index === self2.findIndex((item) => item.label === arr.label && item.insertText === arr.insertText && item.kind === arr.kind));
+      if ((uniqueItems == null ? void 0 : uniqueItems.length) > 0) {
+        result.items = uniqueItems;
+      }
+      return result;
     }
     updateCompletionText(completionItem, text) {
       completionItem.insertText = text;
@@ -41787,11 +45142,21 @@ Source: [${getSchemaName(schema5.schema)}](${schema5.schema.url})`;
         completionItem.textEdit.newText = text;
       }
     }
-    mergeSimpleInsertTexts(label, existingText, addingText) {
+    mergeSimpleInsertTexts(label, existingText, addingText, oneOfSchema) {
       const containsNewLineAfterColon = (value) => {
         return value.includes("\n");
       };
+      const startWithNewLine = (value) => {
+        return value.startsWith("\n");
+      };
+      const isNullObject = (value) => {
+        const index = value.indexOf("\n");
+        return index > 0 && value.substring(index, value.length).trim().length === 0;
+      };
       if (containsNewLineAfterColon(existingText) || containsNewLineAfterColon(addingText)) {
+        if (oneOfSchema && isNullObject(existingText) && !isNullObject(addingText) && !startWithNewLine(addingText)) {
+          return addingText;
+        }
         return void 0;
       }
       const existingValues = this.getValuesFromInsertText(existingText);
@@ -41863,7 +45228,7 @@ ${indent}`);
       return map2;
     }
     addPropertyCompletions(schema5, doc, node, originalNode, separatorAfter, collector, textBuffer, overwriteRange, doComplete) {
-      var _a3, _b;
+      var _a3, _b, _c;
       const matchingSchemas = doc.getMatchingSchemas(schema5.schema, -1, null, doComplete);
       const existingKey = textBuffer.getText(overwriteRange);
       const lineContent = textBuffer.getLineContent(overwriteRange.start.line);
@@ -41872,8 +45237,18 @@ ${indent}`);
       const isInArray = lineContent.trimLeft().indexOf("-") === 0;
       const nodeParent = doc.getParent(node);
       const matchOriginal = matchingSchemas.find((it) => it.node.internalNode === originalNode && it.schema.properties);
+      const oneOfSchema = matchingSchemas.filter((schema22) => schema22.schema.oneOf).map((oneOfSchema2) => oneOfSchema2.schema.oneOf)[0];
+      let didOneOfSchemaMatches = false;
+      if ((oneOfSchema == null ? void 0 : oneOfSchema.length) < matchingSchemas.length) {
+        oneOfSchema == null ? void 0 : oneOfSchema.forEach((property2, index) => {
+          var _a22, _b2;
+          if (!((_a22 = matchingSchemas[index]) == null ? void 0 : _a22.schema.oneOf) && ((_b2 = matchingSchemas[index]) == null ? void 0 : _b2.schema.properties) === property2.properties) {
+            didOneOfSchemaMatches = true;
+          }
+        });
+      }
       for (const schema22 of matchingSchemas) {
-        if ((schema22.node.internalNode === node && !matchOriginal || schema22.node.internalNode === originalNode && !hasColon) && !schema22.inverted) {
+        if ((schema22.node.internalNode === node && !matchOriginal || schema22.node.internalNode === originalNode && !hasColon || ((_a3 = schema22.node.parent) == null ? void 0 : _a3.internalNode) === originalNode && !hasColon) && !schema22.inverted) {
           this.collectDefaultSnippets(schema22.schema, separatorAfter, collector, {
             newLineFirst: false,
             indentFirstObject: false,
@@ -41900,17 +45275,9 @@ ${indent}`);
                     let pair;
                     if (propertySchema.type === "array" && (pair = node.items.find((it) => isScalar(it.key) && it.key.range && it.key.value === key && isScalar(it.value) && !it.value.value && textBuffer.getPosition(it.key.range[2]).line === overwriteRange.end.line - 1)) && pair) {
                       if (Array.isArray(propertySchema.items)) {
-                        this.addSchemaValueCompletions(propertySchema.items[0], separatorAfter, collector, {});
+                        this.addSchemaValueCompletions(propertySchema.items[0], separatorAfter, collector, {}, "property");
                       } else if (typeof propertySchema.items === "object" && propertySchema.items.type === "object") {
-                        const insertText2 = `- ${this.getInsertTextForObject(propertySchema.items, separatorAfter, "  ").insertText.trimLeft()}`;
-                        const documentation = this.getDocumentationWithMarkdownText(`Create an item of an array${propertySchema.description ? " (" + propertySchema.description + ")" : ""}`, insertText2);
-                        collector.add({
-                          kind: this.getSuggestionKind(propertySchema.items.type),
-                          label: "- (array item)",
-                          documentation,
-                          insertText: insertText2,
-                          insertTextFormat: InsertTextFormat.Snippet
-                        });
+                        this.addArrayItemValueCompletion(propertySchema.items, separatorAfter, collector);
                       }
                     }
                     let insertText = key;
@@ -41918,7 +45285,7 @@ ${indent}`);
                       insertText = this.getInsertTextForProperty(key, propertySchema, separatorAfter, identCompensation + this.indentation);
                     }
                     const isNodeNull = isScalar(originalNode) && originalNode.value === null || isMap(originalNode) && originalNode.items.length === 0;
-                    const existsParentCompletion = ((_a3 = schema22.schema.required) === null || _a3 === void 0 ? void 0 : _a3.length) > 0;
+                    const existsParentCompletion = ((_b = schema22.schema.required) == null ? void 0 : _b.length) > 0;
                     if (!this.parentSkeletonSelectedFirst || !isNodeNull || !existsParentCompletion) {
                       collector.add({
                         kind: CompletionItemKind2.Property,
@@ -41926,9 +45293,9 @@ ${indent}`);
                         insertText,
                         insertTextFormat: InsertTextFormat.Snippet,
                         documentation: this.fromMarkup(propertySchema.markdownDescription) || propertySchema.description || ""
-                      });
+                      }, didOneOfSchemaMatches);
                     }
-                    if ((_b = schema22.schema.required) === null || _b === void 0 ? void 0 : _b.includes(key)) {
+                    if ((_c = schema22.schema.required) == null ? void 0 : _c.includes(key)) {
                       collector.add({
                         label: key,
                         insertText: this.getInsertTextForProperty(key, propertySchema, separatorAfter, identCompensation + this.indentation),
@@ -41945,8 +45312,8 @@ ${indent}`);
               }
             }
           }
-          if (nodeParent && isSeq(nodeParent) && schema22.schema.type !== "object") {
-            this.addSchemaValueCompletions(schema22.schema, separatorAfter, collector, {}, Array.isArray(nodeParent.items));
+          if (nodeParent && isSeq(nodeParent) && isPrimitiveType(schema22.schema)) {
+            this.addSchemaValueCompletions(schema22.schema, separatorAfter, collector, {}, "property", Array.isArray(nodeParent.items));
           }
           if (schema22.schema.propertyNames && schema22.schema.additionalProperties && schema22.schema.type === "object") {
             const propertyNameSchema = asSchema2(schema22.schema.propertyNames);
@@ -41983,7 +45350,7 @@ ${indent}`);
         node = doc.getParent(node);
       }
       if (!node) {
-        this.addSchemaValueCompletions(schema5.schema, "", collector, types);
+        this.addSchemaValueCompletions(schema5.schema, "", collector, types, "value");
         return;
       }
       if (isPair(node)) {
@@ -42009,47 +45376,22 @@ ${indent}`);
                 if (Array.isArray(s.schema.items)) {
                   const index = this.findItemAtOffset(node, document2, offset);
                   if (index < s.schema.items.length) {
-                    this.addSchemaValueCompletions(s.schema.items[index], separatorAfter, collector, types);
+                    this.addSchemaValueCompletions(s.schema.items[index], separatorAfter, collector, types, "value");
                   }
-                } else if (typeof s.schema.items === "object" && s.schema.items.type === "object") {
-                  const insertText = `- ${this.getInsertTextForObject(s.schema.items, separatorAfter, "  ").insertText.trimLeft()}`;
-                  const documentation = this.getDocumentationWithMarkdownText(`Create an item of an array${s.schema.description ? " (" + s.schema.description + ")" : ""}`, insertText);
-                  collector.add({
-                    kind: this.getSuggestionKind(s.schema.items.type),
-                    label: "- (array item)",
-                    documentation,
-                    insertText,
-                    insertTextFormat: InsertTextFormat.Snippet
-                  });
-                  this.addSchemaValueCompletions(s.schema.items, separatorAfter, collector, types);
-                } else if (typeof s.schema.items === "object" && s.schema.items.anyOf) {
-                  s.schema.items.anyOf.filter((i) => typeof i === "object").forEach((i, index) => {
-                    const schemaType = getSchemaTypeName(i);
-                    const insertText = `- ${this.getInsertTextForObject(i, separatorAfter).insertText.trimLeft()}`;
-                    const schemaTypeTitle = schemaType ? " type `" + schemaType + "`" : "";
-                    const schemaDescription = s.schema.description ? " (" + s.schema.description + ")" : "";
-                    const documentation = this.getDocumentationWithMarkdownText(`Create an item of an array${schemaTypeTitle}${schemaDescription}`, insertText);
-                    collector.add({
-                      kind: this.getSuggestionKind(i.type),
-                      label: "- (array item) " + (schemaType || index + 1),
-                      documentation,
-                      insertText,
-                      insertTextFormat: InsertTextFormat.Snippet
-                    });
-                  });
-                  this.addSchemaValueCompletions(s.schema.items, separatorAfter, collector, types);
+                } else if (typeof s.schema.items === "object" && (s.schema.items.type === "object" || isAnyOfAllOfOneOfType(s.schema.items))) {
+                  this.addSchemaValueCompletions(s.schema.items, separatorAfter, collector, types, "value", true);
                 } else {
-                  this.addSchemaValueCompletions(s.schema.items, separatorAfter, collector, types);
+                  this.addSchemaValueCompletions(s.schema.items, separatorAfter, collector, types, "value");
                 }
               }
             }
             if (s.schema.properties) {
               const propertySchema = s.schema.properties[parentKey];
               if (propertySchema) {
-                this.addSchemaValueCompletions(propertySchema, separatorAfter, collector, types);
+                this.addSchemaValueCompletions(propertySchema, separatorAfter, collector, types, "value");
               }
             } else if (s.schema.additionalProperties) {
-              this.addSchemaValueCompletions(s.schema.additionalProperties, separatorAfter, collector, types);
+              this.addSchemaValueCompletions(s.schema.additionalProperties, separatorAfter, collector, types, "value");
             }
           }
         }
@@ -42061,6 +45403,20 @@ ${indent}`);
           this.addNullValueCompletion(separatorAfter, collector);
         }
       }
+    }
+    addArrayItemValueCompletion(schema5, separatorAfter, collector, index) {
+      const schemaType = getSchemaTypeName(schema5);
+      const insertText = `- ${this.getInsertTextForObject(schema5, separatorAfter).insertText.trimLeft()}`;
+      const schemaTypeTitle = schemaType ? " type `" + schemaType + "`" : "";
+      const schemaDescription = schema5.description ? " (" + schema5.description + ")" : "";
+      const documentation = this.getDocumentationWithMarkdownText(`Create an item of an array${schemaTypeTitle}${schemaDescription}`, insertText);
+      collector.add({
+        kind: this.getSuggestionKind(schema5.type),
+        label: "- (array item) " + (schemaType || index),
+        documentation,
+        insertText,
+        insertTextFormat: InsertTextFormat.Snippet
+      });
     }
     getInsertTextForProperty(key, propertySchema, separatorAfter, indent = this.indentation) {
       const propertyText = this.getInsertTextForValue(key, "", "string");
@@ -42237,7 +45593,8 @@ ${objectInsertResult.insertText}
             case "boolean":
             case "number":
             case "integer":
-              insertText += `${indent}${key}: \${${insertIndex++}:${propertySchema.default}}
+              insertText += `${indent}${//added quote if key is null
+              key === "null" ? this.getInsertTextForValue(key, "", "string") : key}: \${${insertIndex++}:${propertySchema.default}}
 `;
               break;
             case "string":
@@ -42257,6 +45614,7 @@ ${objectInsertResult.insertText}
       insertText = insertText.trimRight() + separatorAfter;
       return { insertText, insertIndex };
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getInsertTextForArray(schema5, separatorAfter, insertIndex = 1, indent = this.indentation) {
       let insertText = "";
       if (!schema5) {
@@ -42293,6 +45651,7 @@ ${objectInsertResult.insertText}
       }
       return { insertText, insertIndex };
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getInsertTextForGuessedValue(value, separatorAfter, type) {
       switch (typeof value) {
         case "object":
@@ -42318,6 +45677,7 @@ ${objectInsertResult.insertText}
     getInsertTextForPlainText(text) {
       return text.replace(/[\\$}]/g, "\\$&");
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getInsertTextForValue(value, separatorAfter, type) {
       if (value === null) {
         return "null";
@@ -42365,24 +45725,27 @@ ${objectInsertResult.insertText}
       }
       return this.getInsertTextForPlainText(value + separatorAfter);
     }
-    addSchemaValueCompletions(schema5, separatorAfter, collector, types, isArray2) {
+    addSchemaValueCompletions(schema5, separatorAfter, collector, types, completionType, isArray) {
       if (typeof schema5 === "object") {
-        this.addEnumValueCompletions(schema5, separatorAfter, collector, isArray2);
+        this.addEnumValueCompletions(schema5, separatorAfter, collector, isArray);
         this.addDefaultValueCompletions(schema5, separatorAfter, collector);
         this.collectTypes(schema5, types);
+        if (isArray && completionType === "value" && !isAnyOfAllOfOneOfType(schema5)) {
+          this.addArrayItemValueCompletion(schema5, separatorAfter, collector);
+        }
         if (Array.isArray(schema5.allOf)) {
           schema5.allOf.forEach((s) => {
-            return this.addSchemaValueCompletions(s, separatorAfter, collector, types);
+            return this.addSchemaValueCompletions(s, separatorAfter, collector, types, completionType, isArray);
           });
         }
         if (Array.isArray(schema5.anyOf)) {
           schema5.anyOf.forEach((s) => {
-            return this.addSchemaValueCompletions(s, separatorAfter, collector, types);
+            return this.addSchemaValueCompletions(s, separatorAfter, collector, types, completionType, isArray);
           });
         }
         if (Array.isArray(schema5.oneOf)) {
           schema5.oneOf.forEach((s) => {
-            return this.addSchemaValueCompletions(s, separatorAfter, collector, types);
+            return this.addSchemaValueCompletions(s, separatorAfter, collector, types, completionType, isArray);
           });
         }
       }
@@ -42450,8 +45813,8 @@ ${objectInsertResult.insertText}
         this.addDefaultValueCompletions(schema5.items, separatorAfter, collector, arrayDepth + 1);
       }
     }
-    addEnumValueCompletions(schema5, separatorAfter, collector, isArray2) {
-      if (isDefined2(schema5.const) && !isArray2) {
+    addEnumValueCompletions(schema5, separatorAfter, collector, isArray) {
+      if (isDefined2(schema5.const) && !isArray) {
         collector.add({
           kind: this.getSuggestionKind(schema5.type),
           label: this.getLabelForValue(schema5.const),
@@ -42535,6 +45898,7 @@ ${objectInsertResult.insertText}
         }
       }
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getInsertTextForSnippetValue(value, separatorAfter, settings, depth) {
       const replacer = (value2) => {
         if (typeof value2 === "string") {
@@ -42547,7 +45911,7 @@ ${objectInsertResult.insertText}
         }
         return value2;
       };
-      return stringifyObject2(value, "", replacer, Object.assign(Object.assign({}, settings), { indentation: this.indentation }), depth) + separatorAfter;
+      return stringifyObject2(value, "", replacer, { ...settings, indentation: this.indentation }, depth) + separatorAfter;
     }
     addBooleanValueCompletion(value, separatorAfter, collector) {
       collector.add({
@@ -42567,6 +45931,7 @@ ${objectInsertResult.insertText}
         documentation: ""
       });
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getLabelForSnippetValue(value) {
       const label = JSON.stringify(value);
       return label.replace(/\$\{\d+:([^}]+)\}|\$\d+/g, "$1");
@@ -42600,6 +45965,7 @@ ${insertText}
       }
       return res;
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getSuggestionKind(type) {
       if (Array.isArray(type)) {
         const array = type;
@@ -42697,8 +46063,7 @@ ${insertText}
     return value;
   }
   function evaluateTab1Symbol(value) {
-    const result = value.replace(/\$\{1:(.*)\}/, "$1");
-    return result;
+    return value.replace(/\$\{1:(.*)\}/, "$1");
   }
   function isParentCompletionItem(item) {
     return "parent" in item;
@@ -42706,8 +46071,8 @@ ${insertText}
   function JSONSchemaSelection() {
   }
   var YamlDefinition = class {
-    constructor(telemetry) {
-      this.telemetry = telemetry;
+    constructor(telemetry2) {
+      this.telemetry = telemetry2;
     }
     getDefinition(document2, params) {
       try {
@@ -42736,19 +46101,18 @@ ${insertText}
     SchemaPriority2[SchemaPriority2["SchemaStore"] = 1] = "SchemaStore";
     SchemaPriority2[SchemaPriority2["SchemaAssociation"] = 2] = "SchemaAssociation";
     SchemaPriority2[SchemaPriority2["Settings"] = 3] = "Settings";
-    SchemaPriority2[SchemaPriority2["Modeline"] = 4] = "Modeline";
   })(SchemaPriority || (SchemaPriority = {}));
-  function getLanguageService(schemaRequestService2, workspaceContext, connection, telemetry, yamlSettings, clientCapabilities) {
+  function getLanguageService(schemaRequestService2, workspaceContext, connection, telemetry2, yamlSettings, clientCapabilities) {
     const schemaService = new YAMLSchemaService(schemaRequestService2, workspaceContext);
-    const completer = new YamlCompletion(schemaService, clientCapabilities, yamlDocumentsCache, telemetry);
-    const hover = new YAMLHover(schemaService, telemetry);
-    const yamlDocumentSymbols = new YAMLDocumentSymbols(schemaService, telemetry);
-    const yamlValidation = new YAMLValidation(schemaService, telemetry);
+    const completer = new YamlCompletion(schemaService, clientCapabilities, yamlDocumentsCache, telemetry2);
+    const hover = new YAMLHover(schemaService, telemetry2);
+    const yamlDocumentSymbols = new YAMLDocumentSymbols(schemaService, telemetry2);
+    const yamlValidation = new YAMLValidation(schemaService, telemetry2);
     const formatter = new YAMLFormatter();
     const yamlCodeActions = new YamlCodeActions(clientCapabilities);
-    const yamlCodeLens = new YamlCodeLens(schemaService, telemetry);
-    const yamlLinks = new YamlLinks(telemetry);
-    const yamlDefinition = new YamlDefinition(telemetry);
+    const yamlCodeLens = new YamlCodeLens(schemaService, telemetry2);
+    const yamlLinks = new YamlLinks(telemetry2);
+    const yamlDefinition = new YamlDefinition(telemetry2);
     new JSONSchemaSelection(schemaService, yamlSettings, connection);
     registerCommands(commandExecutor, connection);
     return {
@@ -42816,12 +46180,24 @@ ${insertText}
     }
     throw new Error(`Schema request failed for ${uri}`);
   }
+  var telemetry = {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    send() {
+    },
+    sendError(name, properties) {
+      console.error("monaco-yaml", name, properties);
+    },
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    sendTrack() {
+    }
+  };
   initialize2((ctx, { enableSchemaRequest, languageSettings }) => {
     const languageService = getLanguageService(
+      // @ts-expect-error Type definitions are wrong. This may be null.
       enableSchemaRequest ? schemaRequestService : null,
       null,
       null,
-      null,
+      telemetry,
       null
     );
     languageService.configure(languageSettings);
@@ -42837,44 +46213,61 @@ ${insertText}
       doValidation(uri) {
         const document2 = getTextDocument(uri);
         if (document2) {
-          return languageService.doValidation(document2, languageSettings.isKubernetes);
+          return languageService.doValidation(document2, Boolean(languageSettings.isKubernetes));
         }
-        return [];
       },
       doComplete(uri, position) {
         const document2 = getTextDocument(uri);
-        return languageService.doComplete(document2, position, languageSettings.isKubernetes);
+        if (document2) {
+          return languageService.doComplete(
+            document2,
+            position,
+            Boolean(languageSettings.isKubernetes)
+          );
+        }
       },
       doDefinition(uri, position) {
         const document2 = getTextDocument(uri);
-        return languageService.doDefinition(document2, { position, textDocument: { uri } });
+        if (document2) {
+          return languageService.doDefinition(document2, { position, textDocument: { uri } });
+        }
       },
       doHover(uri, position) {
         const document2 = getTextDocument(uri);
-        return languageService.doHover(document2, position);
+        if (document2) {
+          return languageService.doHover(document2, position);
+        }
       },
       format(uri, options) {
         const document2 = getTextDocument(uri);
-        return languageService.doFormat(document2, options);
+        if (document2) {
+          return languageService.doFormat(document2, options);
+        }
       },
       resetSchema(uri) {
         return languageService.resetSchema(uri);
       },
       findDocumentSymbols(uri) {
         const document2 = getTextDocument(uri);
-        return languageService.findDocumentSymbols2(document2, {});
+        if (document2) {
+          return languageService.findDocumentSymbols2(document2, {});
+        }
       },
       findLinks(uri) {
         const document2 = getTextDocument(uri);
-        return languageService.findLinks(document2);
+        if (document2) {
+          return languageService.findLinks(document2);
+        }
       },
       getCodeAction(uri, range, diagnostics) {
         const document2 = getTextDocument(uri);
-        return languageService.getCodeAction(document2, {
-          range,
-          textDocument: { uri },
-          context: { diagnostics }
-        });
+        if (document2) {
+          return languageService.getCodeAction(document2, {
+            range,
+            textDocument: { uri },
+            context: { diagnostics }
+          });
+        }
       }
     };
   });
