@@ -1,0 +1,76 @@
+domain:
+  name: My domain
+  actors:
+    user:
+      name: Customer
+      relations:
+        - upload/receive files - api-service
+        - upload/receive files - client
+  systems:
+    dropbox:
+      name: Dropbox
+      description: Upload/download, update, and delete the files; File versioning (History of updates); File and folder sync
+      containers:
+        api-service:
+          name: API service
+          description: Allows to modify user files via API
+        client:
+          name: Dropbox Desktop
+          description: Application installed on user machine
+          components:
+            chunker:
+              name: Chunker
+              description: Breaks the files into multiple small pieces called chunks and uploads them to the cloud storage with a unique id or hash of these chunks
+            indexer:
+              name: Indexer
+              description: Responsible for updating the internal database when it receives the notification from the watcher (for any action performed in folders/files)
+            internal-db:
+              name: Internal DB
+              description: Stores all the files and chunks of information, their versions, and their location in the file system
+            watcher:
+              name: Watcher
+              description: Responsible for monitoring the sync folder for all the activities performed by the user such as creating, updating, or deleting files/folders
+        cloud-storage:
+          name: Cloud storage
+          description: Cloud storage service like Amazon S3 to store the chunks of the files uploaded by the user
+        load-balancer:
+          name: Load Balancer
+          description: Load Balancer to spread traffic for API requests
+        message-queuing-service:
+          name: Message Queuing Service
+          description: responsible for the asynchronous communication between the clients and the synchronization service
+          components:
+            request-queue:
+              name: Request Queue
+              description: A global request queue shared among all the clients. Whenever a client receives any update or changes in the files/folder it sends the request through the request queue.
+            response-queue:
+              name: Response Queue
+              description: an individual response queue corresponding to the individual clients. The synchronization service broadcast the update through this response queue and this response queue will deliver the updated messages to each client and then these clients will update their respective files accordingly.
+        metadata-db:
+          name: Metadata Database
+          description: maintains the indexes of the various chunks. The information contains files/chunks names, and their different versions along with the information of users and workspace
+          components:
+            cache:
+              name: Cache
+              description: Allows to cache data for specific users
+            sharded-db:
+              name: Sharded Database
+              description: Each user can have its own database to store his data potentially
+        synchronization-service:
+          name: Synchronization Service
+          description: Receives the request from the request queue of the messaging services and updates the metadata database with the latest changes; broadcast the latest update to the other clients (if there are multiple clients) through the response queue so that the other client’s indexer can fetch back the chunks from the cloud storage and recreate the files with the latest update
+views:
+  view:
+    elements:
+      api-service:
+        x: 350
+        y: 275
+      client:
+        x: 150
+        y: 275
+      user:
+        x: 250
+        y: 175
+        relations:
+          upload/receive files - api-service: []
+          upload/receive files - client: []
