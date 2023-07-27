@@ -14,6 +14,9 @@ domain:
         api-service:
           name: API service
           description: Allows to modify user files via API
+          relations:
+            - get/upload data - cloud-storage
+            - get/upload metadata - metadata-db
         client:
           name: Dropbox Desktop
           description: Application installed on user machine
@@ -33,9 +36,10 @@ domain:
         cloud-storage:
           name: Cloud storage
           description: Cloud storage service like Amazon S3 to store the chunks of the files uploaded by the user
-        load-balancer:
-          name: Load Balancer
-          description: Load Balancer to spread traffic for API requests
+          components:
+            cloud-storage-bucket:
+              name: Client storage
+              description: Actual storage of data, like S3 Bucket
         message-queuing-service:
           name: Message Queuing Service
           description: responsible for the asynchronous communication between the clients and the synchronization service
@@ -53,6 +57,9 @@ domain:
             cache:
               name: Cache
               description: Allows to cache data for specific users
+            edge-wrapper:
+              name: DB edge wrapper
+              description: Wrapper for metadata storage
             sharded-db:
               name: Sharded Database
               description: Each user can have its own database to store his data potentially
