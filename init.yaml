@@ -1,5 +1,7 @@
 domain:
-  name: My domain
+  name: |
+    My domain
+    sdfsdf
   actors:
     actor-1:
       name: Actor
