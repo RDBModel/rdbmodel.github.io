@@ -196,14 +196,21 @@ multilineStep indent lines =
     let
         multilineString : List String -> String
         multilineString lines_ =
-            String.join " " (List.reverse lines_ |> Debug.log "reverse")
+            String.join "\n" (List.reverse lines_)
 
         conclusion line indent_ =
+            let
+                intendedLine =
+                    if List.isEmpty lines then
+                        line
+                    else
+                        String.repeat (indent + 1) " " ++ line
+            in
             if indent_ > indent then
-                P.Loop (line :: lines)
+                P.Loop (intendedLine :: lines)
 
             else
-                P.Done (multilineString (line :: lines))
+                P.Done (multilineString (intendedLine :: lines))
     in
     P.oneOf
         [ P.succeed conclusion
@@ -282,20 +289,20 @@ remaining =
 
 postProcessString : String -> String
 postProcessString str =
-    let
-        regexFromString : String -> Regex
-        regexFromString =
-            Regex.fromString >> Maybe.withDefault Regex.never
-    in
+    -- let
+    --     regexFromString : String -> Regex
+    --     regexFromString =
+    --         Regex.fromString >> Maybe.withDefault Regex.never
+    -- in
     str
-        |> Regex.replace (regexFromString "\\s\\s+")
-            (\match ->
-                if String.contains "\n\n" match.match then
-                    "\n"
+        -- |> Regex.replace (regexFromString "\\s\\s+")
+        --     (\match ->
+        --         if String.contains "\n\n" match.match then
+        --             "\n"
 
-                else
-                    " "
-            )
+        --         else
+        --             " "
+        --     )
 
 
 

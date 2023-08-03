@@ -298,11 +298,6 @@ recordOrString : Int -> Int -> P.Parser Ast.Value
 recordOrString indent indent_ =
     let
         withString string =
-            let
-                _ = Debug.log "string" string
-                _ = Debug.log "indent" indent
-                _ = Debug.log "indent_" indent_
-            in
             P.oneOf
                 [ P.succeed (Ast.fromString string)
                     |. P.end

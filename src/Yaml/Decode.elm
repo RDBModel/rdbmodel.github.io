@@ -169,7 +169,7 @@ string =
         \v ->
             case v of
                 Ast.String_ string_ ->
-                    Ok (string_ |> Debug.log "string")
+                    Ok string_
 
                 Ast.Null_ ->
                     Ok ""
