@@ -289,6 +289,5 @@ function saveToLocalStorage(value) {
 
 function getFromLocalStorage() {
   const value = localStorage.getItem(localStorageKey)
-  console.log(value)
   app.ports.receivedFromLocalStorage.send(value)
 }
