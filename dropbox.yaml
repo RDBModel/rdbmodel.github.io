@@ -1,25 +1,30 @@
 domain:
-  name: My domain
+  name: Dropbox model
+  description: Dropbox is a cloud storage service which allows users to store their data on remote servers. The remote servers store files durably and securely, and these files are accessible anywhere with an Internet connection.
   actors:
     user:
       name: Customer
       relations:
-        - upload/receive files - api-service
         - upload/receive files - client
   systems:
     dropbox:
       name: Dropbox
       description: Upload/download, update, and delete the files; File versioning (History of updates); File and folder sync
       containers:
-        api-service:
-          name: API service
-          description: Allows to modify user files via API
+        block-service:
+          name: Block service
+          description: Interacts with block storage for uploading and downloading of files. Clients connect with Block Service to upload or download file chunks.
           relations:
-            - get/upload data - cloud-storage
-            - get/upload metadata - metadata-db
+            - update metadata information - metadata-service
+            - store data - storage
+        cache:
+          name: Cache
+          description: In-memory cache is in front of Metadata DB. Frequently queries data is cached in this cache thereby eliminating the need of database query.
         client:
-          name: Dropbox Desktop
+          name: Client Desktop
           description: Application installed on user machine
+          relations:
+            - synchronize data - load-balancer
           components:
             chunker:
               name: Chunker
@@ -33,51 +38,115 @@ domain:
             watcher:
               name: Watcher
               description: Responsible for monitoring the sync folder for all the activities performed by the user such as creating, updating, or deleting files/folders
-        cloud-storage:
-          name: Cloud storage
-          description: Cloud storage service like Amazon S3 to store the chunks of the files uploaded by the user
-          components:
-            cloud-storage-bucket:
-              name: Client storage
-              description: Actual storage of data, like S3 Bucket
-        message-queuing-service:
-          name: Message Queuing Service
-          description: responsible for the asynchronous communication between the clients and the synchronization service
-          components:
-            request-queue:
-              name: Request Queue
-              description: A global request queue shared among all the clients. Whenever a client receives any update or changes in the files/folder it sends the request through the request queue.
-            response-queue:
-              name: Response Queue
-              description: an individual response queue corresponding to the individual clients. The synchronization service broadcast the update through this response queue and this response queue will deliver the updated messages to each client and then these clients will update their respective files accordingly.
+        load-balancer:
+          name: Load balancer
+          description: Load balancing for all services behind it
+          relations:
+            - get/upload data - block-service
+            - get/upload metadata - metadata-service
+            - manage users - user-service
+            - manage subscriptions - subscription-service
         metadata-db:
-          name: Metadata Database
-          description: maintains the indexes of the various chunks. The information contains files/chunks names, and their different versions along with the information of users and workspace
-          components:
-            cache:
-              name: Cache
-              description: Allows to cache data for specific users
-            edge-wrapper:
-              name: DB edge wrapper
-              description: Wrapper for metadata storage
-            sharded-db:
-              name: Sharded Database
-              description: Each user can have its own database to store his data potentially
-        synchronization-service:
-          name: Synchronization Service
-          description: Receives the request from the request queue of the messaging services and updates the metadata database with the latest changes; broadcast the latest update to the other clients (if there are multiple clients) through the response queue so that the other client’s indexer can fetch back the chunks from the cloud storage and recreate the files with the latest update
+          name: Metadata DB
+          description: Contains the metadata of file like name, type (file or folder), sharing permissions, chunks information etc.
+        metadata-service:
+          name: Metadata service
+          description: Responsible for synchronizing the file metadata from client to server and figuring out the change set for different clients and broadcast it to them using Notification Service
+          relations:
+            - cache data - cache
+            - store meta information - metadata-db
+            - notify about data change - queue
+        notification-service:
+          name: Notification service
+          description: Broadcasts the file changes to connected clients making sure any change to file is reflected all watching clients instantly.
+          relations:
+            - listen data changes - queue
+            - push data change notification - client
+        queue:
+          name: Notification queue
+          description: Provides a asynchronous medium of communication between Meta Service and Notification Service and thus Meta Service need not to wait till notification is sent to clients.
+        storage:
+          name: Storage
+          description: Cloud storage service like Amazon S3 to store the chunks of the files uploaded by the user.
+        subscription-db:
+          name: Subscription DB
+        subscription-service:
+          name: Subscription service
+          description: Manage the subscription of the users
+          relations:
+            - get/update subscription data - subscription-db
+        user-db:
+          name: User DB
+        user-service:
+          name: User service
+          description: Responsible for user authentication and profiles
+          relations:
+            - get/update user information - user-db
 views:
   view:
     elements:
-      api-service:
-        x: 350
-        y: 275
-      client:
-        x: 150
-        y: 275
-      user:
-        x: 250
-        y: 175
+      block-service:
+        x: 370
+        y: 425
         relations:
-          upload/receive files - api-service: []
+          update metadata information - metadata-service: []
+          store data - storage: []
+      cache:
+        x: 630
+        y: 425
+      client:
+        x: 300
+        y: 225
+        relations:
+          synchronize data - load-balancer: []
+      load-balancer:
+        x: 300
+        y: 325
+        relations:
+          get/upload data - block-service: []
+          get/upload metadata - metadata-service: []
+          manage subscriptions - subscription-service: []
+          manage users - user-service: []
+      metadata-db:
+        x: 500
+        y: 525
+      metadata-service:
+        x: 500
+        y: 425
+        relations:
+          cache data - cache: []
+          store meta information - metadata-db: []
+          notify about data change - queue: []
+      notification-service:
+        x: 500
+        y: 225
+        relations:
+          push data change notification - client: []
+          listen data changes - queue: []
+      queue:
+        x: 500
+        y: 325
+      storage:
+        x: 370
+        y: 525
+      subscription-db:
+        x: 230
+        y: 525
+      subscription-service:
+        x: 230
+        y: 425
+        relations:
+          get/update subscription data - subscription-db: []
+      user:
+        x: 300
+        y: 125
+        relations:
           upload/receive files - client: []
+      user-db:
+        x: 100
+        y: 525
+      user-service:
+        x: 100
+        y: 425
+        relations:
+          get/update user information - user-db: []
