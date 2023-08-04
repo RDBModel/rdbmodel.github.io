@@ -1,4 +1,4 @@
-module Route exposing (Route(..), editorLinkPastebin, editorLinkInit, fromUrl)
+module Route exposing (Route(..), editorLinkPastebin, editorLinkInit, editorLinkDropbox, fromUrl)
 
 import Url exposing (Url)
 import Url.Parser as Parser exposing ((</>), (<?>), Parser, oneOf, s, string)
@@ -47,6 +47,11 @@ parseFragment value =
 editorLinkPastebin : String
 editorLinkPastebin =
     "#/editor/main?link=https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/pastebin.yaml"
+
+
+editorLinkDropbox : String
+editorLinkDropbox =
+    "#/editor/main?link=https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/dropbox.yaml"
 
 
 editorLinkInit : String

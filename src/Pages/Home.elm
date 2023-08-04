@@ -29,7 +29,8 @@ import Element.Background as Background
 import Element.Border exposing (rounded)
 import Element.Font as Font exposing (justify)
 import Html exposing (Html)
-import Route exposing (editorLinkInit, editorLinkPastebin)
+import Route exposing (editorLinkInit, editorLinkPastebin, editorLinkDropbox)
+import Element exposing (column)
 
 
 view : Html msg
@@ -59,9 +60,13 @@ mapColor =
 
 editorLink : Element msg
 editorLink =
-    row [ spacing 10 ]
-        [ el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ( "See the demo ☀️", editorLinkPastebin ))
-        , el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ( "Or start new 🚀", editorLinkInit ))
+    column []
+        [ el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ( "Start new 🚀", editorLinkInit ))
+        , el [ centerX ] (text "Or check examples ☀️")
+        , row [ spacing 10 ]
+            [ el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ( "Pastebin", editorLinkPastebin ))
+            , el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ( "Dropbox", editorLinkDropbox ))
+            ]
         ]
 
 
