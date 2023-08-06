@@ -49,12 +49,13 @@ import Zoom exposing (OnZoom, Zoom)
 type alias Model =
     { ctrlIsDown : Bool
     , zoom : Zoom
+    , stickyPositioning : Bool
     }
 
 
 init : { height : Float, width : Float, x : Float, y : Float } -> Model
 init element =
-    Model False (initZoom element)
+    Model False (initZoom element) False
 
 
 initZoom : { height : Float, width : Float, x : Float, y : Float } -> Zoom
@@ -72,6 +73,7 @@ type Msg
     = DoZoom ZoomDirection
     | SetCtrlIsDown Bool
     | ZoomMsg OnZoom
+    | SetSticky Bool
     | NoOp
 
 
@@ -106,6 +108,11 @@ update msg model =
             , zoomMsgReceived ()
             )
 
+        SetSticky value ->
+            ( { model | stickyPositioning = value }
+            , zoomMsgReceived ()
+            )
+
         NoOp ->
             ( model, Cmd.none )
 
@@ -113,6 +120,12 @@ update msg model =
 view : Model -> Html Msg
 view model =
     let
+        backgroundColorForStickyButton =
+            if model.stickyPositioning then
+                "#cccccc"
+            else
+                "white"
+
         ( backgroundColorForMoveButton, backgroundColorForDefaultButton ) =
             if model.ctrlIsDown then
                 ( "#cccccc", "white" )
@@ -238,6 +251,48 @@ view model =
                 , path [ d "M12 15v6" ] []
                 , path [ d "M15 6l-3 -3l-3 3" ] []
                 , path [ d "M12 3v6" ] []
+                ]
+            ]
+        , button
+            [ style "background-color" backgroundColorForStickyButton
+            , style "border-width" "0 1px 1px 1px"
+            , style "border-style" "solid"
+            , style "min-height" "24px"
+            , style "min-width" "24px"
+            , style "padding" "0"
+            , title "Set navigate view mode"
+            , type_ "button"
+            , onClick <| SetSticky ( not (model.stickyPositioning))
+            ]
+            [ svg
+                [ style "vertical-align" "middle"
+                , width <| Px 24
+                , height <| Px 24
+                , viewBox 0 0 24 24
+                , strokeWidth <| Px 1
+                , fill PaintNone
+                , strokeLinecap StrokeLinecapRound
+                , strokeLinejoin StrokeLinejoinRound
+                ]
+                [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
+                , path [ d "M18 6m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" ] []
+                , path [ d "M6 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" ] []
+                , path [ d "M6 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" ] []
+                , path [ d "M18 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" ] []
+                , path [ d "M8 18h8" ] []
+                , path [ d "M18 20v1" ] []
+                , path [ d "M18 3v1" ] []
+                , path [ d "M6 20v1" ] []
+                , path [ d "M6 10v-7" ] []
+                , path [ d "M12 3v18" ] []
+                , path [ d "M18 8v8" ] []
+                , path [ d "M8 12h13" ] []
+                , path [ d "M21 6h-1" ] []
+                , path [ d "M16 6h-13" ] []
+                , path [ d "M3 12h1" ] []
+                , path [ d "M20 18h1" ] []
+                , path [ d "M3 18h1" ] []
+                , path [ d "M6 14v2" ] []
                 ]
             ]
         ]

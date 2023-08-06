@@ -70,6 +70,8 @@ import ViewControl.AddView as AddView
 import ViewControl.AddViewActions as AddViewActions
 import ViewControl.ViewControl as ViewControl
 import ViewControl.ViewControlActions as ViewControlActions
+import ViewEditor.MovingViewElements exposing (getSelectedElementKeysAndDeltas, getSelectedPointKeysAndDeltas, updateElementAndPointPosition)
+import ViewEditor.Types exposing (Brush, SelectedItem, ViewEditorState)
 
 
 type Model
@@ -85,45 +87,6 @@ isInitState model =
 
         _ ->
             False
-
-
-type alias ViewEditorState =
-    { drag : Maybe Drag
-    , viewNavigation : ViewNavigation.Model
-    , viewControl : ViewControl.Model
-    , selectedView : Maybe String
-    , addView : AddView.Model
-    , svgElementPosition : Element
-    , brush : Maybe Brush
-    , selectedItems : List SelectedItem
-    , containerMenu : ContextMenu.Model
-    }
-
-
-type alias Brush =
-    { end : ( Float, Float ) -- current mouse position
-    , start : ( Float, Float ) -- start mouse position
-    }
-
-
-type alias Drag =
-    { current : ( Float, Float ) -- current mouse position
-    , start : ( Float, Float ) -- start mouse position
-    }
-
-
-type alias SelectedItem =
-    { key : ViewItemKey -- selected node id or point index
-    , delta : Maybe ( Float, Float ) -- delta between start and node center to do ajustment during movement
-    }
-
-
-type alias Element =
-    { height : Float
-    , width : Float
-    , x : Float
-    , y : Float
-    }
 
 
 init : Maybe String -> Model
@@ -581,20 +544,6 @@ getSvgElementPosition =
     Task.attempt ReceiveElementPosition (Dom.getElement "main-graph")
 
 
-getSelectedElementKeysAndDeltas : List SelectedItem -> List ( ViewElementKey, Maybe ( Float, Float ) )
-getSelectedElementKeysAndDeltas =
-    let
-        extractViewElelementKeys v =
-            case v.key of
-                ElementKey x ->
-                    Just ( x, v.delta )
-
-                PointKey _ ->
-                    Nothing
-    in
-    List.filterMap extractViewElelementKeys
-
-
 updateSelectedItemsDeltas : Maybe (Dict ViewElementKey ViewElement) -> ( Float, Float ) -> List SelectedItem -> List SelectedItem
 updateSelectedItemsDeltas viewElementsOfCurrentView ( shiftedStartX, shiftedStartY ) selectedItems =
     let
@@ -629,20 +578,6 @@ updateSelectedItemsDeltas viewElementsOfCurrentView ( shiftedStartX, shiftedStar
                 |> List.map (\( vpk, point ) -> SelectedItem (PointKey vpk) (Just ( shiftedStartX - point.x, shiftedStartY - point.y )))
     in
     selectedElementsWithDeltas ++ selectedPointsWithDeltas
-
-
-getSelectedPointKeysAndDeltas : List SelectedItem -> List ( ViewRelationPointKey, Maybe ( Float, Float ) )
-getSelectedPointKeysAndDeltas =
-    let
-        extractPointKeys v =
-            case v.key of
-                PointKey x ->
-                    Just ( x, v.delta )
-
-                ElementKey _ ->
-                    Nothing
-    in
-    List.filterMap extractPointKeys
 
 
 {-| calculate distance to the line created by two points
@@ -746,81 +681,6 @@ pointWithinBrush { start, end } { x, y } =
         > min startY1 endY2
         && y
         < max startY1 endY2
-
-
-updateElementAndPointPosition : List SelectedItem -> ( Float, Float ) -> ViewEditorState -> (Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement)
-updateElementAndPointPosition selectedItems xy state =
-    let
-        selectedElementDeltas =
-            getSelectedElementKeysAndDeltas selectedItems
-                |> List.filterMap (\( k, d ) -> d |> Maybe.map (Tuple.pair k))
-
-        selectedPointsDeltas =
-            getSelectedPointKeysAndDeltas selectedItems
-                |> List.filterMap (\( k, d ) -> d |> Maybe.map (Tuple.pair k))
-
-        ( shiftedX, shiftedY ) =
-            ViewNavigation.shiftPosition state.viewNavigation ( state.svgElementPosition.x, state.svgElementPosition.y ) xy
-
-        updateElementXY : ViewElementKey -> ViewElement -> ViewElement
-        updateElementXY viewElementKey viewElement =
-            let
-                foundElement =
-                    selectedElementDeltas |> List.filter (\x -> Tuple.first x == viewElementKey) |> List.head
-            in
-            case foundElement of
-                Just ( _, ( deltaX, deltaY ) ) ->
-                    { viewElement | x = shiftedX - deltaX, y = shiftedY - deltaY }
-
-                Nothing ->
-                    viewElement
-
-        updatePointXY : List ( ViewRelationPointIndex, ( Float, Float ) ) -> Int -> ViewRelationPoint -> ViewRelationPoint
-        updatePointXY selectedPointIndexes i viewRelationPoint =
-            selectedPointIndexes
-                |> List.filterMap
-                    (\( pointIndex, d ) ->
-                        if pointIndex == i then
-                            Just d
-
-                        else
-                            Nothing
-                    )
-                |> List.head
-                |> Maybe.map
-                    (\( deltaX, deltaY ) ->
-                        { viewRelationPoint | x = shiftedX - deltaX, y = shiftedY - deltaY }
-                    )
-                |> Maybe.withDefault viewRelationPoint
-
-        updatedPoints viewElementKey =
-            Dict.map
-                (\relation points ->
-                    let
-                        updatePointXYUsingSelectedPoints =
-                            selectedPointsDeltas
-                                |> List.filterMap
-                                    (\( ( vek, rel, pointIndex ), delta ) ->
-                                        if vek == viewElementKey && rel == relation then
-                                            Just ( pointIndex, delta )
-
-                                        else
-                                            Nothing
-                                    )
-                                |> updatePointXY
-                    in
-                    List.indexedMap updatePointXYUsingSelectedPoints points
-                )
-
-        updatedRelations : ViewElementKey -> ViewElement -> ViewElement
-        updatedRelations viewElementKey viewElement =
-            { viewElement | relations = updatedPoints viewElementKey viewElement.relations }
-    in
-    Dict.map
-        (\viewElementKey ve ->
-            updateElementXY viewElementKey ve
-                |> updatedRelations viewElementKey
-        )
 
 
 view : MonacoState -> Model -> Html Msg
