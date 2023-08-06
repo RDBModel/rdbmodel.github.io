@@ -98,7 +98,7 @@ renderContainerInternal selected { key, name, description, xy } events =
         tooltip =
             case description of
                 Just d ->
-                    key ++ "\n" ++ d
+                    d
 
                 Nothing ->
                     key

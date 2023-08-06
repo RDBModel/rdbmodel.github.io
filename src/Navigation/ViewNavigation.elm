@@ -260,7 +260,7 @@ view model =
             , style "min-height" "24px"
             , style "min-width" "24px"
             , style "padding" "0"
-            , title "Set navigate view mode"
+            , title "Stick elements to the grid"
             , type_ "button"
             , onClick <| SetSticky ( not (model.stickyPositioning))
             ]
