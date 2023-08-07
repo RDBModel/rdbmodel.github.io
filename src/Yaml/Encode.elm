@@ -50,8 +50,8 @@ import Yaml.Parser.Ast exposing (Value(..))
 -}
 type alias EncoderState =
     { col : Int -- Current column
-    , indent : Int -- Encoder indent level
-    , prefix : Bool -- prefix encoder output
+    , indent : Int -- Encoder indent amouont
+    , inRecord : Bool -- Encoding context (in a record or not)
     }
 
 
@@ -61,7 +61,7 @@ initState : Int -> EncoderState
 initState indent =
     { col = 0
     , indent = indent
-    , prefix = False
+    , inRecord = False
     }
 
 
@@ -70,7 +70,11 @@ initState indent =
 type Encoder
     = Encoder (EncoderState -> String)
 
-
+{-| Encoding context
+-}
+type Context
+    = Oneline
+    | Multiline
 
 -- RUN ENCODERS
 
@@ -82,7 +86,7 @@ resulting string.
 
     toString 0 (int 4) --> "4"
 
-    toString 0 (list int [ 1, 2, 3 ]) --> "[1,2,3]"
+    toString 0 (list int [ 1, 2, 3 ]) --> "[1, 2, 3]"
 
     toString 2 (list int [ 1, 2, 3 ])
     --> "- 1\n- 2\n- 3"
@@ -107,6 +111,9 @@ internalConvertToString state (Encoder encoderFn) =
 
 
 -- PRIMITIVES
+-- Primitive values care about their encoding context because records can be
+-- encoded with a single space after the colon if the value is primitive or
+-- an inline list or record, otherwise a newline is required.
 
 
 {-| Encode a `String` into a YAML string.
@@ -119,9 +126,7 @@ internalConvertToString state (Encoder encoderFn) =
 string : String -> Encoder
 string s =
     Encoder
-        (\state ->
-            prefixed " " state s
-        )
+        (withContext Oneline s)
 
 
 {-| Encode an `Int` into a YAML int.
@@ -136,10 +141,7 @@ string s =
 int : Int -> Encoder
 int i =
     Encoder
-        (\state ->
-            String.fromInt i
-                |> prefixed " " state
-        )
+        (withContext Oneline (String.fromInt i))
 
 
 {-| Encode a `Float` into a YAML float.
@@ -163,28 +165,24 @@ int i =
 -}
 float : Float -> Encoder
 float f =
+    let
+        sign =
+            if f < 0 then
+                "-"
+            else
+                ""
+        val =
+            if isNaN f then
+                ".nan"
+
+            else if isInfinite f then
+                sign ++ ".inf"
+
+            else
+                String.fromFloat f
+    in
     Encoder
-        (\state ->
-            let
-                sign =
-                    if f < 0 then
-                        "-"
-
-                    else
-                        ""
-
-                val =
-                    if isNaN f then
-                        ".nan"
-
-                    else if isInfinite f then
-                        sign ++ ".inf"
-
-                    else
-                        String.fromFloat f
-            in
-            prefixed " " state val
-        )
+        (withContext Oneline val)
 
 
 {-| Encode a `Bool` into a YAML bool.
@@ -197,15 +195,12 @@ float f =
 bool : Bool -> Encoder
 bool b =
     Encoder
-        (\state ->
-            prefixed " "
-                state
-                (if b then
-                    "true"
-
-                 else
-                    "false"
-                )
+        (withContext Oneline
+            (if b then
+                "true"
+             else
+                "false"
+            )
         )
 
 
@@ -219,10 +214,7 @@ bool b =
 -}
 null : Encoder
 null =
-    Encoder
-        (\state ->
-            prefixed " " state "null"
-        )
+    Encoder (withContext Oneline "null")
 
 
 {-| Encode a `Value` as produced by `Yaml.Decode.value`
@@ -265,7 +257,7 @@ value val =
 {-| Encode a `List` into a YAML list.
 
     toString 0 (list float [1.1, 2.2, 3.3])
-    --> "[1.1,2.2,3.3]"
+    --> "[1.1, 2.2, 3.3]"
 
     toString 2 (list string ["a", "b"])
     --> "- a\n- b"
@@ -276,15 +268,15 @@ list encode l =
     Encoder
         (\state ->
             if List.isEmpty l then
-                "[]"
+                withContext Oneline "[]" state
 
             else
                 case state.indent of
                     0 ->
-                        encodeInlineList encode l
+                        withContext Oneline (encodeInlineList encode l) state
 
                     _ ->
-                        encodeList encode state l
+                        withContext Multiline (encodeList encode state l) state
         )
 
 
@@ -292,7 +284,7 @@ encodeInlineList : (a -> Encoder) -> List a -> String
 encodeInlineList encode l =
     "["
         ++ (List.map (encode >> toString 0) l
-                |> String.join ","
+                |> String.join ", "
            )
         ++ "]"
 
@@ -300,35 +292,22 @@ encodeInlineList encode l =
 encodeList : (a -> Encoder) -> EncoderState -> List a -> String
 encodeList encode state l =
     let
-        internalString val =
-            (internalConvertToString
-                { state | col = state.col + state.indent, prefix = True }
-                << encode
-            )
-            val
+        newState : EncoderState
+        newState =
+            { state
+                | col = state.col + state.indent
+                , inRecord = False
+            }
 
         listElement : a -> String
         listElement val =
-            "-" ++ (if internalString val |> String.startsWith "\n" then
-                    internalString val |> String.trimLeft |> (++) " "
-                else
-                    internalString val)
-
-        prefix : String
-        prefix =
-            if state.prefix then
-                "\n"
-
-            else
-                ""
-
-        indentAfter : String -> String
-        indentAfter s =
-            s ++ String.repeat state.col " "
+            "- "
+                ++ String.repeat (state.indent - 2) " "
+                ++ (internalConvertToString newState << encode)
+                    val
     in
     List.map listElement l
-        |> String.join (indentAfter "\n")
-        |> String.append (indentAfter prefix)
+        |> String.join (indentAfter state "\n")
 
 
 {-| Encode a `Dict` into a YAML record.
@@ -356,15 +335,15 @@ dict key val r =
     Encoder
         (\state ->
             if Dict.isEmpty r then
-                "{}"
+                withContext Oneline "{}" state
 
             else
                 case state.indent of
                     0 ->
-                        encodeInlineDict key val r
+                        withContext Oneline (encodeInlineDict key val r) state
 
                     _ ->
-                        encodeDict key val state r
+                        withContext Multiline (encodeDict key val state r) state
         )
 
 
@@ -379,7 +358,7 @@ encodeInlineDict key val r =
                 |> List.map (\( fst, snd ) -> key fst ++ ": " ++ snd)
     in
     "{"
-        ++ (stringify r |> String.join ",")
+        ++ (stringify r |> String.join ", ")
         ++ "}"
 
 
@@ -390,30 +369,15 @@ encodeDict key val state r =
         recordElement ( key_, val_ ) =
             let
                 newState =
-                    { state | prefix = True, col = state.col + state.indent }
-
-                encodedValue =
-                    (internalConvertToString newState << val) val_
+                    { state | inRecord = True, col = state.col + state.indent }
             in
-            key key_ ++ ":" ++ (if encodedValue == "[]" then " " ++ encodedValue else encodedValue)
-
-        prefix : String
-        prefix =
-            if state.prefix then
-                "\n"
-
-            else
-                ""
-
-        indentAfter : String -> String
-        indentAfter s =
-            s ++ String.repeat state.col " "
+            key key_
+                ++ ":"
+                ++ (internalConvertToString newState << val) val_
     in
-    r
-        |> Dict.toList
+    Dict.toList r
         |> List.map recordElement
-        |> String.join (indentAfter "\n")
-        |> String.append (indentAfter prefix)
+        |> String.join (indentAfter state "\n")
 
 
 {-| Encode a YAML record.
@@ -422,7 +386,7 @@ encodeDict key val state r =
                        , ( "height", int 187)
                        ]
                )
-    --> "{name: Sally,height: 187}"
+    --> "{name: Sally, height: 187}"
 
     toString 2 (record [ ( "foo", int 42 )
                        , ( "bar", float 3.14 )
@@ -436,15 +400,15 @@ record r =
     Encoder
         (\state ->
             if List.isEmpty r then
-                "{}"
+                withContext Oneline "{}" state
 
             else
                 case state.indent of
                     0 ->
-                        encodeInlineRecord r
+                        withContext Oneline (encodeInlineRecord r) state
 
                     _ ->
-                        encodeRecord state r
+                        withContext Multiline (encodeRecord state r) state
         )
 
 
@@ -459,7 +423,7 @@ encodeInlineRecord r =
                 )
                 vals
     in
-    "{" ++ (stringify r |> String.join ",") ++ "}"
+    "{" ++ (stringify r |> String.join ", ") ++ "}"
 
 
 encodeRecord : EncoderState -> List ( String, Encoder ) -> String
@@ -469,36 +433,18 @@ encodeRecord state r =
         recordElement ( key, val ) =
             let
                 newState =
-                    { state | prefix = True, col = state.col + state.indent }
+                    { state | inRecord = True, col = state.col + state.indent }
 
                 encodedValue =
                     internalConvertToString newState val
             in
             key
                 ++ ":"
-                ++ (if encodedValue == "{}" then
-                        " " ++ encodedValue
-
-                    else
-                        encodedValue
-                   )
-
-        prefix : String
-        prefix =
-            if state.prefix then
-                "\n"
-
-            else
-                ""
-
-        indentAfter : String -> String
-        indentAfter s =
-            s ++ String.repeat state.col " "
+                ++ encodedValue
     in
-    r
-        |> List.map recordElement
-        |> String.join (indentAfter "\n")
-        |> String.append (indentAfter prefix)
+    List.map recordElement r
+        |> String.join (indentAfter state "\n")
+        --|> String.append (indentAfter state (prefixed "\n" state ""))
 
 
 {-| Encode a YAML document
@@ -531,16 +477,6 @@ document val =
 
 -- HELPERS
 
-
-prefixed : String -> EncoderState -> String -> String
-prefixed prefix state val =
-    if state.prefix then
-        prefix ++ val
-
-    else
-        val
-
-
 anchor : String -> (Value -> Encoder) -> Value -> Encoder
 anchor name encode val =
     Encoder
@@ -555,3 +491,20 @@ alias_ name =
         (\_ ->
             "*" ++ name
         )
+
+indentAfter : EncoderState -> String -> String
+indentAfter state s =
+    s ++ String.repeat state.col " "
+
+
+withContext : Context -> String -> EncoderState -> String
+withContext context val state =
+    case ( context, state.inRecord ) of
+        ( Oneline, True ) ->
+            " " ++ val
+
+        ( Multiline, True ) ->
+            "\n" ++ String.repeat state.col " " ++ val
+
+        _ ->
+            val
