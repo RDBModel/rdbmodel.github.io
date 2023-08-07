@@ -107,10 +107,10 @@ mainPartShort =
             [ el [ width (fillPortion 2) ] (image [ width fill ] { src = "[VITE_PLUGIN_ELM_ASSET:/src/img/diagram.gif]", description = "diagram" })
             , el [ width (fillPortion 2) ] (image [ width fill ] { src = "[VITE_PLUGIN_ELM_ASSET:/src/img/editor.gif]", description = "editor" })
             ]
-        , paragraph [ paddingXY 0 15 ] [ text "✍ Our intuitive interface makes it easy to create and edit yaml files that represent the domain of your application" ]
+        , paragraph [ paddingXY 0 15 ] [ text "✍ Intuitive interface makes it easy to create and edit yaml files that represent the domain of your application" ]
         , paragraph [ paddingXY 0 15 ] [ text "\u{1FA9F} You can create multiple views of your model to better understand and communicate the relationships within your software system" ]
-        , paragraph [ paddingXY 0 15 ] [ text "🔎 Our graphical interface enables you to create and edit views, layout elements and edges, zoom, scroll, and navigate through the selected view" ]
-        , paragraph [ paddingXY 0 15 ] [ text "💣 Our application highlights any inconsistencies in the model and views using error messages, ensuring your software architecture is clear and consistent" ]
+        , paragraph [ paddingXY 0 15 ] [ text "🔎 Graphical interface enables you to create and edit views, layout elements and edges, zoom, scroll, and navigate through the selected view" ]
+        , paragraph [ paddingXY 0 15 ] [ text "💣 Application highlights any inconsistencies in the model and views using error messages, ensuring your software architecture is clear and consistent" ]
         , paragraph [ paddingXY 0 15 ] [ text "☝ The C4 model is a powerful tool for understanding and communicating the structure of your software system, and our application supports the four main types of entities in the model: actors, systems, containers, and components" ]
         , paragraph [ paddingXY 0 15 ] [ text "👨\u{200D}🔬 Whether you're a seasoned software architect or just starting out, our application makes it easy to design and understand your software architecture" ]
         , paragraph [ paddingXY 0 15 ] [ text "🎉 Start creating your C4 model with the RDB Model Web Application today!" ]
