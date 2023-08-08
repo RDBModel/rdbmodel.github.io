@@ -71,7 +71,8 @@ type ZoomDirection
 
 type Msg
     = DoZoom ZoomDirection
-    | SetCtrlIsDown Bool
+    | SetCtrlToggle
+    | SetCtrl Bool
     | ZoomMsg OnZoom
     | SetSticky Bool
     | NoOp
@@ -98,7 +99,12 @@ update msg model =
             in
             ( { model | zoom = newZoom }, Cmd.none )
 
-        SetCtrlIsDown value ->
+        SetCtrlToggle ->
+            ( { model | ctrlIsDown = model.ctrlIsDown |> not }
+            , Cmd.none
+            )
+
+        SetCtrl value ->
             ( { model | ctrlIsDown = value }
             , Cmd.none
             )
@@ -126,12 +132,12 @@ view model =
             else
                 "white"
 
-        ( backgroundColorForMoveButton, backgroundColorForDefaultButton ) =
+        backgroundColorForMoveButton =
             if model.ctrlIsDown then
-                ( "#cccccc", "white" )
+                "#cccccc"
 
             else
-                ( "white", "#cccccc" )
+                "white"
     in
     div
         [ style "position" "absolute"
@@ -196,32 +202,6 @@ view model =
                 ]
             ]
         , button
-            [ style "background-color" backgroundColorForDefaultButton
-            , style "border-width" "0 1px 1px 1px"
-            , style "border-style" "solid"
-            , style "min-height" "24px"
-            , style "min-width" "24px"
-            , style "padding" "0"
-            , title "Set edit view mode"
-            , type_ "button"
-            , onClick <| SetCtrlIsDown False
-            ]
-            [ svg
-                [ style "vertical-align" "middle"
-                , width <| Px 24
-                , height <| Px 24
-                , viewBox 0 0 24 24
-                , strokeWidth <| Px 1
-                , fill PaintNone
-                , strokeLinecap StrokeLinecapRound
-                , strokeLinejoin StrokeLinejoinRound
-                ]
-                [ path [ stroke PaintNone, d "M0 0h24v24H0z", fill PaintNone ] []
-                , path [ d "M6 6l4.153 11.793a0.365 .365 0 0 0 .331 .207a0.366 .366 0 0 0 .332 -.207l2.184 -4.793l4.787 -1.994a0.355 .355 0 0 0 .213 -.323a0.355 .355 0 0 0 -.213 -.323l-11.787 -4.36z" ] []
-                , path [ d "M13.5 13.5l4.5 4.5" ] []
-                ]
-            ]
-        , button
             [ style "background-color" backgroundColorForMoveButton
             , style "border-width" "0 1px 1px 1px"
             , style "border-style" "solid"
@@ -230,7 +210,7 @@ view model =
             , style "padding" "0"
             , title "Set navigate view mode"
             , type_ "button"
-            , onClick <| SetCtrlIsDown True
+            , onClick <| SetCtrlToggle
             ]
             [ svg
                 [ style "vertical-align" "middle"
@@ -312,7 +292,7 @@ setCtrlState value =
     Decode.map
         (\key ->
             if key == "Control" then
-                SetCtrlIsDown value
+                SetCtrl value
 
             else
                 NoOp
