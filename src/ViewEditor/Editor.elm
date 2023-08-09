@@ -850,7 +850,7 @@ drawEdge viewNavigation selectedItems relationWithCircles edge =
     getSelectedPointKeysAndDeltas selectedItems
         |> List.map Tuple.first
         |> List.filterMap getSelectedPointIndex
-        |> linkElement viewNavigation edge (drawCiclesAtCorner (relationWithCircles |> Debug.log "relationWithCircles") ( edge |> Debug.log "edge"))
+        |> linkElement viewNavigation edge (drawCiclesAtCorner relationWithCircles edge)
 
 
 drawCiclesAtCorner : Maybe ViewRelationKey -> Edge -> Bool
