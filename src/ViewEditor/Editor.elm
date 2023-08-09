@@ -1,4 +1,4 @@
-module ViewEditor.Editor exposing (Action(..), Model, Msg, changeSelectedView, getSelectedView, getSvgElementPosition, init, isInitState, subscriptions, update, view)
+module ViewEditor.Editor exposing (Action(..), Model, changeSelectedView, getSelectedView, getSvgElementPosition, init, isInitState, subscriptions, update, view)
 
 import Basics.Extra exposing (maxSafeInteger)
 import Browser.Dom as Dom
@@ -9,68 +9,46 @@ import ContainerMenu.MenuActions as MenuActions
 import Dict exposing (Dict)
 import Domain.Domain
     exposing
-        ( Domain
-        , Edge
-        , Vertex
-        , View
+        ( View
         , ViewElement
         , ViewElementKey
         , ViewItemKey(..)
-        , ViewRelationKey
         , ViewRelationPoint
-        , ViewRelationPointKey
-        , getContainers
         , getCurrentView
-        , getEdges
         , getElement
         , getElementAndItsKeys
-        , getElementsKeysAndNames
         , getPoint
         , getRelationPoints
         , getViewElementKeysByCondition
         , getViewElements
         , getViewElementsOfCurrentView
         , getViewPointKeysByCondition
-        , getViewRelationKeyFromEdge
-        , getViewRelationKeyFromViewRelationPointKey
         , getViewRelationPoints
-        , possibleRelationsToAdd
         , removedEdge
         , updateElementsInViews
         , updatePointsInRelations
         , updateRelationsInElements
         , updateViewByKey
         )
-import ViewEditor.Elements
-    exposing
-        ( edgeBetweenContainers
-        , extendPoints
-        , grid
-        , gridRect
-        , innerGrid
-        , markerDot
-        , renderContainer
-        , renderContainerSelected
-        , selectItemsRect
-        )
-import Html exposing (Html, a, div, text)
+import Html exposing (Html, a, div)
 import Html.Attributes
-import Html.Events.Extra.Mouse as Mouse exposing (Event)
+import Html.Events.Extra.Mouse as Mouse
 import JsInterop exposing (focusContainer, shareElementsAtCurrentView)
 import Json.Decode as Decode
 import Navigation.ViewNavigation as ViewNavigation
 import SplitPanel.SplitPane exposing (Orientation(..))
 import Task
-import TypedSvg exposing (defs, g, svg)
-import TypedSvg.Attributes as Attrs exposing (class, d, id, r, x, x1, x2, y, y1, y2)
-import TypedSvg.Core exposing (Attribute, Svg)
+import TypedSvg.Attributes exposing (r, x, x1, x2, y, y1, y2)
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import ViewControl.AddView as AddView
 import ViewControl.AddViewActions as AddViewActions
 import ViewControl.ViewControl as ViewControl
 import ViewControl.ViewControlActions as ViewControlActions
 import ViewEditor.MovingViewElements exposing (getSelectedElementKeysAndDeltas, getSelectedPointKeysAndDeltas, updateElementAndPointPosition)
+import ViewEditor.Msg exposing (Msg(..))
+import ViewEditor.SvgView exposing (MonacoState, emptySvg, svgView)
 import ViewEditor.Types exposing (Brush, SelectedItem, ViewEditorState)
+import ViewEditor.DrawEdges exposing (edgeStrokeWidthExtend)
 
 
 type Model
@@ -93,27 +71,6 @@ init selectedView =
     Init selectedView
 
 
-type Msg
-    = ViewNavigation ViewNavigation.Msg
-    | Resize
-    | ReceiveElementPosition (Result Dom.Error Dom.Element)
-    | DragViewElementStart ViewElementKey ( Float, Float )
-    | ClickEdgeStart ViewRelationKey ( Float, Float )
-    | RemoveEdge ViewRelationKey
-    | DragPointStart ViewRelationPointKey ( Float, Float )
-    | RemovePoint ViewRelationPointKey
-    | MouseMove ( Float, Float )
-    | EdgeEnter ViewRelationKey
-    | EdgeLeave
-    | MouseMoveEnd
-    | SelectItemsStart ( Float, Float )
-    | ViewControl ViewControl.Msg
-    | AddView AddView.Msg
-    | ContainerContextMenu ContextMenu.Msg
-    | FocusContainer String
-    | NoOp
-
-
 type Action
     = UpdateViews (Dict String View)
     | SaveEditorState
@@ -121,12 +78,6 @@ type Action
     | UpdateMonacoValue
     | PushDomError Dom.Error
     | ChangeView (Maybe String)
-
-
-type alias MonacoState =
-    { views : Dict String View
-    , domain : Maybe Domain
-    }
 
 
 update : Dict String View -> Msg -> Model -> ( Model, Cmd Msg, List Action )
@@ -716,260 +667,6 @@ view domain model =
         graphics
 
 
-svgView : MonacoState -> ViewEditorState -> List (Html Msg)
-svgView { views, domain } viewEditorState =
-    let
-        { viewNavigation, viewControl } =
-            viewEditorState
-
-        rectNavigationEvents =
-            ViewNavigation.gridRectEvents viewNavigation |> List.map (Html.Attributes.map ViewNavigation)
-
-        ( currentView, currentControl ) =
-            case ( getCurrentView viewEditorState.selectedView views, domain ) of
-                ( Just v, Just d ) ->
-                    ( renderCurrentView ( v, d ) viewEditorState, ViewControl.view viewEditorState.selectedView views (getElementsKeysAndNames d) viewControl |> Html.map ViewControl )
-
-                _ ->
-                    ( text "", text "" )
-
-        gridRectEvents =
-            if ViewNavigation.panMode viewNavigation then
-                rectNavigationEvents
-
-            else
-                mouseDownMain SelectItemsStart :: rectNavigationEvents
-
-        transform10 =
-            ViewNavigation.getScale viewNavigation |> (*) 10
-
-        transform100 =
-            transform10 * 10
-
-        getXY =
-            ViewNavigation.getTranslate viewNavigation
-                |> (\t -> ( floatRemainderBy transform100 t.x, floatRemainderBy transform100 t.y ))
-    in
-    [ emptySvg
-        [ defs []
-            [ innerGrid transform10
-            , grid getXY transform100
-            , markerDot -- for circle in edges
-            ]
-        , gridRect gridRectEvents
-        , g
-            [ ViewNavigation.zoomTransformAttr viewEditorState.viewNavigation |> Html.Attributes.map ViewNavigation ]
-            [ currentView
-            , renderSelectRect viewEditorState
-            ]
-        ]
-    , currentControl
-    , ViewNavigation.view viewEditorState.viewNavigation |> Html.map ViewNavigation
-    , AddView.view viewEditorState.addView |> Html.map AddView
-    , ContextMenu.view viewEditorState.containerMenu |> Html.map ContainerContextMenu
-    ]
-
-
-emptySvg : List (Svg Msg) -> Html Msg
-emptySvg =
-    svg
-        [ id "main-graph"
-        , Attrs.width <| Percent 100
-        , Attrs.height <| Percent 100
-        , Mouse.onContextMenu (\_ -> NoOp)
-        ]
-
-
-mouseDownMain : (( Float, Float ) -> Msg) -> Attribute Msg
-mouseDownMain msg =
-    Mouse.onDown <|
-        onlyMainButton
-            >> Maybe.map msg
-            >> Maybe.withDefault NoOp
-
-
-onlyMainButton : Event -> Maybe ( Float, Float )
-onlyMainButton e =
-    case e.button of
-        Mouse.MainButton ->
-            Just e.clientPos
-
-        _ ->
-            Nothing
-
-
-floatRemainderBy : Float -> Float -> Float
-floatRemainderBy divisor n =
-    n - toFloat (truncate (n / divisor)) * divisor
-
-
-renderCurrentView : ( View, Domain ) -> ViewEditorState -> Svg Msg
-renderCurrentView ( v, domain ) model =
-    let
-        { selectedItems, viewNavigation } =
-            model
-
-        getPossibleRelations =
-            possibleRelationsToAdd ( domain, v )
-    in
-    g []
-        [ getEdges ( domain, v )
-            |> List.map (drawEdge viewNavigation selectedItems model.currentMouseOverRelation)
-            |> g [ class [ "links" ] ]
-        , getContainers ( domain, v )
-            |> List.map (drawContainer viewNavigation selectedItems getPossibleRelations)
-            |> g [ class [ "nodes" ] ]
-        ]
-
-
-renderSelectRect : ViewEditorState -> Svg Msg
-renderSelectRect model =
-    case model.brush of
-        Just { start, end } ->
-            selectItemsRect start end
-
-        Nothing ->
-            text ""
-
-
-drawEdge : ViewNavigation.Model -> List SelectedItem -> Maybe ViewRelationKey -> Edge -> Svg Msg
-drawEdge viewNavigation selectedItems relationWithCircles edge =
-    let
-        getSelectedPointIndex vpk =
-            if getViewRelationKeyFromViewRelationPointKey vpk == getViewRelationKeyFromEdge edge then
-                let
-                    ( _, _, viewRelationPointIndex ) =
-                        vpk
-                in
-                Just viewRelationPointIndex
-
-            else
-                Nothing
-    in
-    getSelectedPointKeysAndDeltas selectedItems
-        |> List.map Tuple.first
-        |> List.filterMap getSelectedPointIndex
-        |> linkElement viewNavigation edge (drawCiclesAtCorner relationWithCircles edge)
-
-
-drawCiclesAtCorner : Maybe ViewRelationKey -> Edge -> Bool
-drawCiclesAtCorner currentRelation edge =
-    case currentRelation of
-        Just ( elementKey, (targetElement, description )) ->
-            edge.source.key == elementKey && edge.target.key == targetElement && edge.description == description
-        Nothing -> False
-
-
-linkElement : ViewNavigation.Model -> Edge -> Bool -> List Int -> Svg Msg
-linkElement viewNavigation edge drawCornerCircles =
-    let
-        viewRelationKey =
-            getViewRelationKeyFromEdge edge
-    in
-    if ViewNavigation.panMode viewNavigation then
-        edgeBetweenContainers
-            edge
-            (ViewNavigation.panModeEvent viewNavigation |> List.map (Html.Attributes.map ViewNavigation))
-            (\_ -> ViewNavigation.panModeEvent viewNavigation |> List.map (Html.Attributes.map ViewNavigation))
-            False
-
-    else
-        edgeBetweenContainers
-            edge
-            [onMouseDownEdge viewRelationKey, onMouseHoverEdge viewRelationKey, onMouseHoverLeaveEdge]
-            (onMouseDownPoint viewRelationKey)
-            drawCornerCircles
-
-
-onMouseDownEdge : ViewRelationKey -> Attribute Msg
-onMouseDownEdge viewRelationKey =
-    Mouse.onDown
-        (\e ->
-            case e.button of
-                Mouse.MainButton ->
-                    ClickEdgeStart viewRelationKey e.clientPos
-
-                Mouse.SecondButton ->
-                    RemoveEdge viewRelationKey
-
-                _ ->
-                    NoOp
-        )
-
-
-onMouseHoverEdge : ViewRelationKey -> Attribute Msg
-onMouseHoverEdge viewRelationKey =
-    Mouse.onEnter
-        (\_ ->
-            EdgeEnter viewRelationKey
-        )
-
-onMouseHoverLeaveEdge : Attribute Msg
-onMouseHoverLeaveEdge =
-    Mouse.onLeave
-        (\_ ->
-            EdgeLeave
-        )
-
-onMouseDownPoint : ViewRelationKey -> Int -> List (Attribute Msg)
-onMouseDownPoint ( viewRelationElementKey, relation ) index =
-    let
-        viewRelationPointKey =
-            ( viewRelationElementKey, relation, index )
-    in
-    [Mouse.onDown
-        (\e ->
-            case e.button of
-                Mouse.MainButton ->
-                    DragPointStart viewRelationPointKey e.clientPos
-
-                Mouse.SecondButton ->
-                    RemovePoint viewRelationPointKey
-
-                _ ->
-                    NoOp
-        )
-    , Mouse.onEnter
-        (\_ ->
-            EdgeEnter ( viewRelationElementKey, relation )
-        )
-    , Mouse.onLeave
-        (\_ ->
-            EdgeLeave
-        )
-    ]
-
-
-drawContainer : ViewNavigation.Model -> List SelectedItem -> Dict String (List Domain.Domain.Relation) -> Vertex -> Svg Msg
-drawContainer viewNavigation selectedItems possibleContainersRelations container =
-    let
-        mouseDownAttr =
-            if ViewNavigation.panMode viewNavigation then
-                ViewNavigation.panModeEvent viewNavigation |> List.map (Html.Attributes.map ViewNavigation)
-
-            else
-                [ mouseDownMain (DragViewElementStart container.key) ]
-
-        selectedElements =
-            getSelectedElementKeysAndDeltas selectedItems
-                |> List.map Tuple.first
-
-        renderContainerFunc =
-            if List.member container.key selectedElements then
-                renderContainerSelected
-
-            else
-                renderContainer
-
-        contextMenuAttr =
-            Dict.get container.key possibleContainersRelations
-                |> ContextMenu.attach container.key
-                |> Html.Attributes.map ContainerContextMenu
-                |> List.singleton
-    in
-    renderContainerFunc container (mouseDownAttr ++ contextMenuAttr)
-
-
 subscriptions : Model -> Sub Msg
 subscriptions model =
     let
@@ -1034,3 +731,21 @@ changeSelectedView selectedView model =
 
         Ready m ->
             Ready { m | selectedView = selectedView }
+
+extendPoints : ( number, number ) -> ( number, number ) -> ( ( number, number ), ( number, number ) )
+extendPoints ( x1, y1 ) ( x2, y2 ) =
+    let
+        extend v1 v2 =
+            if v1 < v2 || v1 == v2 then
+                ( v1 - edgeStrokeWidthExtend, v2 + edgeStrokeWidthExtend )
+
+            else
+                ( v2 - edgeStrokeWidthExtend, v1 + edgeStrokeWidthExtend )
+
+        ( ux1, ux2 ) =
+            extend x1 x2
+
+        ( uy1, uy2 ) =
+            extend y1 y2
+    in
+    ( ( ux1, uy1 ), ( ux2, uy2 ) )

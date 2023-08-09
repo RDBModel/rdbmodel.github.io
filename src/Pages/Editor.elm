@@ -53,6 +53,7 @@ import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), Stroke
 import UndoRedo.ViewUndoRedo as ViewUndoRedo exposing (UndoRedoMonacoValue, getUndoRedoMonacoValue, newRecord)
 import UndoRedo.ViewUndoRedoActions as ViewUndoRedoActions exposing (MonacoValue)
 import ViewEditor.Editor as ViewEditor
+import ViewEditor.Msg as ViewEditorMsg
 import ViewEditor.EditorAction as ViewEditorActions
 import Yaml.Decode as D
 
@@ -88,7 +89,7 @@ getMonacoValue =
 type Msg
     = MonacoEditorValueReceived String
     | ReceiveMonacoElementPosition (Maybe String) (Result Dom.Error Dom.Element)
-    | ViewEditorMsg ViewEditor.Msg
+    | ViewEditorMsg ViewEditorMsg.Msg
     | PaneMsg SplitPane.Msg
     | InitMonacoRequestReceived ()
     | RequestValueToSave ()
