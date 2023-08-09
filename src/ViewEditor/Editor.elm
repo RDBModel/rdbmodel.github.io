@@ -18,7 +18,6 @@ import Domain.Domain
         , ViewItemKey(..)
         , ViewRelationKey
         , ViewRelationPoint
-        , ViewRelationPointIndex
         , ViewRelationPointKey
         , getContainers
         , getCurrentView
@@ -42,7 +41,7 @@ import Domain.Domain
         , updateRelationsInElements
         , updateViewByKey
         )
-import Elements
+import ViewEditor.Elements
     exposing
         ( edgeBetweenContainers
         , extendPoints
