@@ -291,8 +291,8 @@ extendPoints ( x1, y1 ) ( x2, y2 ) =
     ( ( ux1, uy1 ), ( ux2, uy2 ) )
 
 
-edgeBetweenContainers : Edge -> List (Attribute msg) -> (Int -> List (Attribute msg)) -> List Int -> Svg msg
-edgeBetweenContainers edge addPointEvent removeOrDragPointEvent selectedIndexes =
+edgeBetweenContainers : Edge -> List (Attribute msg) -> (Int -> List (Attribute msg)) -> Bool -> List Int -> Svg msg
+edgeBetweenContainers edge addPointEvent removeOrDragPointEvent drawCornerCircles selectedIndexes  =
     let
         points =
             edge.points |> filterPointsUnderContainer edge.source.xy edge.target.xy
@@ -387,7 +387,7 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent selectedIndexes 
                 ]
                 [ text "➤" ]
             ]
-        , g [] <|
+        , if drawCornerCircles then g [] <|
             List.indexedMap
                 (\i ( dx, dy ) ->
                     let
@@ -412,6 +412,8 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent selectedIndexes 
                         [ title [] [ text tooltip ] ]
                 )
                 points
+            else
+                g [] []
         ]
 
 

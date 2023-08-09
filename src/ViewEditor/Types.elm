@@ -4,6 +4,7 @@ import ViewControl.ViewControl as ViewControl
 import ViewControl.AddView as AddView
 import Navigation.ViewNavigation as ViewNavigation
 import ContainerMenu.ContextMenu as ContextMenu
+import Domain.Domain exposing (ViewRelationKey)
 
 type alias ViewEditorState =
     { drag : Maybe Drag
@@ -15,6 +16,7 @@ type alias ViewEditorState =
     , brush : Maybe Brush
     , selectedItems : List SelectedItem
     , containerMenu : ContextMenu.Model
+    , currentMouseOverRelation : Maybe ViewRelationKey
     }
 
 type alias Element =

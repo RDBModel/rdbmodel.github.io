@@ -104,6 +104,8 @@ type Msg
     | DragPointStart ViewRelationPointKey ( Float, Float )
     | RemovePoint ViewRelationPointKey
     | MouseMove ( Float, Float )
+    | EdgeEnter ViewRelationKey
+    | EdgeLeave
     | MouseMoveEnd
     | SelectItemsStart ( Float, Float )
     | ViewControl ViewControl.Msg
@@ -147,6 +149,7 @@ update views msg model =
                 , brush = Nothing
                 , selectedItems = []
                 , containerMenu = ContainerMenu.Menu.init |> ContextMenu.init
+                , currentMouseOverRelation = Nothing
                 }
             , shareElementsAtCurrentView elementsKeysOfCurrentView |> Cmd.map ViewControl
             , []
@@ -467,6 +470,18 @@ update views msg model =
                 _ ->
                     -- TODO
                     ( model, Cmd.none, [] )
+
+        ( Ready state, EdgeEnter viewRelationKey ) ->
+            ( Ready { state | currentMouseOverRelation = Just viewRelationKey }
+            , Cmd.none
+            , []
+            )
+
+        ( Ready state, EdgeLeave ) ->
+            ( Ready { state | currentMouseOverRelation = Nothing }
+            , Cmd.none
+            , []
+            )
 
         ( Ready state, MouseMove xy ) ->
             let
@@ -800,7 +815,7 @@ renderCurrentView ( v, domain ) model =
     in
     g []
         [ getEdges ( domain, v )
-            |> List.map (drawEdge viewNavigation selectedItems)
+            |> List.map (drawEdge viewNavigation selectedItems model.currentMouseOverRelation)
             |> g [ class [ "links" ] ]
         , getContainers ( domain, v )
             |> List.map (drawContainer viewNavigation selectedItems getPossibleRelations)
@@ -818,8 +833,8 @@ renderSelectRect model =
             text ""
 
 
-drawEdge : ViewNavigation.Model -> List SelectedItem -> Edge -> Svg Msg
-drawEdge viewNavigation selectedItems edge =
+drawEdge : ViewNavigation.Model -> List SelectedItem -> Maybe ViewRelationKey -> Edge -> Svg Msg
+drawEdge viewNavigation selectedItems relationWithCircles edge =
     let
         getSelectedPointIndex vpk =
             if getViewRelationKeyFromViewRelationPointKey vpk == getViewRelationKeyFromEdge edge then
@@ -835,11 +850,19 @@ drawEdge viewNavigation selectedItems edge =
     getSelectedPointKeysAndDeltas selectedItems
         |> List.map Tuple.first
         |> List.filterMap getSelectedPointIndex
-        |> linkElement viewNavigation edge
+        |> linkElement viewNavigation edge (drawCiclesAtCorner (relationWithCircles |> Debug.log "relationWithCircles") ( edge |> Debug.log "edge"))
 
 
-linkElement : ViewNavigation.Model -> Edge -> List Int -> Svg Msg
-linkElement viewNavigation edge =
+drawCiclesAtCorner : Maybe ViewRelationKey -> Edge -> Bool
+drawCiclesAtCorner currentRelation edge =
+    case currentRelation of
+        Just ( elementKey, (targetElement, description )) ->
+            edge.source.key == elementKey && edge.target.key == targetElement && edge.description == description
+        Nothing -> False
+
+
+linkElement : ViewNavigation.Model -> Edge -> Bool -> List Int -> Svg Msg
+linkElement viewNavigation edge drawCornerCircles =
     let
         viewRelationKey =
             getViewRelationKeyFromEdge edge
@@ -849,12 +872,14 @@ linkElement viewNavigation edge =
             edge
             (ViewNavigation.panModeEvent viewNavigation |> List.map (Html.Attributes.map ViewNavigation))
             (\_ -> ViewNavigation.panModeEvent viewNavigation |> List.map (Html.Attributes.map ViewNavigation))
+            False
 
     else
         edgeBetweenContainers
             edge
-            (onMouseDownEdge viewRelationKey |> List.singleton)
+            [onMouseDownEdge viewRelationKey, onMouseHoverEdge viewRelationKey, onMouseHoverLeaveEdge]
             (onMouseDownPoint viewRelationKey)
+            drawCornerCircles
 
 
 onMouseDownEdge : ViewRelationKey -> Attribute Msg
@@ -873,13 +898,27 @@ onMouseDownEdge viewRelationKey =
         )
 
 
+onMouseHoverEdge : ViewRelationKey -> Attribute Msg
+onMouseHoverEdge viewRelationKey =
+    Mouse.onEnter
+        (\_ ->
+            EdgeEnter viewRelationKey
+        )
+
+onMouseHoverLeaveEdge : Attribute Msg
+onMouseHoverLeaveEdge =
+    Mouse.onLeave
+        (\_ ->
+            EdgeLeave
+        )
+
 onMouseDownPoint : ViewRelationKey -> Int -> List (Attribute Msg)
 onMouseDownPoint ( viewRelationElementKey, relation ) index =
     let
         viewRelationPointKey =
             ( viewRelationElementKey, relation, index )
     in
-    Mouse.onDown
+    [Mouse.onDown
         (\e ->
             case e.button of
                 Mouse.MainButton ->
@@ -891,7 +930,15 @@ onMouseDownPoint ( viewRelationElementKey, relation ) index =
                 _ ->
                     NoOp
         )
-        |> List.singleton
+    , Mouse.onEnter
+        (\_ ->
+            EdgeEnter ( viewRelationElementKey, relation )
+        )
+    , Mouse.onLeave
+        (\_ ->
+            EdgeLeave
+        )
+    ]
 
 
 drawContainer : ViewNavigation.Model -> List SelectedItem -> Dict String (List Domain.Domain.Relation) -> Vertex -> Svg Msg
