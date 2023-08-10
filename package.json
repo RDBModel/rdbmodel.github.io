@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "patch": "npm version patch"
+    "patch": "npm version patch",
+    "test": "node up-version.js && git add . && git commit -m 'Version' && npm version patch"
   },
   "devDependencies": {
     "elm": "^0.19.1-5",
