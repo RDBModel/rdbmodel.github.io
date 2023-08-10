@@ -53,8 +53,8 @@ import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), Stroke
 import UndoRedo.ViewUndoRedo as ViewUndoRedo exposing (UndoRedoMonacoValue, getUndoRedoMonacoValue, newRecord)
 import UndoRedo.ViewUndoRedoActions as ViewUndoRedoActions exposing (MonacoValue)
 import ViewEditor.Editor as ViewEditor
-import ViewEditor.Msg as ViewEditorMsg
 import ViewEditor.EditorAction as ViewEditorActions
+import ViewEditor.Msg as ViewEditorMsg
 import Yaml.Decode as D
 
 
@@ -108,21 +108,6 @@ update msg model =
             case D.fromString rdbDecoder val of
                 Ok ( domain, views ) ->
                     let
-                        currentSelectedView =
-                            ViewEditor.getSelectedView model.viewEditor
-
-                        updatedSelectedView =
-                            case currentSelectedView of
-                                Just v ->
-                                    if Dict.member v views then
-                                        Just v
-
-                                    else
-                                        Dict.keys views |> List.head
-
-                                Nothing ->
-                                    Dict.keys views |> List.head
-
                         monacoModel =
                             MonacoValue views (Just domain)
 
@@ -136,16 +121,7 @@ update msg model =
                     , Cmd.batch
                         [ initMonacoResponse (rdbEncode monacoModel)
                         , saveToLocalStorage val
-                        , case updatedSelectedView of
-                            Just v ->
-                                if Dict.member v views then
-                                    Nav.replaceUrl model.session.key ("/#/editor/" ++ v)
-
-                                else
-                                    Nav.replaceUrl model.session.key "/#/editor/"
-
-                            Nothing ->
-                                Nav.replaceUrl model.session.key "/#/editor/"
+                        , selectedViewNameUrlChange model views
                         , ViewEditor.getSvgElementPosition |> Cmd.map ViewEditorMsg
                         ]
                     )
@@ -185,21 +161,6 @@ update msg model =
             case D.fromString rdbDecoder cleaned of
                 Ok ( domain, views ) ->
                     let
-                        currentSelectedView =
-                            ViewEditor.getSelectedView model.viewEditor
-
-                        updatedSelectedView =
-                            case currentSelectedView of
-                                Just v ->
-                                    if Dict.member v views then
-                                        Just v
-
-                                    else
-                                        Dict.keys views |> List.head
-
-                                Nothing ->
-                                    Dict.keys views |> List.head
-
                         newMonacoValue =
                             let
                                 currentMonacoValue =
@@ -223,16 +184,7 @@ update msg model =
                     , Cmd.batch
                         [ ViewEditor.getSvgElementPosition |> Cmd.map ViewEditorMsg
                         , validationErrors ""
-                        , case updatedSelectedView of
-                            Just v ->
-                                if Dict.member v views then
-                                    Nav.replaceUrl model.session.key ("/#/editor/" ++ v)
-
-                                else
-                                    Nav.replaceUrl model.session.key "/#/editor/"
-
-                            Nothing ->
-                                Nav.replaceUrl model.session.key "/#/editor/"
+                        , selectedViewNameUrlChange model views
                         , saveToLocalStorage (rdbEncode newModel.monacoValue.present)
                         ]
                     )
@@ -324,6 +276,36 @@ update msg model =
             ( model
             , saveToLocalStorage (rdbEncode model.monacoValue.present)
             )
+
+
+selectedViewNameUrlChange : { a | viewEditor : ViewEditor.Model, session : { b | key : Nav.Key } } -> Dict String v -> Cmd msg
+selectedViewNameUrlChange model views =
+    let
+        currentSelectedView =
+            ViewEditor.getSelectedView model.viewEditor
+
+        updatedSelectedView =
+            case currentSelectedView of
+                Just v ->
+                    if Dict.member v views then
+                        Just v
+
+                    else
+                        Dict.keys views |> List.head
+
+                Nothing ->
+                    Dict.keys views |> List.head
+    in
+    case updatedSelectedView of
+        Just v ->
+            if Dict.member v views then
+                Nav.replaceUrl model.session.key ("/#/editor/" ++ v)
+
+            else
+                Nav.replaceUrl model.session.key "/#/editor/"
+
+        Nothing ->
+            Nav.replaceUrl model.session.key "/#/editor/"
 
 
 showError : D.Error -> Model -> ( Model, Cmd Msg )
