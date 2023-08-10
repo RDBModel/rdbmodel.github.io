@@ -1,6 +1,5 @@
 module ViewEditor.Editor exposing (Action(..), Model, changeSelectedView, getSelectedView, getSvgElementPosition, init, isInitState, subscriptions, update, view)
 
-import Basics.Extra exposing (maxSafeInteger)
 import Browser.Dom as Dom
 import Browser.Events as Events
 import ContainerMenu.ContextMenu as ContextMenu
@@ -13,16 +12,12 @@ import Domain.Domain
         , ViewElement
         , ViewElementKey
         , ViewItemKey(..)
-        , ViewRelationPoint
         , getCurrentView
         , getElement
-        , getElementAndItsKeys
         , getPoint
         , getRelationPoints
-        , getViewElementKeysByCondition
         , getViewElements
         , getViewElementsOfCurrentView
-        , getViewPointKeysByCondition
         , getViewRelationPoints
         , removedEdge
         , updateElementsInViews
@@ -30,7 +25,7 @@ import Domain.Domain
         , updateRelationsInElements
         , updateViewByKey
         )
-import Html exposing (Html, a, div)
+import Html exposing (Html, div)
 import Html.Attributes
 import Html.Events.Extra.Mouse as Mouse
 import JsInterop exposing (focusContainer, shareElementsAtCurrentView)
@@ -38,17 +33,18 @@ import Json.Decode as Decode
 import Navigation.ViewNavigation as ViewNavigation
 import SplitPanel.SplitPane exposing (Orientation(..))
 import Task
-import TypedSvg.Attributes exposing (r, x, x1, x2, y, y1, y2)
+import TypedSvg.Attributes exposing (r)
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
 import ViewControl.AddView as AddView
 import ViewControl.AddViewActions as AddViewActions
 import ViewControl.ViewControl as ViewControl
 import ViewControl.ViewControlActions as ViewControlActions
+import ViewEditor.AddNewPointToEdge exposing (pointsWithNewPoint)
+import ViewEditor.MouseMove exposing (handleMouseMove)
 import ViewEditor.MovingViewElements exposing (getSelectedElementKeysAndDeltas, getSelectedPointKeysAndDeltas, updateElementAndPointPosition)
 import ViewEditor.Msg exposing (Msg(..))
 import ViewEditor.SvgView exposing (MonacoState, emptySvg, svgView)
 import ViewEditor.Types exposing (Brush, SelectedItem, ViewEditorState)
-import ViewEditor.DrawEdges exposing (edgeStrokeWidthExtend)
 
 
 type Model
@@ -357,57 +353,8 @@ update views msg model =
             case ( sourceXY, targetXY, currentView ) of
                 ( Just sxy, Just txy, Just cv ) ->
                     let
-                        allPoints =
-                            sxy :: getViewRelationPoints ( viewElementKey, relation ) cv ++ [ txy ]
-
-                        ( _, ( insertAfterValue, _ ) ) =
-                            List.foldr
-                                (\currentPoint ->
-                                    \( previousPoint, ( insertAfterPoint, val ) ) ->
-                                        let
-                                            z =
-                                                distanceToLine spxy ( currentPoint, previousPoint )
-
-                                            ( extendedA, extendedPrev ) =
-                                                extendPoints currentPoint previousPoint
-                                        in
-                                        if not (isNaN z) && betweenPoints spxy ( extendedA, extendedPrev ) && z < val then
-                                            ( currentPoint, ( currentPoint, z ) )
-
-                                        else
-                                            ( currentPoint, ( insertAfterPoint, val ) )
-                                )
-                                ( txy, ( txy, maxSafeInteger ) )
-                                allPoints
-
-                        ( listWithNewPoint, _, _ ) =
-                            List.foldr
-                                (\a ->
-                                    \( b, i, found ) ->
-                                        if insertAfterValue == a then
-                                            ( a :: spxy :: b, i, True )
-
-                                        else
-                                            ( a :: b
-                                            , if found then
-                                                i
-
-                                              else
-                                                i + 1
-                                            , found
-                                            )
-                                )
-                                ( [], 0, False )
-                                allPoints
-
-                        updatedList =
-                            listWithNewPoint |> trimList 1
-
-                        updatedPoints =
-                            \_ -> updatedList |> List.map (\( x, y ) -> ViewRelationPoint x y)
-
                         updatedViewsValue =
-                            updatedPoints
+                            (\_ -> pointsWithNewPoint spxy sxy (getViewRelationPoints ( viewElementKey, relation ) cv) txy)
                                 |> updatePointsInRelations relation
                                 |> updateRelationsInElements viewElementKey
                                 |> updateElementsInViews state.selectedView views
@@ -435,13 +382,6 @@ update views msg model =
 
         ( Ready state, MouseMove xy ) ->
             let
-                selectedViewKey =
-                    getCurrentView state.selectedView views
-
-                updatedViewEditor =
-                    selectedViewKey
-                        |> handleMouseMove xy state
-
                 updatedViews =
                     case ( state.brush, state.drag ) of
                         ( Nothing, Just _ ) ->
@@ -451,7 +391,9 @@ update views msg model =
                         _ ->
                             views
             in
-            ( updatedViewEditor
+            ( getCurrentView state.selectedView views
+                |> handleMouseMove xy state
+                |> Ready
             , Cmd.none
             , ResetCurrentEditorState updatedViews |> List.singleton
             )
@@ -545,109 +487,6 @@ updateSelectedItemsDeltas viewElementsOfCurrentView ( shiftedStartX, shiftedStar
     selectedElementsWithDeltas ++ selectedPointsWithDeltas
 
 
-{-| calculate distance to the line created by two points
-it is not work good as it is required to calculcate distance to line segment
-not line
-TODO
--}
-distanceToLine : ( Float, Float ) -> ( ( Float, Float ), ( Float, Float ) ) -> Float
-distanceToLine ( x, y ) ( ( x1, y1 ), ( x2, y2 ) ) =
-    -- distance to the line
-    abs ((x2 - x1) * (y1 - y) - (x1 - x) * (y2 - y1)) / sqrt ((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))
-
-
-{-| is it enough to put the point ?
--}
-betweenPoints : ( Float, Float ) -> ( ( Float, Float ), ( Float, Float ) ) -> Bool
-betweenPoints ( x, y ) ( ( x1, y1 ), ( x2, y2 ) ) =
-    let
-        isBetween v v1 v2 =
-            if v1 < v2 then
-                v1 < v && v < v2
-
-            else if v1 == v2 then
-                v1 == v && v == v2
-
-            else
-                v2 < v && v < v1
-    in
-    isBetween x x1 x2 && isBetween y y1 y2
-
-
-handleMouseMove : ( Float, Float ) -> ViewEditorState -> Maybe View -> Model
-handleMouseMove xy ({ drag, brush } as state) currentView =
-    case brush of
-        Just b ->
-            let
-                shiftedXY =
-                    ViewNavigation.shiftPosition state.viewNavigation ( state.svgElementPosition.x, state.svgElementPosition.y ) xy
-
-                updatedBrush =
-                    { b | end = shiftedXY }
-
-                elementKeysWithinBrush =
-                    currentView
-                        |> getViewElementsOfCurrentView
-                        |> getViewElementKeysByCondition (elementWithinBrush updatedBrush)
-                        |> List.map (\i -> SelectedItem (ElementKey i) Nothing)
-
-                pointKeysWithinBrush =
-                    currentView
-                        |> getViewElementsOfCurrentView
-                        |> getElementAndItsKeys
-                        |> List.concatMap (\( k, v ) -> v.relations |> Dict.toList |> List.map (\( relation, points ) -> ( k, relation, points )))
-                        |> List.concatMap (\( k, relation, points ) -> points |> getViewPointKeysByCondition (pointWithinBrush updatedBrush) |> List.map (\pointIndex -> ( k, relation, pointIndex )))
-                        |> List.map (\i -> SelectedItem (PointKey i) Nothing)
-            in
-            Ready { state | brush = Just updatedBrush, selectedItems = elementKeysWithinBrush ++ pointKeysWithinBrush }
-
-        Nothing ->
-            case drag of
-                Just { start } ->
-                    Ready { state | drag = Just { start = start, current = xy } }
-
-                _ ->
-                    Ready state
-
-
-elementWithinBrush : Brush -> ViewElementKey -> ViewElement -> Bool
-elementWithinBrush { start, end } _ { x, y } =
-    let
-        ( startX1, startY1 ) =
-            start
-
-        ( endX2, endY2 ) =
-            end
-    in
-    x
-        > min startX1 endX2
-        && x
-        < max startX1 endX2
-        && y
-        > min startY1 endY2
-        && y
-        < max startY1 endY2
-
-
-pointWithinBrush : Brush -> ViewRelationPoint -> Bool
-pointWithinBrush { start, end } { x, y } =
-    let
-        ( startX1, startY1 ) =
-            start
-
-        ( endX2, endY2 ) =
-            end
-    in
-    x
-        > min startX1 endX2
-        && x
-        < max startX1 endX2
-        && y
-        > min startY1 endY2
-        && y
-        < max startY1 endY2
-
-
 view : MonacoState -> Model -> Html Msg
 view domain model =
     let
@@ -705,14 +544,6 @@ subscriptions model =
         ]
 
 
-trimList : Int -> List a -> List a
-trimList count =
-    List.drop count
-        >> List.reverse
-        >> List.drop count
-        >> List.reverse
-
-
 getSelectedView : Model -> Maybe String
 getSelectedView model =
     case model of
@@ -731,21 +562,3 @@ changeSelectedView selectedView model =
 
         Ready m ->
             Ready { m | selectedView = selectedView }
-
-extendPoints : ( number, number ) -> ( number, number ) -> ( ( number, number ), ( number, number ) )
-extendPoints ( x1, y1 ) ( x2, y2 ) =
-    let
-        extend v1 v2 =
-            if v1 < v2 || v1 == v2 then
-                ( v1 - edgeStrokeWidthExtend, v2 + edgeStrokeWidthExtend )
-
-            else
-                ( v2 - edgeStrokeWidthExtend, v1 + edgeStrokeWidthExtend )
-
-        ( ux1, ux2 ) =
-            extend x1 x2
-
-        ( uy1, uy2 ) =
-            extend y1 y2
-    in
-    ( ( ux1, uy1 ), ( ux2, uy2 ) )
