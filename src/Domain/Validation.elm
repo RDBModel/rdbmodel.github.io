@@ -154,11 +154,16 @@ getUniqueElementsKeys =
 
 getRelations : Domain -> List ( String, Relation )
 getRelations domain =
-    (Dict.toList domain.actors |> List.map (\( k, actor ) -> actor.relations |> Maybe.withDefault [] |> List.map (\x -> ( k, x ))) |> List.concat)
-        ++ (Dict.toList domain.rings |> List.map (\( k, ring ) -> ring.relations |> Maybe.withDefault [] |> List.map (\x -> ( k, x ))) |> List.concat)
-        ++ (Dict.values domain.rings |> List.map .delivery |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap Dict.toList |> List.map (\( k, delivery ) -> delivery.relations  |> Maybe.withDefault [] |> List.map (\x -> ( k, x ))) |> List.concat)
-        ++ (Dict.values domain.rings |> List.map .delivery |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap Dict.values |> List.map .blocks |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap Dict.toList |> List.map (\( k, block ) -> block.relations |> Maybe.withDefault [] |> List.map (\x -> ( k, x ))) |> List.concat)
+    let
+        extractFromNode key data =
+            data.relations |> Maybe.withDefault [] |> List.map (\x -> ( key, x ))
+    in
+    extractRelations domain.actors
+        ++ (extractDataFromAllNodes domain.elements extractFromNode |> List.concat)
 
+extractRelations : Dict String Data -> List ( String, Relation )
+extractRelations actors =
+    (Dict.toList actors |> List.map (\( k, actor ) -> actor.relations |> Maybe.withDefault [] |> List.map (\x -> ( k, x ))) |> List.concat)
 
 getUniqueRelations : Domain -> Set ( String, Relation )
 getUniqueRelations =

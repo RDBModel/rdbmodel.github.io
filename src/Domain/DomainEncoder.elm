@@ -1,7 +1,8 @@
 module Domain.DomainEncoder exposing (..)
 
+import Array exposing (Array)
 import Dict exposing (Dict)
-import Domain.Domain exposing (Delivery, Domain, Relation, Ring, View, ViewElement, ViewRelationPoint, relationSplitter)
+import Domain.Domain exposing (Data, Domain, Node(..), Relation, View, ViewElement, ViewRelationPoint, getName, relationSplitter)
 import Element.Region exposing (description)
 import Yaml.Encode exposing (..)
 
@@ -31,15 +32,85 @@ domainEncoder domain =
             record
                 [ ( "name", string domain.name )
                 , ( "description", string f )
-                , ( "actors", dict identity basicEncoder domain.actors )
-                , ( "systems", dict identity ringEncoder domain.rings )
+                , ( "actors", dict identity dataEncoder domain.actors )
+                , ( "systems", dict identity (nodeEncoder 0) domain.elements )
                 ]
 
         Nothing ->
             record
                 [ ( "name", string domain.name )
-                , ( "actors", dict identity basicEncoder domain.actors )
-                , ( "systems", dict identity ringEncoder domain.rings )
+                , ( "actors", dict identity dataEncoder domain.actors )
+                , ( "systems", dict identity (nodeEncoder 0) domain.elements )
+                ]
+
+
+nodeEncoder : Int -> Node -> Encoder
+nodeEncoder level node =
+    case node of
+        Parent data children ->
+            dataWithChildrenEncoder level data children
+
+        Leaf data ->
+            dataEncoder data
+
+
+dataWithChildrenEncoder : Int -> { a | description : Maybe String, relations : Maybe (List Relation), name : String } -> Dict String Node -> Encoder
+dataWithChildrenEncoder level data children =
+    case ( data.description, data.relations ) of
+        ( Just description, Just relations ) ->
+            record
+                [ ( "name", string data.name )
+                , ( "description", string description )
+                , ( "relations", list relationEncoder relations )
+                , ( getName level, dict identity (nodeEncoder (level + 1)) children )
+                ]
+
+        ( Nothing, Just relations ) ->
+            record
+                [ ( "name", string data.name )
+                , ( "relations", list relationEncoder relations )
+                , ( getName level, dict identity (nodeEncoder (level + 1)) children )
+                ]
+
+        ( Just description, Nothing ) ->
+            record
+                [ ( "name", string data.name )
+                , ( "description", string description )
+                , ( getName level, dict identity (nodeEncoder (level + 1)) children )
+                ]
+
+        ( Nothing, Nothing ) ->
+            record
+                [ ( "name", string data.name )
+                , ( getName level, dict identity (nodeEncoder (level + 1)) children )
+                ]
+
+
+dataEncoder : Data -> Encoder
+dataEncoder data =
+    case ( data.description, data.relations ) of
+        ( Just description, Just relations ) ->
+            record
+                [ ( "name", string data.name )
+                , ( "description", string description )
+                , ( "relations", list relationEncoder relations )
+                ]
+
+        ( Nothing, Just relations ) ->
+            record
+                [ ( "name", string data.name )
+                , ( "relations", list relationEncoder relations )
+                ]
+
+        ( Just description, Nothing ) ->
+            record
+                [ ( "name", string data.name )
+                , ( "description", string description )
+                ]
+
+        ( Nothing, Nothing ) ->
+            record
+                [ ( "name", string data.name )
                 ]
 
 
@@ -79,118 +150,6 @@ relationEncoder =
 relationToString : Relation -> String
 relationToString ( target, description ) =
     description ++ relationSplitter ++ target
-
-
-ringEncoder : Ring -> Encoder
-ringEncoder ring =
-    case ( ring.relations, ring.delivery, ring.description ) of
-        ( Just relations, Just deliveries, Just description ) ->
-            record
-                [ ( "name", string ring.name )
-                , ( "description", string description )
-                , ( "relations", list relationEncoder relations )
-                , ( "containers", dict identity deliveryEncoder deliveries )
-                ]
-
-        ( Nothing, Just deliveries, Just description ) ->
-            record
-                [ ( "name", string ring.name )
-                , ( "description", string description )
-                , ( "containers", dict identity deliveryEncoder deliveries )
-                ]
-
-        ( Just relations, Nothing, Just description ) ->
-            record
-                [ ( "name", string ring.name )
-                , ( "description", string description )
-                , ( "relations", list relationEncoder relations )
-                ]
-
-        ( Nothing, Nothing, Just description ) ->
-            record
-                [ ( "name", string ring.name )
-                , ( "description", string description )
-                ]
-
-        ( Just relations, Just deliveries, Nothing ) ->
-            record
-                [ ( "name", string ring.name )
-                , ( "relations", list relationEncoder relations )
-                , ( "containers", dict identity deliveryEncoder deliveries )
-                ]
-
-        ( Nothing, Just deliveries, Nothing ) ->
-            record
-                [ ( "name", string ring.name )
-                , ( "containers", dict identity deliveryEncoder deliveries )
-                ]
-
-        ( Just relations, Nothing, Nothing ) ->
-            record
-                [ ( "name", string ring.name )
-                , ( "relations", list relationEncoder relations )
-                ]
-
-        ( Nothing, Nothing, Nothing ) ->
-            record
-                [ ( "name", string ring.name )
-                ]
-
-
-deliveryEncoder : Delivery -> Encoder
-deliveryEncoder delivery =
-    case ( delivery.relations, delivery.blocks, delivery.description ) of
-        ( Just relations, Just blocks, Just description ) ->
-            record
-                [ ( "name", string delivery.name )
-                , ( "description", string description )
-                , ( "relations", list relationEncoder relations )
-                , ( "components", dict identity basicEncoder blocks )
-                ]
-
-        ( Nothing, Just blocks, Just description ) ->
-            record
-                [ ( "name", string delivery.name )
-                , ( "description", string description )
-                , ( "components", dict identity basicEncoder blocks )
-                ]
-
-        ( Just relations, Nothing, Just description ) ->
-            record
-                [ ( "name", string delivery.name )
-                , ( "description", string description )
-                , ( "relations", list relationEncoder relations )
-                ]
-
-        ( Nothing, Nothing, Just description ) ->
-            record
-                [ ( "name", string delivery.name )
-                , ( "description", string description )
-                ]
-
-        ( Just relations, Just blocks, Nothing ) ->
-            record
-                [ ( "name", string delivery.name )
-                , ( "relations", list relationEncoder relations )
-                , ( "components", dict identity basicEncoder blocks )
-                ]
-
-        ( Nothing, Just blocks, Nothing ) ->
-            record
-                [ ( "name", string delivery.name )
-                , ( "components", dict identity basicEncoder blocks )
-                ]
-
-        ( Just relations, Nothing, Nothing ) ->
-            record
-                [ ( "name", string delivery.name )
-                , ( "relations", list relationEncoder relations )
-                ]
-
-        ( Nothing, Nothing, Nothing ) ->
-            record
-                [ ( "name", string delivery.name )
-                ]
 
 
 viewEncoder : View -> Encoder

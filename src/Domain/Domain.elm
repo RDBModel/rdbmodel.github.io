@@ -2,40 +2,23 @@ module Domain.Domain exposing (..)
 
 import Dict exposing (Dict)
 import Scale exposing (domain)
+import Array exposing (Array)
 
 
 type alias Domain =
     { name : String
     , description : Maybe String
-    , actors : Dict String Actor
-    , rings : Dict String Ring
+    , actors : Dict String Data
+    , elements : Dict String Node
     }
 
 
-type alias Actor =
-    { name : String
-    , description : Maybe String
-    , relations : Maybe (List Relation)
-    }
+type Node
+    = Parent Data (Dict String Node)
+    | Leaf Data
 
 
-type alias Ring =
-    { name : String
-    , description : Maybe String
-    , relations : Maybe (List Relation)
-    , delivery : Maybe (Dict String Delivery)
-    }
-
-
-type alias Delivery =
-    { name : String
-    , description : Maybe String
-    , relations : Maybe (List Relation)
-    , blocks : Maybe (Dict String Block)
-    }
-
-
-type alias Block =
+type alias Data =
     { name : String
     , description : Maybe String
     , relations : Maybe (List Relation)
@@ -328,23 +311,42 @@ getNameAndDescriptionByKey viewElementKey =
 
 getElementsKeysAndNames : Domain -> List ( String, String )
 getElementsKeysAndNames domain =
-    extractKeyAndName domain.actors
-        ++ extractKeyAndName domain.rings
-        ++ (Dict.values domain.rings |> List.map .delivery |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap extractKeyAndName)
-        ++ (Dict.values domain.rings |> List.map .delivery |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap Dict.values |> List.map .blocks |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap extractKeyAndName)
+    let
+        extractFromNode key data =
+            ( key, data.name )
+    in
+    extractKeyAndNameFromData domain.actors
+        ++ extractDataFromAllNodes domain.elements extractFromNode
 
 
 getElementsNamesAndDescriptions : Domain -> List ( String, String, Maybe String )
 getElementsNamesAndDescriptions domain =
+    let
+        extractFromNode key data =
+            ( key, data.name, data.description )
+    in
     extractKeyAndNameAndDescription domain.actors
-        ++ extractKeyAndNameAndDescription domain.rings
-        ++ (Dict.values domain.rings |> List.map .delivery |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap extractKeyAndNameAndDescription)
-        ++ (Dict.values domain.rings |> List.map .delivery |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap Dict.values |> List.map .blocks |> List.map (Maybe.withDefault Dict.empty) |> List.concatMap extractKeyAndNameAndDescription)
+        ++ extractDataFromAllNodes domain.elements extractFromNode
 
 
-extractKeyAndName : Dict String { a | name : String } -> List ( String, String )
-extractKeyAndName =
+extractKeyAndNameFromData : Dict String Data -> List ( String, String )
+extractKeyAndNameFromData =
     Dict.map (\k v -> ( k, v.name )) >> Dict.values
+
+
+extractKeyAndName : Dict String Node -> List ( String, String )
+extractKeyAndName =
+    Dict.map (\k v -> ( k, extractName v )) >> Dict.values
+
+
+extractName : Node -> String
+extractName node =
+    case node of
+        Parent d _ ->
+            d.name
+
+        Leaf l ->
+            l.name
 
 
 extractKeyAndNameAndDescription : Dict String { a | name : String, description : Maybe String } -> List ( String, String, Maybe String )
@@ -412,35 +414,12 @@ possibleRelationsToAdd ( domain, view ) =
         allPossibleRelationsForActors =
             domain.actors |> Dict.map (\_ v -> v.relations |> Maybe.withDefault [])
 
-        allPossibleRelationsForRings =
-            domain.rings |> Dict.toList |> List.map (\( k, v ) -> ( k, v.relations |> Maybe.withDefault [] )) |> Dict.fromList
-
-        allPossibleRelationsForDeliveries =
-            domain.rings
-                |> Dict.values
-                |> List.map .delivery
-                |> List.map (Maybe.withDefault Dict.empty)
-                |> List.concatMap Dict.toList
-                |> List.map (\( k, v ) -> ( k, v.relations |> Maybe.withDefault [] ))
-                |> Dict.fromList
-
-        allPossibleRelationsForBlocks =
-            domain.rings
-                |> Dict.values
-                |> List.map .delivery
-                |> List.map (Maybe.withDefault Dict.empty)
-                |> List.concatMap Dict.values
-                |> List.map .blocks
-                |> List.map (Maybe.withDefault Dict.empty)
-                |> List.concatMap Dict.toList
-                |> List.map (\( k, v ) -> ( k, v.relations |> Maybe.withDefault [] ))
-                |> Dict.fromList
+        extractData key data =
+            ( key, data.relations |> Maybe.withDefault [] )
 
         allPossibleRelations =
             allPossibleRelationsForActors
-                |> Dict.union allPossibleRelationsForRings
-                |> Dict.union allPossibleRelationsForDeliveries
-                |> Dict.union allPossibleRelationsForBlocks
+                |> Dict.union (extractDataFromAllNodes domain.elements extractData |> Dict.fromList)
 
         onlyNonExistingRelation key candidate =
             Dict.get key existingRelationsInView
@@ -467,3 +446,24 @@ removedEdge ( viewElementKey, relation ) view =
                     (Maybe.map (\el -> { el | relations = Dict.remove relation el.relations }))
     in
     { view | elements = updatedElements }
+
+
+extractDataFromAllNodes : Dict String Node -> (String -> Data -> a) -> List a
+extractDataFromAllNodes nodes extractFunc =
+    let
+        goDeep key node =
+            case node of
+                Parent data children ->
+                    extractFunc key data :: extractDataFromAllNodes children extractFunc
+
+                Leaf data ->
+                    extractFunc key data |> List.singleton
+    in
+    Dict.foldl (\k n result -> goDeep k n |> List.append result) [] nodes
+
+levelChildrenNames : Array String
+levelChildrenNames =
+    [ "containers", "components" ] |> Array.fromList
+
+getName level =
+    Array.get level levelChildrenNames |> Maybe.withDefault ("elements" ++ String.fromInt level)

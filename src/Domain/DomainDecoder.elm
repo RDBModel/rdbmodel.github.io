@@ -43,41 +43,24 @@ internalDomainDecoder =
     map4 Domain
         (field "name" string)
         (field "description" string |> maybe)
-        (field "actors" (dict actorDecoder))
-        (field "systems" (dict ringDecoder))
+        (field "actors" (dict dataDecoder))
+        (field "systems" (dict (nodeDecoder 0)))
+
+nodeDecoder : Int -> Decoder Node
+nodeDecoder level =
+    oneOf
+        [ map2 Parent dataDecoder (childrenDecoder level)
+        , map Leaf dataDecoder
+        ]
+
+childrenDecoder : Int -> Decoder (Dict String Node)
+childrenDecoder level =
+    field (getName level) (dict (lazy (\_ -> nodeDecoder (level + 1))))
 
 
-ringDecoder : Decoder Ring
-ringDecoder =
-    map4 Ring
-        (field "name" string)
-        (field "description" string |> maybe)
-        (field "relations" (list relationDecoder) |> maybe)
-        (field "containers" (dict deliveryDecoder) |> maybe)
-
-
-deliveryDecoder : Decoder Delivery
-deliveryDecoder =
-    map4 Delivery
-        (field "name" string)
-        (field "description" string |> maybe)
-        (field "relations" (list relationDecoder) |> maybe)
-        (field "components" (dict blockDecoder) |> maybe)
-
-
-blockDecoder : Decoder Block
-blockDecoder =
-    basicDecoder Block
-
-
-actorDecoder : Decoder Actor
-actorDecoder =
-    basicDecoder Actor
-
-
-basicDecoder : (String -> Maybe String -> Maybe (List Relation) -> a) -> Decoder a
-basicDecoder constructor =
-    map3 constructor
+dataDecoder : Decoder Data
+dataDecoder =
+    map3 Data
         (field "name" string)
         (field "description" string |> maybe)
         (field "relations" (list relationDecoder) |> maybe)
