@@ -55,7 +55,11 @@ nodeDecoder level =
 
 childrenDecoder : Int -> Decoder (Dict String Node)
 childrenDecoder level =
-    field (getName level) (dict (lazy (\_ -> nodeDecoder (level + 1))))
+    case getName level of
+        Just name ->
+            field name (dict (lazy (\_ -> nodeDecoder (level + 1))))
+        Nothing ->
+            fail "Nested too deep"
 
 
 dataDecoder : Decoder Data

@@ -463,7 +463,8 @@ extractDataFromAllNodes nodes extractFunc =
 
 levelChildrenNames : Array String
 levelChildrenNames =
-    [ "containers", "components" ] |> Array.fromList
+    [ "containers", "components", "blocks" ] |> Array.fromList
 
+getName : Int -> Maybe String
 getName level =
-    Array.get level levelChildrenNames |> Maybe.withDefault ("elements" ++ String.fromInt level)
+    Array.get level levelChildrenNames

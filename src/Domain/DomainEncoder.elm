@@ -54,36 +54,40 @@ nodeEncoder level node =
             dataEncoder data
 
 
-dataWithChildrenEncoder : Int -> { a | description : Maybe String, relations : Maybe (List Relation), name : String } -> Dict String Node -> Encoder
+dataWithChildrenEncoder : Int -> Data -> Dict String Node -> Encoder
 dataWithChildrenEncoder level data children =
-    case ( data.description, data.relations ) of
-        ( Just description, Just relations ) ->
-            record
-                [ ( "name", string data.name )
-                , ( "description", string description )
-                , ( "relations", list relationEncoder relations )
-                , ( getName level, dict identity (nodeEncoder (level + 1)) children )
-                ]
+    case getName level of
+        Just name ->
+            case ( data.description, data.relations ) of
+                ( Just description, Just relations ) ->
+                    record
+                        [ ( "name", string data.name )
+                        , ( "description", string description )
+                        , ( "relations", list relationEncoder relations )
+                        , ( name, dict identity (nodeEncoder (level + 1)) children )
+                        ]
 
-        ( Nothing, Just relations ) ->
-            record
-                [ ( "name", string data.name )
-                , ( "relations", list relationEncoder relations )
-                , ( getName level, dict identity (nodeEncoder (level + 1)) children )
-                ]
+                ( Nothing, Just relations ) ->
+                    record
+                        [ ( "name", string data.name )
+                        , ( "relations", list relationEncoder relations )
+                        , ( name, dict identity (nodeEncoder (level + 1)) children )
+                        ]
 
-        ( Just description, Nothing ) ->
-            record
-                [ ( "name", string data.name )
-                , ( "description", string description )
-                , ( getName level, dict identity (nodeEncoder (level + 1)) children )
-                ]
+                ( Just description, Nothing ) ->
+                    record
+                        [ ( "name", string data.name )
+                        , ( "description", string description )
+                        , ( name, dict identity (nodeEncoder (level + 1)) children )
+                        ]
 
-        ( Nothing, Nothing ) ->
-            record
-                [ ( "name", string data.name )
-                , ( getName level, dict identity (nodeEncoder (level + 1)) children )
-                ]
+                ( Nothing, Nothing ) ->
+                    record
+                        [ ( "name", string data.name )
+                        , ( name, dict identity (nodeEncoder (level + 1)) children )
+                        ]
+        Nothing ->
+            dataEncoder data
 
 
 dataEncoder : Data -> Encoder
