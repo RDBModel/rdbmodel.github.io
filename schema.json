@@ -91,6 +91,32 @@
                                   "items": {
                                     "type": "string"
                                   }
+                                },
+                                "blocks" : {
+                                  "type": "object",
+                                  "patternProperties": {
+                                    "[a-z-]+": {
+                                      "description": "Logical block within component",
+                                      "type": "object",
+                                      "properties": {
+                                        "name": {
+                                          "type": "string"
+                                        },
+                                        "description": {
+                                          "type": "string"
+                                        },
+                                        "relations": {
+                                          "type": "array",
+                                          "description": "Relations to other actor/system/container/component/block",
+                                          "items": {
+                                            "type": "string"
+                                          }
+                                        }
+                                      },
+                                      "required": ["name"],
+                                      "additionalProperties": false
+                                    }
+                                  }
                                 }
                               },
                               "required": ["name"],
