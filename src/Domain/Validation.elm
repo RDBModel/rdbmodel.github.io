@@ -155,8 +155,8 @@ getUniqueElementsKeys =
 getRelations : Domain -> List ( String, Relation )
 getRelations domain =
     let
-        extractFromNode key data =
-            data.relations |> Maybe.withDefault [] |> List.map (\x -> ( key, x ))
+        extractFromNode _ key data =
+            data.relations |> Maybe.withDefault [] |> List.map (\x -> ( key, x )) |> Just
     in
     extractRelations domain.actors
         ++ (extractDataFromAllNodes domain.elements extractFromNode |> List.concat)

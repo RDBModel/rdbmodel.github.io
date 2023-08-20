@@ -1,39 +1,21 @@
-module ViewEditor.DrawContainer exposing (drawContainer, containerWidth, containerHeight, mouseDownMain)
+module ViewEditor.DrawContainer exposing (containerHeight, containerWidth, drawContainer, mouseDownMain)
 
+import Color
 import ContainerMenu.ContextMenu as ContextMenu
 import Dict exposing (Dict)
-import Domain.Domain exposing (Vertex)
-import Html.Attributes
-import Html.Events.Extra.Mouse as Mouse exposing (Event)
-import Navigation.ViewNavigation as ViewNavigation
-import TypedSvg.Core exposing (Attribute, Svg)
-import ViewEditor.MovingViewElements exposing (getSelectedElementKeysAndDeltas)
-import ViewEditor.Msg exposing (Msg(..))
-import ViewEditor.Types exposing (SelectedItem)
-import Color
-import Domain.Domain exposing (Edge, Vertex)
+import Domain.Domain exposing (Domain, Vertex, View, ViewElementKey, getChildrenOfNode)
 import Html exposing (div)
 import Html.Attributes exposing (style)
-import Path exposing (Path)
-import Shape exposing (linearCurve)
-import SubPath exposing (arcLength, arcLengthParameterized)
-import TypedSvg exposing (circle, g, marker, pattern, rect, title)
+import Html.Events.Extra.Mouse as Mouse exposing (Event)
+import Navigation.ViewNavigation as ViewNavigation
+import TypedSvg exposing (g, rect, title)
 import TypedSvg.Attributes as Attrs
     exposing
         ( cursor
-        , cx
-        , cy
         , d
-        , fill
-        , fillOpacity
         , height
         , id
-        , r
         , rx
-        , stroke
-        , strokeOpacity
-        , strokeWidth
-        , transform
         , width
         , x
         , y
@@ -51,7 +33,9 @@ import TypedSvg.Types
         , Paint(..)
         , Transform(..)
         )
-
+import ViewEditor.MovingViewElements exposing (getSelectedElementKeysAndDeltas)
+import ViewEditor.Msg exposing (Msg(..))
+import ViewEditor.Types exposing (SelectedItem)
 
 
 drawContainer : ViewNavigation.Model -> List SelectedItem -> Dict String (List Domain.Domain.Relation) -> Vertex -> Svg Msg
@@ -164,10 +148,13 @@ renderContainerInternal selected { key, name, description, xy } events =
                     , style "text-align" "center"
                     , style "max-height" "100%"
                     , style "font-size" "14px"
-                    ] [ text name ] ]
+                    ]
+                    [ text name ]
+                ]
             , title [] [ text tooltip ]
             ]
         ]
+
 
 containerWidth : Float
 containerWidth =

@@ -1,20 +1,21 @@
 module Domain.Domain exposing (..)
 
+import Array exposing (Array)
 import Dict exposing (Dict)
 import Scale exposing (domain)
-import Array exposing (Array)
+import Yaml.Decode exposing (maybe)
 
 
 type alias Domain =
     { name : String
     , description : Maybe String
-    , actors : Dict String Data
-    , elements : Dict String Node
+    , actors : Dict ViewElementKey Data
+    , elements : Dict ViewElementKey Node
     }
 
 
 type Node
-    = Parent Data (Dict String Node)
+    = Parent Data (Dict ViewElementKey Node)
     | Leaf Data
 
 
@@ -56,6 +57,7 @@ type alias Vertex =
     , key : String
     , description : Maybe String
     , xy : ( Float, Float )
+    -- , wh : ( Float, Float )
     }
 
 
@@ -171,16 +173,41 @@ getEdges ( domain, currentView ) =
 getContainers : ( Domain, View ) -> List Vertex
 getContainers ( domain, currentView ) =
     let
-        elementsNamesAndDescriptions =
+        currentChildren childKey =
+            allLeafsOfNode domain childKey
+
+        currentChildrenXY key =
+            Dict.get key currentView.elements |> Maybe.map (\el -> currentXYValues key el )
+
+        currentXYValues childKey viewElement =
+            let
+                children = currentChildren childKey
+            in
+            if List.isEmpty children then
+                (viewElement.x, viewElement.y)
+            else
+                children |> List.filterMap currentChildrenXY |> List.unzip |> currentMaxMinXY
+
+        currentMaxMinXY (xValues, yValues) =
+            let
+                minX = List.minimum xValues |> Maybe.withDefault 0
+                maxX = List.maximum xValues |> Maybe.withDefault 0
+
+                minY = List.minimum yValues |> Maybe.withDefault 0
+                maxY = List.maximum yValues |> Maybe.withDefault 0
+            in
+            ((minX + maxX) / 2, (minY + maxY) / 2)
+
+        createVertex viewElementKey viewElement ( name, description ) =
+            Vertex name viewElementKey description (currentXYValues viewElementKey viewElement)
+
+        getVertexes ( viewElementKey, viewElement ) =
             getElementsNamesAndDescriptions domain
+                |> getNameAndDescriptionByKey viewElementKey
+                |> Maybe.map (createVertex viewElementKey viewElement)
     in
     Dict.toList currentView.elements
-        |> List.filterMap
-            (\( viewElementKey, viewElement ) ->
-                elementsNamesAndDescriptions
-                    |> getNameAndDescriptionByKey viewElementKey
-                    |> Maybe.map (\( name, description ) -> Vertex name viewElementKey description (Tuple.pair viewElement.x viewElement.y))
-            )
+        |> List.filterMap getVertexes
 
 
 updateElementsInViews : Maybe String -> Dict String View -> (Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement) -> Dict String View
@@ -309,11 +336,12 @@ getNameAndDescriptionByKey viewElementKey =
         >> List.head
 
 
-getElementsKeysAndNames : Domain -> List ( String, String )
+
+getElementsKeysAndNames : { a | actors : Dict String Data, elements : Dict String Node } -> List ( String, String )
 getElementsKeysAndNames domain =
     let
-        extractFromNode key data =
-            ( key, data.name )
+        extractFromNode _ key data =
+            Just ( key, data.name )
     in
     extractKeyAndNameFromData domain.actors
         ++ extractDataFromAllNodes domain.elements extractFromNode
@@ -322,8 +350,8 @@ getElementsKeysAndNames domain =
 getElementsNamesAndDescriptions : Domain -> List ( String, String, Maybe String )
 getElementsNamesAndDescriptions domain =
     let
-        extractFromNode key data =
-            ( key, data.name, data.description )
+        extractFromNode _ key data =
+            Just ( key, data.name, data.description )
     in
     extractKeyAndNameAndDescription domain.actors
         ++ extractDataFromAllNodes domain.elements extractFromNode
@@ -414,8 +442,8 @@ possibleRelationsToAdd ( domain, view ) =
         allPossibleRelationsForActors =
             domain.actors |> Dict.map (\_ v -> v.relations |> Maybe.withDefault [])
 
-        extractData key data =
-            ( key, data.relations |> Maybe.withDefault [] )
+        extractData _ key data =
+            Just ( key, data.relations |> Maybe.withDefault [] )
 
         allPossibleRelations =
             allPossibleRelationsForActors
@@ -448,23 +476,84 @@ removedEdge ( viewElementKey, relation ) view =
     { view | elements = updatedElements }
 
 
-extractDataFromAllNodes : Dict String Node -> (String -> Data -> a) -> List a
+extractDataFromAllNodes : Dict String Node -> (Int -> String -> Data -> Maybe a) -> List a
 extractDataFromAllNodes nodes extractFunc =
     let
-        goDeep key node =
+        goDeep level key node =
             case node of
                 Parent data children ->
-                    extractFunc key data :: extractDataFromAllNodes children extractFunc
+                    extractFunc level key data :: Dict.foldl (\k n result -> goDeep (level + 1) k n |> List.append result) [] children
 
                 Leaf data ->
-                    extractFunc key data |> List.singleton
+                    extractFunc level key data |> List.singleton
     in
-    Dict.foldl (\k n result -> goDeep k n |> List.append result) [] nodes
+    Dict.foldl (\k n result -> goDeep 0 k n |> List.append result) [] nodes |> List.filterMap identity
+
 
 levelChildrenNames : Array String
 levelChildrenNames =
     [ "containers", "components", "blocks" ] |> Array.fromList
 
+
 getName : Int -> Maybe String
 getName level =
     Array.get level levelChildrenNames
+
+
+getChildrenOfNode : Domain -> ViewElementKey -> List ViewElementKey
+getChildrenOfNode domain key =
+    let
+        extractData level _ _ =
+            if level == 0 then
+                Just key
+            else
+                Nothing
+    in
+    if Dict.member key domain.actors then
+        []
+    else
+        extractFromAllNodes domain.elements extractData
+
+
+extractFromAllNodes : Dict String Node -> (Int -> String -> Node -> Maybe a) -> List a
+extractFromAllNodes nodes extractFunc =
+    let
+        goDeep level key node =
+            case node of
+                Parent _ children ->
+                    extractFunc level key node :: Dict.foldl (\k n result -> goDeep (level + 1) k n |> List.append result) [] children
+
+                Leaf _ ->
+                    extractFunc level key node |> List.singleton
+    in
+    Dict.foldl (\k n result -> goDeep 0 k n |> List.append result) [] nodes |> List.filterMap identity
+
+
+findNodeByKey : Domain -> ViewElementKey -> Maybe Node
+findNodeByKey domain key =
+    let
+        findNodeByKeyInternal _ currentKey currentNode =
+            if key == currentKey then
+                Just currentNode
+            else
+                Nothing
+    in
+    extractFromAllNodes domain.elements findNodeByKeyInternal |> List.head
+
+allLeafsOfNode : Domain -> ViewElementKey -> List ViewElementKey
+allLeafsOfNode domain key =
+    if Dict.member key domain.actors then
+        []
+    else
+        let
+            extractData _ currentKey currentNode =
+                case currentNode of
+                    Parent _ _ -> Nothing
+                    Leaf _ -> Just currentKey
+
+            node = findNodeByKey domain key
+        in
+        case node of
+            Just (Parent _ children) ->
+                extractFromAllNodes children extractData
+            _ -> []
