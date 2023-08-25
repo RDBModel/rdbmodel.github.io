@@ -3,7 +3,7 @@ module Domain.Domain exposing (..)
 import Array exposing (Array)
 import Dict exposing (Dict)
 import Scale exposing (domain)
-import Yaml.Decode exposing (maybe)
+import Set
 
 
 type alias Domain =
@@ -57,7 +57,7 @@ type alias Vertex =
     , key : String
     , description : Maybe String
     , xy : ( Float, Float )
-    -- , wh : ( Float, Float )
+    , wh : ( Float, Float )
     }
 
 
@@ -129,7 +129,7 @@ getEdges ( domain, currentView ) =
                 Just ( sourceName, sourceDescription ) ->
                     let
                         sourceContainer =
-                            Vertex sourceName viewElementKey sourceDescription source
+                            Vertex sourceName viewElementKey sourceDescription source ( 100, 50 )
                     in
                     Dict.toList viewElement.relations
                         |> List.filterMap
@@ -157,7 +157,7 @@ getEdges ( domain, currentView ) =
                                         (\( targetName, targetDescription ) ->
                                             let
                                                 targetContainer =
-                                                    Vertex targetName targetElementKey targetDescription target
+                                                    Vertex targetName targetElementKey targetDescription target ( 100, 50 )
                                             in
                                             Edge sourceContainer targetContainer convertedViewRelationPoints description
                                         )
@@ -174,40 +174,66 @@ getContainers : ( Domain, View ) -> List Vertex
 getContainers ( domain, currentView ) =
     let
         currentChildren childKey =
-            allLeafsOfNode domain childKey
+            allNodesOfNode domain childKey
 
-        currentChildrenXY key =
-            Dict.get key currentView.elements |> Maybe.map (\el -> currentXYValues key el )
+        getPadding childKey =
+            deepOfNode domain childKey |> List.filter (\( _, key ) -> Dict.member key currentView.elements) |> List.map Tuple.first |> Set.fromList |> Set.toList |> List.length
 
-        currentXYValues childKey viewElement =
+        currentChildrenMaxMinXY key =
+            Dict.get key currentView.elements |> Maybe.map (\el -> currentMaxMinXYValues key el)
+
+        currentMaxMinXYValues childKey viewElement =
             let
-                children = currentChildren childKey
+                children =
+                    currentChildren childKey |> List.filterMap currentChildrenMaxMinXY
             in
             if List.isEmpty children then
-                (viewElement.x, viewElement.y)
+                ( ( viewElement.x - 50, viewElement.y - 25 ), ( viewElement.x + 50, viewElement.y + 25 ) )
+
             else
-                children |> List.filterMap currentChildrenXY |> List.unzip |> currentMaxMinXY
+                children |> List.unzip |> currentMaxMinXY
 
-        currentMaxMinXY (xValues, yValues) =
+        currentMaxMinXY ( minValues, maxValues ) =
             let
-                minX = List.minimum xValues |> Maybe.withDefault 0
-                maxX = List.maximum xValues |> Maybe.withDefault 0
+                ( minXValues, minYValues ) =
+                    List.unzip minValues
 
-                minY = List.minimum yValues |> Maybe.withDefault 0
-                maxY = List.maximum yValues |> Maybe.withDefault 0
+                ( maxXValues, maxYValues ) =
+                    List.unzip maxValues
+
+                minX =
+                    List.minimum minXValues |> Maybe.withDefault 0
+
+                maxX =
+                    List.maximum maxXValues |> Maybe.withDefault 0
+
+                minY =
+                    List.minimum minYValues |> Maybe.withDefault 0
+
+                maxY =
+                    List.maximum maxYValues |> Maybe.withDefault 0
             in
-            ((minX + maxX) / 2, (minY + maxY) / 2)
+            Tuple.pair ( minX, minY ) ( maxX, maxY )
 
         createVertex viewElementKey viewElement ( name, description ) =
-            Vertex name viewElementKey description (currentXYValues viewElementKey viewElement)
+            let
+                ( ( minX, minY ), ( maxX, maxY ) ) =
+                    currentMaxMinXYValues viewElementKey viewElement
 
-        getVertexes ( viewElementKey, viewElement ) =
+                currentPadding = getPadding viewElementKey
+
+                padding =
+                    if currentPadding == 0 then 0 else currentPadding * 10 + (50 - currentPadding * 10)
+            in
+            Vertex name viewElementKey description ( (minX + maxX) / 2, (maxY + minY) / 2 ) ( maxX - minX + toFloat padding, maxY - minY + toFloat padding )
+
+        getVertex ( viewElementKey, viewElement ) =
             getElementsNamesAndDescriptions domain
                 |> getNameAndDescriptionByKey viewElementKey
                 |> Maybe.map (createVertex viewElementKey viewElement)
     in
     Dict.toList currentView.elements
-        |> List.filterMap getVertexes
+        |> List.filterMap getVertex
 
 
 updateElementsInViews : Maybe String -> Dict String View -> (Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement) -> Dict String View
@@ -334,7 +360,6 @@ getNameAndDescriptionByKey viewElementKey =
                 Nothing
         )
         >> List.head
-
 
 
 getElementsKeysAndNames : { a | actors : Dict String Data, elements : Dict String Node } -> List ( String, String )
@@ -506,11 +531,13 @@ getChildrenOfNode domain key =
         extractData level _ _ =
             if level == 0 then
                 Just key
+
             else
                 Nothing
     in
     if Dict.member key domain.actors then
         []
+
     else
         extractFromAllNodes domain.elements extractData
 
@@ -535,25 +562,50 @@ findNodeByKey domain key =
         findNodeByKeyInternal _ currentKey currentNode =
             if key == currentKey then
                 Just currentNode
+
             else
                 Nothing
     in
     extractFromAllNodes domain.elements findNodeByKeyInternal |> List.head
 
-allLeafsOfNode : Domain -> ViewElementKey -> List ViewElementKey
-allLeafsOfNode domain key =
+
+allNodesOfNode : Domain -> ViewElementKey -> List ViewElementKey
+allNodesOfNode domain key =
     if Dict.member key domain.actors then
         []
+
     else
         let
-            extractData _ currentKey currentNode =
-                case currentNode of
-                    Parent _ _ -> Nothing
-                    Leaf _ -> Just currentKey
+            extractData _ currentKey _ =
+                Just currentKey
 
-            node = findNodeByKey domain key
+            node =
+                findNodeByKey domain key
         in
         case node of
             Just (Parent _ children) ->
                 extractFromAllNodes children extractData
-            _ -> []
+
+            _ ->
+                []
+
+
+deepOfNode : Domain -> ViewElementKey -> List ( Int, ViewElementKey )
+deepOfNode domain key =
+    if Dict.member key domain.actors then
+        []
+
+    else
+        let
+            extractData level currentKey _ =
+                Just ( level, currentKey )
+
+            node =
+                findNodeByKey domain key
+        in
+        case node of
+            Just (Parent _ children) ->
+                extractFromAllNodes children extractData
+
+            _ ->
+                []

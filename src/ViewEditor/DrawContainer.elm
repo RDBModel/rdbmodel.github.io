@@ -97,10 +97,12 @@ renderContainer =
 
 
 renderContainerInternal : Bool -> Vertex -> List (Attribute msg) -> Svg msg
-renderContainerInternal selected { key, name, description, xy } events =
+renderContainerInternal selected { key, name, description, xy, wh } events =
     let
         ( xCenter, yCenter ) =
             xy
+
+        (w, h) = wh
 
         tooltip =
             case description of
@@ -109,34 +111,36 @@ renderContainerInternal selected { key, name, description, xy } events =
 
                 Nothing ->
                     key
-    in
-    g events
-        [ rect
-            [ x <| Px <| xCenter - containerWidth / 2
-            , y <| Px <| yCenter - containerHeight / 2
-            , width <| Px containerWidth
-            , height <| Px containerHeight
-            , rx <| Px containerRadius
-            , Attrs.fill <| Paint <| Color.white
-            , Attrs.stroke <|
-                Paint <|
-                    if selected then
-                        Color.blue
 
-                    else
-                        Color.black
-            , Attrs.strokeWidth <| Px 1
-            , id key
-            ]
-            [ title [] [ text tooltip ] ]
-        , foreignObject
-            [ x <| Px <| xCenter - containerWidth / 2
-            , y <| Px <| yCenter - containerHeight / 2
-            , width <| Px containerWidth
-            , height <| Px containerHeight
-            , cursor CursorDefault
-            ]
-            [ div
+        calculatedPosition = w /= containerWidth || h /= containerHeight
+
+        fillValue =
+            if calculatedPosition then
+                PaintNone
+            else
+                Paint <| Color.white
+
+        containerName =
+            if calculatedPosition then
+                div
+                [ style "display" "flex"
+                , style "justify-content" "flex-start"
+                , style "align-items" "flex-start"
+                , style "height" "100%"
+                ]
+                [ div
+                    [ style "padding" "1px 3px 1px 3px"
+                    , style "text-align" "center"
+                    , style "max-height" "100%"
+                    , style "font-size" "14px"
+                    , style "border" "1px solid black"
+                    , style "border-radius" "0 0 3px 0"
+                    , style "background-color" "white"
+                    ]
+                    [ text name ]
+                ]
+            else
+                div
                 [ style "display" "flex"
                 , style "justify-content" "center"
                 , style "align-items" "center"
@@ -151,6 +155,40 @@ renderContainerInternal selected { key, name, description, xy } events =
                     ]
                     [ text name ]
                 ]
+
+        yValue =
+            if calculatedPosition then
+                yCenter - h / 2
+            else
+                yCenter - h / 2
+    in
+    g events
+        [ rect
+            [ x <| Px <| xCenter - w / 2
+            , y <| Px <| yValue
+            , width <| Px w
+            , height <| Px h
+            , rx <| Px containerRadius
+            , Attrs.fill <| fillValue
+            , Attrs.stroke <|
+                Paint <|
+                    if selected then
+                        Color.blue
+
+                    else
+                        Color.black
+            , Attrs.strokeWidth <| Px 1
+            , id key
+            ]
+            [ title [] [ text tooltip ] ]
+        , foreignObject
+            [ x <| Px <| xCenter - w / 2
+            , y <| Px <| yValue
+            , width <| Px w
+            , height <| Px h
+            , cursor CursorDefault
+            ]
+            [ containerName
             , title [] [ text tooltip ]
             ]
         ]
