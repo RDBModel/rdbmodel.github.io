@@ -1,15 +1,11 @@
 module ViewEditor.DrawEdges exposing (drawEdge, edgeStrokeWidthExtend)
 
-import Domain.Domain exposing (Edge, ViewRelationKey, getViewRelationKeyFromEdge, getViewRelationKeyFromViewRelationPointKey)
+import Color
+import Domain.Domain exposing (Edge, Vertex, ViewRelationKey, getViewRelationKeyFromEdge, getViewRelationKeyFromViewRelationPointKey)
 import Html.Attributes
 import Html.Events.Extra.Mouse as Mouse
 import Navigation.ViewNavigation as ViewNavigation
-import TypedSvg.Core exposing (Attribute, Svg)
-import ViewEditor.MovingViewElements exposing (getSelectedPointKeysAndDeltas)
-import ViewEditor.Msg exposing (Msg(..))
-import ViewEditor.Types exposing (SelectedItem)
-import ViewEditor.DrawContainer exposing (containerWidth)
-import ViewEditor.DrawContainer exposing (containerHeight)
+import Path exposing (Path)
 import Shape exposing (linearCurve)
 import SubPath exposing (arcLength, arcLengthParameterized)
 import TypedSvg exposing (g, title)
@@ -41,8 +37,10 @@ import TypedSvg.Types
         , Paint(..)
         , Transform(..)
         )
-import Color
-import Path exposing (Path)
+import ViewEditor.MovingViewElements exposing (getSelectedPointKeysAndDeltas)
+import ViewEditor.Msg exposing (Msg(..))
+import ViewEditor.Types exposing (SelectedItem)
+
 
 drawEdge : ViewNavigation.Model -> List SelectedItem -> Maybe ViewRelationKey -> Edge -> Svg Msg
 drawEdge viewNavigation selectedItems relationWithCircles edge =
@@ -156,12 +154,11 @@ onMouseDownPoint ( viewRelationElementKey, relation ) index =
     ]
 
 
-
 edgeBetweenContainers : Edge -> List (Attribute msg) -> (Int -> List (Attribute msg)) -> Bool -> List Int -> Svg msg
-edgeBetweenContainers edge addPointEvent removeOrDragPointEvent drawCornerCircles selectedIndexes  =
+edgeBetweenContainers edge addPointEvent removeOrDragPointEvent drawCornerCircles selectedIndexes =
     let
         points =
-            edge.points |> filterPointsUnderContainer edge.source.xy edge.target.xy
+            edge.points |> filterPointsUnderContainer edge.source edge.target
 
         ( sx, sy ) =
             edge.source.xy
@@ -169,34 +166,45 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent drawCornerCircle
         ( tx, ty ) =
             edge.target.xy
 
-        ( cx, cy ) =
+        ( lastPointX, lastPointY ) =
             points
                 |> List.reverse
                 |> List.head
                 |> Maybe.withDefault edge.source.xy
 
-        preparedPoints =
-            ( sx, sy ) :: points ++ [ ( tx, ty ) ]
-
-        curve =
-            linearCurve preparedPoints
+        ( conWidth, conHeight ) =
+            edge.target.wh
 
         -- half of rect
         ( rx, ry ) =
-            ( containerWidth / 2, containerHeight / 2 )
+            ( conWidth / 2, conHeight / 2 )
 
         -- size of sides of big triangle create by dots
         ( x, y ) =
-            ( (cx - tx) |> abs, (cy - ty) |> abs )
+            ( (lastPointX - tx) |> abs, (lastPointY - ty) |> abs )
 
         -- if the line crosses the rect in the top or bottom
         -- otherwise it crosses left or right borders or rect
         topBottom =
             y / x > ry / rx
 
-        -- distance between start and end dots
-        distanceXY =
-            sqrt (x * x + y * y)
+        -- intersection between a line (acenter of target container and the last point) and a rect that represents the target cotnainer
+        updatedLastPointXY =
+            let
+                temp =
+                    if topBottom then
+                        ry / y
+
+                    else
+                        rx / x
+            in
+            ( (lastPointX - tx) * temp + tx, (lastPointY - ty) * temp + ty )
+
+        preparedPoints =
+            ( sx, sy ) :: points ++ [ updatedLastPointXY ]
+
+        curve =
+            linearCurve preparedPoints
 
         -- magic offset for ➤ symbol
         magicOffset =
@@ -207,15 +215,7 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent drawCornerCircle
 
         -- offset based on aspect ratio
         offset =
-            let
-                temp =
-                    if topBottom then
-                        ry / y
-
-                    else
-                        rx / x
-            in
-            curveLength - distanceXY * temp - magicOffset
+            curveLength - magicOffset
 
         idValue =
             "from-" ++ edge.source.name ++ "-to-" ++ edge.target.name
@@ -226,62 +226,68 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent drawCornerCircle
         tooltip =
             String.join " " [ "'" ++ edge.source.name ++ "'", edge.description, "'" ++ edge.target.name ++ "'" ]
     in
-    g []
-        [ SubPath.element curve
-            [ id idValue
-            , strokeWidth <| Px strokeWidthValue
-            , stroke <| Paint <| Color.black
-            , fill <| PaintNone
-            ]
-        , TypedSvg.path
-            ([ d (curve |> SubPath.toString)
-             , strokeWidth <| Px (strokeWidthValue + edgeStrokeWidthExtend)
-             , stroke <| Paint <| Color.black
-             , strokeOpacity <| Opacity 0
-             , fill <| PaintNone
-             ]
-                ++ addPointEvent
-            )
-            [ title [] [ text tooltip ] ]
-        , TypedSvg.text_ []
-            [ TypedSvg.textPath
-                [ Attrs.xlinkHref ("#" ++ idValue)
-                , Attrs.startOffset <| String.fromFloat offset
-                , Attrs.dominantBaseline DominantBaselineCentral
-                , Attrs.fontSize <| Px 10
-                , Attrs.style "user-select: none;" --forbid to select arrow as text
-                ]
-                [ text "➤" ]
-            ]
-        , if drawCornerCircles || not (List.isEmpty selectedIndexes) then
-            g [] <|
-                List.indexedMap
-                    (\i ( dx, dy ) ->
-                        let
-                            eventToAdd =
-                                removeOrDragPointEvent i
-                        in
-                        TypedSvg.path
-                            ([ d (circleDot |> Path.toString)
-                            , fill (Paint Color.white)
-                            , stroke
-                                (Paint <|
-                                    if List.member i selectedIndexes then
-                                        Color.blue
+    if containerWithinContainer edge.source edge.target then
+        g [] []
 
-                                    else
-                                        Color.black
+    else
+        g []
+            [ SubPath.element curve
+                [ id idValue
+                , strokeWidth <| Px strokeWidthValue
+                , stroke <| Paint <| Color.black
+                , fill <| PaintNone
+                ]
+            , TypedSvg.path
+                ([ d (curve |> SubPath.toString)
+                 , strokeWidth <| Px (strokeWidthValue + edgeStrokeWidthExtend)
+                 , stroke <| Paint <| Color.black
+                 , strokeOpacity <| Opacity 0
+                 , fill <| PaintNone
+                 ]
+                    ++ addPointEvent
+                )
+                [ title [] [ text tooltip ] ]
+            , TypedSvg.text_ []
+                [ TypedSvg.textPath
+                    [ Attrs.xlinkHref ("#" ++ idValue)
+                    , Attrs.startOffset <| String.fromFloat offset
+                    , Attrs.dominantBaseline DominantBaselineCentral
+                    , Attrs.fontSize <| Px 10
+                    , Attrs.style "user-select: none;" --forbid to select arrow as text
+                    ]
+                    [ text "➤" ]
+                ]
+            , if drawCornerCircles || not (List.isEmpty selectedIndexes) then
+                g [] <|
+                    List.indexedMap
+                        (\i ( dx, dy ) ->
+                            let
+                                eventToAdd =
+                                    removeOrDragPointEvent i
+                            in
+                            TypedSvg.path
+                                ([ d (circleDot |> Path.toString)
+                                 , fill (Paint Color.white)
+                                 , stroke
+                                    (Paint <|
+                                        if List.member i selectedIndexes then
+                                            Color.blue
+
+                                        else
+                                            Color.black
+                                    )
+                                 , transform [ Translate dx dy ]
+                                 ]
+                                    ++ eventToAdd
                                 )
-                            , transform [ Translate dx dy ]
-                            ]
-                                ++ eventToAdd
-                            )
-                            [ title [] [ text tooltip ] ]
-                    )
-                    points
-        else
-            g [] []
-        ]
+                                [ title [] [ text tooltip ] ]
+                        )
+                        points
+
+              else
+                g [] []
+            ]
+
 
 
 {--
@@ -289,11 +295,62 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent drawCornerCircle
 --}
 
 
-filterPointsUnderContainer : ( Float, Float ) -> ( Float, Float ) -> List ( Float, Float ) -> List ( Float, Float )
-filterPointsUnderContainer sourceXY targetXY =
+containerWithinContainer : Vertex -> Vertex -> Bool
+containerWithinContainer source target =
+    let
+        ( x, y ) =
+            source.xy
+
+        ( w, h ) =
+            source.wh
+
+        x1 =
+            x - w / 2
+
+        x2 =
+            x + w / 2
+
+        y1 =
+            y - h / 2
+
+        y2 =
+            y + h / 2
+    in
+    pointWithinContainer target ( x1, y1 )
+        || pointWithinContainer target ( x2, y1 )
+        || pointWithinContainer target ( x1, y2 )
+        || pointWithinContainer target ( x2, y2 )
+
+
+pointWithinContainer : Vertex -> ( Float, Float ) -> Bool
+pointWithinContainer vertex ( tx, ty ) =
+    let
+        ( x, y ) =
+            vertex.xy
+
+        ( w, h ) =
+            vertex.wh
+
+        x1 =
+            x - w / 2
+
+        x2 =
+            x + w / 2
+
+        y1 =
+            y - h / 2
+
+        y2 =
+            y + h / 2
+    in
+    min x1 x2 <= tx && tx <= max x1 x2 && min y1 y2 <= ty && ty <= max y1 y2
+
+
+filterPointsUnderContainer : Vertex -> Vertex -> List ( Float, Float ) -> List ( Float, Float )
+filterPointsUnderContainer source target =
     List.foldl
         (\point result ->
-            if List.isEmpty result && pointUnderRect sourceXY point then
+            if List.isEmpty result && pointUnderRect source point then
                 result
 
             else
@@ -302,7 +359,7 @@ filterPointsUnderContainer sourceXY targetXY =
         []
         >> List.foldl
             (\point result ->
-                if List.isEmpty result && pointUnderRect targetXY point then
+                if List.isEmpty result && pointUnderRect target point then
                     result
 
                 else
@@ -311,10 +368,15 @@ filterPointsUnderContainer sourceXY targetXY =
             []
 
 
+pointUnderRect : Vertex -> ( Float, Float ) -> Bool
+pointUnderRect vertex ( px, py ) =
+    let
+        ( x, y ) =
+            vertex.xy
 
-
-pointUnderRect : ( Float, Float ) -> ( Float, Float ) -> Bool
-pointUnderRect ( x, y ) ( px, py ) =
+        ( containerWidth, containerHeight ) =
+            vertex.wh
+    in
     px
         > (x - containerWidth / 2)
         && px

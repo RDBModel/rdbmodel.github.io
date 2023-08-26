@@ -116,8 +116,7 @@ getEdges ( domain, currentView ) =
         getTargetAndPoints : ( ViewElementKey, ViewElement ) -> List Edge
         getTargetAndPoints ( viewElementKey, viewElement ) =
             let
-                source =
-                    Tuple.pair viewElement.x viewElement.y
+                sourceContainer = getVertex ( domain, currentView ) ( viewElementKey, viewElement )
 
                 elementsNamesAndDescriptions =
                     getElementsNamesAndDescriptions domain
@@ -125,12 +124,8 @@ getEdges ( domain, currentView ) =
                 sourceNameAndDescription =
                     getNameAndDescriptionByKey viewElementKey elementsNamesAndDescriptions
             in
-            case sourceNameAndDescription of
-                Just ( sourceName, sourceDescription ) ->
-                    let
-                        sourceContainer =
-                            Vertex sourceName viewElementKey sourceDescription source ( 100, 50 )
-                    in
+            case sourceContainer of
+                Just sourceContainerValue ->
                     Dict.toList viewElement.relations
                         |> List.filterMap
                             (\( relation, points ) ->
@@ -150,16 +145,13 @@ getEdges ( domain, currentView ) =
 
                                     description =
                                         Tuple.second relation
+
+                                    targetContainer = getVertex ( domain, currentView ) ( targetElementKey, targetElement )
                                 in
-                                elementsNamesAndDescriptions
-                                    |> getNameAndDescriptionByKey targetElementKey
+                                targetContainer
                                     |> Maybe.map
-                                        (\( targetName, targetDescription ) ->
-                                            let
-                                                targetContainer =
-                                                    Vertex targetName targetElementKey targetDescription target ( 100, 50 )
-                                            in
-                                            Edge sourceContainer targetContainer convertedViewRelationPoints description
+                                        (\targetContainerValue ->
+                                            Edge sourceContainerValue targetContainerValue convertedViewRelationPoints description
                                         )
                             )
 
@@ -172,6 +164,12 @@ getEdges ( domain, currentView ) =
 
 getContainers : ( Domain, View ) -> List Vertex
 getContainers ( domain, currentView ) =
+    Dict.toList currentView.elements
+        |> List.filterMap (getVertex (domain, currentView))
+
+
+getVertex : ( Domain, View ) -> ( ViewElementKey, ViewElement ) -> Maybe Vertex
+getVertex ( domain, currentView ) ( viewElementKey, viewElement ) =
     let
         currentChildren childKey =
             allNodesOfNode domain childKey
@@ -182,13 +180,13 @@ getContainers ( domain, currentView ) =
         currentChildrenMaxMinXY key =
             Dict.get key currentView.elements |> Maybe.map (\el -> currentMaxMinXYValues key el)
 
-        currentMaxMinXYValues childKey viewElement =
+        currentMaxMinXYValues childKey element =
             let
                 children =
                     currentChildren childKey |> List.filterMap currentChildrenMaxMinXY
             in
             if List.isEmpty children then
-                ( ( viewElement.x - 50, viewElement.y - 25 ), ( viewElement.x + 50, viewElement.y + 25 ) )
+                ( ( element.x - 50, element.y - 25 ), ( element.x + 50, element.y + 25 ) )
 
             else
                 children |> List.unzip |> currentMaxMinXY
@@ -215,25 +213,23 @@ getContainers ( domain, currentView ) =
             in
             Tuple.pair ( minX, minY ) ( maxX, maxY )
 
-        createVertex viewElementKey viewElement ( name, description ) =
+        createVertex ( name, description ) =
             let
                 ( ( minX, minY ), ( maxX, maxY ) ) =
                     currentMaxMinXYValues viewElementKey viewElement
 
                 currentPadding = getPadding viewElementKey
 
+                titleHeightForParentContainer = 40
+
                 padding =
-                    if currentPadding == 0 then 0 else currentPadding * 10 + (50 - currentPadding * 10)
+                    if currentPadding == 0 then 0 else currentPadding * 10 + titleHeightForParentContainer
             in
             Vertex name viewElementKey description ( (minX + maxX) / 2, (maxY + minY) / 2 ) ( maxX - minX + toFloat padding, maxY - minY + toFloat padding )
-
-        getVertex ( viewElementKey, viewElement ) =
-            getElementsNamesAndDescriptions domain
-                |> getNameAndDescriptionByKey viewElementKey
-                |> Maybe.map (createVertex viewElementKey viewElement)
     in
-    Dict.toList currentView.elements
-        |> List.filterMap getVertex
+    getElementsNamesAndDescriptions domain
+        |> getNameAndDescriptionByKey viewElementKey
+        |> Maybe.map createVertex
 
 
 updateElementsInViews : Maybe String -> Dict String View -> (Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement) -> Dict String View

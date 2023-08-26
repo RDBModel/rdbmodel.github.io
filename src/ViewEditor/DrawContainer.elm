@@ -3,19 +3,19 @@ module ViewEditor.DrawContainer exposing (containerHeight, containerWidth, drawC
 import Color
 import ContainerMenu.ContextMenu as ContextMenu
 import Dict exposing (Dict)
-import Domain.Domain exposing (Domain, Vertex, View, ViewElementKey, getChildrenOfNode)
+import Domain.Domain exposing (Vertex)
 import Html exposing (div)
 import Html.Attributes exposing (style)
 import Html.Events.Extra.Mouse as Mouse exposing (Event)
 import Navigation.ViewNavigation as ViewNavigation
-import TypedSvg exposing (g, rect, title)
+import TypedSvg exposing (g, path, rect, title)
 import TypedSvg.Attributes as Attrs
     exposing
         ( cursor
         , d
         , height
         , id
-        , rx
+        , pointerEvents
         , width
         , x
         , y
@@ -102,7 +102,8 @@ renderContainerInternal selected { key, name, description, xy, wh } events =
         ( xCenter, yCenter ) =
             xy
 
-        (w, h) = wh
+        ( w, h ) =
+            wh
 
         tooltip =
             case description of
@@ -112,86 +113,116 @@ renderContainerInternal selected { key, name, description, xy, wh } events =
                 Nothing ->
                     key
 
-        calculatedPosition = w /= containerWidth || h /= containerHeight
+        calculatedPosition =
+            w /= containerWidth || h /= containerHeight
 
         fillValue =
             if calculatedPosition then
                 PaintNone
+
             else
                 Paint <| Color.white
 
-        containerName =
-            if calculatedPosition then
-                div
-                [ style "display" "flex"
-                , style "justify-content" "flex-start"
-                , style "align-items" "flex-start"
-                , style "height" "100%"
-                ]
-                [ div
-                    [ style "padding" "1px 3px 1px 3px"
-                    , style "text-align" "center"
-                    , style "max-height" "100%"
-                    , style "font-size" "14px"
-                    , style "border" "1px solid black"
-                    , style "border-radius" "0 0 3px 0"
-                    , style "background-color" "white"
-                    ]
-                    [ text name ]
-                ]
-            else
-                div
-                [ style "display" "flex"
-                , style "justify-content" "center"
-                , style "align-items" "center"
-                , style "height" "100%"
-                ]
-                [ div
-                    [ style "margin" "auto"
-                    , style "padding" "1px"
-                    , style "text-align" "center"
-                    , style "max-height" "100%"
-                    , style "font-size" "14px"
-                    ]
-                    [ text name ]
-                ]
-
         yValue =
-            if calculatedPosition then
-                yCenter - h / 2
-            else
-                yCenter - h / 2
-    in
-    g events
-        [ rect
-            [ x <| Px <| xCenter - w / 2
-            , y <| Px <| yValue
-            , width <| Px w
-            , height <| Px h
-            , rx <| Px containerRadius
-            , Attrs.fill <| fillValue
-            , Attrs.stroke <|
-                Paint <|
-                    if selected then
-                        Color.blue
+            yCenter - h / 2
+
+        dValue =
+            List.foldl
+                (\( x, y ) result ->
+                    if result == "" then
+                        "M" ++ String.fromFloat x ++ "," ++ String.fromFloat y
 
                     else
-                        Color.black
-            , Attrs.strokeWidth <| Px 1
-            , id key
+                        result ++ " L" ++ String.fromFloat x ++ "," ++ String.fromFloat y
+                )
+                ""
+                [ ( xCenter - w / 2, yValue ), ( xCenter - w / 2 + w, yValue ), ( xCenter - w / 2 + w, yValue + h ), ( xCenter - w / 2, yValue + h ) ]
+                ++ " Z"
+    in
+    if calculatedPosition then
+        g []
+            [ path
+                [ d dValue
+                , Attrs.fill PaintNone
+                , Attrs.stroke <| Paint <| Color.black
+                , Attrs.strokeWidth <| Px 1
+                ]
+                []
+            , foreignObject
+                [ x <| Px <| xCenter - w / 2
+                , y <| Px <| yValue
+                , width <| Px w
+                , height <| Px h
+                , cursor CursorDefault
+                , pointerEvents "none"
+                ]
+                [ div
+                    [ style "display" "flex"
+                    , style "justify-content" "flex-start"
+                    , style "align-items" "flex-start"
+                    , style "height" "100%"
+                    ]
+                    [ div
+                        ([ style "padding" "1px 3px 1px 3px"
+                            , style "text-align" "center"
+                            , style "max-height" "100%"
+                            , style "font-size" "14px"
+                            , style "border" "1px solid black"
+                            , style "border-radius" "0 0 3px 0"
+                            , style "background-color" "white"
+                            , style "pointer-events" "all"
+                            ]
+                            ++ events
+                        )
+                        [ text name ]
+                    ]
+                ]
             ]
-            [ title [] [ text tooltip ] ]
-        , foreignObject
-            [ x <| Px <| xCenter - w / 2
-            , y <| Px <| yValue
-            , width <| Px w
-            , height <| Px h
-            , cursor CursorDefault
+
+    else
+        g events
+            [ rect
+                [ x <| Px <| xCenter - w / 2
+                , y <| Px <| yValue
+                , width <| Px w
+                , height <| Px h
+                , Attrs.fill <| fillValue
+                , Attrs.stroke <|
+                    Paint <|
+                        if selected then
+                            Color.blue
+
+                        else
+                            Color.black
+                , Attrs.strokeWidth <| Px 1
+                , id key
+                ]
+                [ title [] [ text tooltip ] ]
+            , foreignObject
+                [ x <| Px <| xCenter - w / 2
+                , y <| Px <| yValue
+                , width <| Px w
+                , height <| Px h
+                , cursor CursorDefault
+                ]
+                [ div
+                    [ style "display" "flex"
+                    , style "justify-content" "center"
+                    , style "align-items" "center"
+                    , style "height" "100%"
+                    ]
+                    [ div
+                        [ style "margin" "auto"
+                        , style "padding" "1px"
+                        , style "text-align" "center"
+                        , style "max-height" "100%"
+                        , style "font-size" "14px"
+                        ]
+                        [ text name ]
+                    ]
+                , title [] [ text tooltip ]
+                ]
             ]
-            [ containerName
-            , title [] [ text tooltip ]
-            ]
-        ]
 
 
 containerWidth : Float
@@ -202,8 +233,3 @@ containerWidth =
 containerHeight : Float
 containerHeight =
     50
-
-
-containerRadius : Float
-containerRadius =
-    0
