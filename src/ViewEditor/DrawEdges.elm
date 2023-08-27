@@ -172,36 +172,64 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent drawCornerCircle
                 |> List.head
                 |> Maybe.withDefault edge.source.xy
 
-        ( conWidth, conHeight ) =
+        ( firstPointX, firstPointY ) =
+            points
+                |> List.head
+                |> Maybe.withDefault edge.target.xy
+
+        ( conTargetWidth, conTargetHeight ) =
             edge.target.wh
 
+        ( conSourceWidth, conSourceHeight ) =
+            edge.source.wh
+
         -- half of rect
-        ( rx, ry ) =
-            ( conWidth / 2, conHeight / 2 )
+        ( rxTarget, ryTarget ) =
+            ( conTargetWidth / 2, conTargetHeight / 2 )
+
+        ( rxSource, rySource ) =
+            ( conSourceWidth / 2, conSourceHeight / 2 )
 
         -- size of sides of big triangle create by dots
-        ( x, y ) =
+        ( xLast, yLast ) =
             ( (lastPointX - tx) |> abs, (lastPointY - ty) |> abs )
+
+        ( xFirst, yFirst ) =
+            ( (firstPointX - sx) |> abs, (firstPointY - sy) |> abs )
 
         -- if the line crosses the rect in the top or bottom
         -- otherwise it crosses left or right borders or rect
-        topBottom =
-            y / x > ry / rx
+        topBottomLast =
+            yLast / xLast > ryTarget / rxTarget
+
+        topBottomFirst =
+            yFirst / xFirst > rySource / rxSource
 
         -- intersection between a line (acenter of target container and the last point) and a rect that represents the target cotnainer
         updatedLastPointXY =
             let
                 temp =
-                    if topBottom then
-                        ry / y
+                    if topBottomLast then
+                        ryTarget / yLast
 
                     else
-                        rx / x
+                        rxTarget / xLast
             in
             ( (lastPointX - tx) * temp + tx, (lastPointY - ty) * temp + ty )
 
+        updatedFirstPointXY =
+            let
+                temp =
+                    if topBottomFirst then
+                        rySource / yFirst
+
+                    else
+                        rxSource / xFirst
+            in
+            ( (firstPointX - sx) * temp + sx, (firstPointY - sy) * temp + sy )
+
         preparedPoints =
-            ( sx, sy ) :: points ++ [ updatedLastPointXY ]
+            updatedFirstPointXY :: points ++ [ updatedLastPointXY ]
 
         curve =
             linearCurve preparedPoints
@@ -287,12 +315,6 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent drawCornerCircle
               else
                 g [] []
             ]
-
-
-
-{--
-    Removing temprorary points which are under container
---}
 
 
 containerWithinContainer : Vertex -> Vertex -> Bool

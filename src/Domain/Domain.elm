@@ -220,10 +220,10 @@ getVertex ( domain, currentView ) ( viewElementKey, viewElement ) =
 
                 currentPadding = getPadding viewElementKey
 
-                titleHeightForParentContainer = 40
+                titleHeightForParentContainer = 50
 
                 padding =
-                    if currentPadding == 0 then 0 else currentPadding * 10 + titleHeightForParentContainer
+                    if currentPadding == 0 then 0 else currentPadding * titleHeightForParentContainer
             in
             Vertex name viewElementKey description ( (minX + maxX) / 2, (maxY + minY) / 2 ) ( maxX - minX + toFloat padding, maxY - minY + toFloat padding )
     in
