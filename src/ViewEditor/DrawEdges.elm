@@ -254,7 +254,7 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent drawCornerCircle
         tooltip =
             String.join " " [ "'" ++ edge.source.name ++ "'", edge.description, "'" ++ edge.target.name ++ "'" ]
     in
-    if containerWithinContainer edge.source edge.target then
+    if containerWithinContainer edge.source edge.target || containerWithinContainer edge.target edge.source then
         g [] []
 
     else

@@ -174,9 +174,6 @@ getVertex ( domain, currentView ) ( viewElementKey, viewElement ) =
         currentChildren childKey =
             allNodesOfNode domain childKey
 
-        getPadding childKey =
-            deepOfNode domain childKey |> List.filter (\( _, key ) -> Dict.member key currentView.elements) |> List.map Tuple.first |> Set.fromList |> Set.toList |> List.length
-
         currentChildrenMaxMinXY key =
             Dict.get key currentView.elements |> Maybe.map (\el -> currentMaxMinXYValues key el)
 
@@ -210,22 +207,19 @@ getVertex ( domain, currentView ) ( viewElementKey, viewElement ) =
 
                 maxY =
                     List.maximum maxYValues |> Maybe.withDefault 0
+
+                paddingLeftBottomRight = 5
+
+                paddingTopForTitle = 25
             in
-            Tuple.pair ( minX, minY ) ( maxX, maxY )
+            Tuple.pair ( minX - paddingLeftBottomRight, minY - paddingTopForTitle ) ( maxX + paddingLeftBottomRight, maxY + paddingLeftBottomRight )
 
         createVertex ( name, description ) =
             let
                 ( ( minX, minY ), ( maxX, maxY ) ) =
                     currentMaxMinXYValues viewElementKey viewElement
-
-                currentPadding = getPadding viewElementKey
-
-                titleHeightForParentContainer = 50
-
-                padding =
-                    if currentPadding == 0 then 0 else currentPadding * titleHeightForParentContainer
             in
-            Vertex name viewElementKey description ( (minX + maxX) / 2, (maxY + minY) / 2 ) ( maxX - minX + toFloat padding, maxY - minY + toFloat padding )
+            Vertex name viewElementKey description ( (minX + maxX) / 2, (maxY + minY) / 2 ) ( maxX - minX, maxY - minY )
     in
     getElementsNamesAndDescriptions domain
         |> getNameAndDescriptionByKey viewElementKey
