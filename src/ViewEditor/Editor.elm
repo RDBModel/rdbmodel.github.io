@@ -118,7 +118,7 @@ update domain views msg model =
                     ContextMenu.update subMsg state.containerMenu
 
                 updatedViews =
-                    MenuActions.apply state.selectedView views actions
+                    MenuActions.apply domain state.selectedView views actions
             in
             ( Ready { state | containerMenu = updatedModel }
             , cmd |> Cmd.map ContainerContextMenu

@@ -1,7 +1,7 @@
 module ContainerMenu.MenuActions exposing (..)
 
 import Dict exposing (Dict)
-import Domain.Domain exposing (View, ViewRelationKey, addRelationToView, deleteContainer, getCurrentView, updateViewByKey)
+import Domain.Domain exposing (Domain, View, ViewRelationKey, addRelationToView, deleteContainer, getCurrentView, updateElementPositions, updateViewByKey)
 
 
 type Action
@@ -9,15 +9,15 @@ type Action
     | DeleteElement String
 
 
-apply : Maybe String -> Dict String View -> List Action -> Dict String View
-apply selectedView views actions =
+apply : Maybe Domain -> Maybe String -> Dict String View -> List Action -> Dict String View
+apply domain selectedView views actions =
     actions
-        |> List.foldl modifyViews (getCurrentView selectedView views)
+        |> List.foldl (modifyViews domain) (getCurrentView selectedView views)
         |> updateViewByKey selectedView views
 
 
-modifyViews : Action -> Maybe View -> Maybe View
-modifyViews action view =
+modifyViews : Maybe Domain -> Action -> Maybe View -> Maybe View
+modifyViews domain action view =
     case action of
         SelectRelation ( containerId, relation ) ->
             view
@@ -26,3 +26,4 @@ modifyViews action view =
         DeleteElement containerId ->
             view
                 |> deleteContainer containerId
+                |> updateElementPositions domain

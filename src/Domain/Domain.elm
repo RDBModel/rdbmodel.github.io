@@ -176,7 +176,7 @@ getVertex : ( Domain, View ) -> ( ViewElementKey, ViewElement ) -> Maybe Vertex
 getVertex ( domain, currentView ) ( viewElementKey, viewElement ) =
     let
         createVertex ( name, description ) =
-            Vertex name viewElementKey description (viewElement.x, viewElement.y) (viewElement.w, viewElement.h)
+            Vertex name viewElementKey description ( viewElement.x, viewElement.y ) ( viewElement.w, viewElement.h )
     in
     getElementsNamesAndDescriptions domain
         |> getNameAndDescriptionByKey viewElementKey
@@ -245,17 +245,20 @@ updateElementsInViews selectedView views updateElements =
 
 
 updateElementPositionsInViews : ( Domain, Dict String View ) -> Result String ( Domain, Dict String View )
-updateElementPositionsInViews (domain, views) =
-    Ok (domain, Dict.map (\_ view -> { view | elements = updateElementsCoordinates ( domain, view ) view.elements }) views)
+updateElementPositionsInViews ( domain, views ) =
+    Ok ( domain, Dict.map (\_ view -> { view | elements = updateElementsCoordinates ( domain, view ) view.elements }) views )
+
 
 updateElementPositionsInView : Maybe Domain -> Maybe String -> Dict String View -> Dict String View
 updateElementPositionsInView domain selectedView views =
-    case domain of
-        Just d ->
-            selectedView
-                |> Maybe.map (\view -> Dict.update view (Maybe.map (\v -> { v | elements = updateElementsCoordinates ( d, v ) v.elements })) views)
-                |> Maybe.withDefault views
-        Nothing -> views
+    selectedView
+        |> Maybe.map (\view -> Dict.update view (updateElementPositions domain) views)
+        |> Maybe.withDefault views
+
+
+updateElementPositions : Maybe Domain -> Maybe View -> Maybe View
+updateElementPositions domain view =
+    Maybe.map (\d -> Maybe.map (\v -> { v | elements = updateElementsCoordinates ( d, v ) v.elements }) view) domain |> Maybe.withDefault view
 
 
 updateElementsCoordinates : ( Domain, View ) -> Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
@@ -442,7 +445,7 @@ getViewElements view =
 
 
 addElementToView : String -> ( Float, Float ) -> ( Float, Float ) -> View -> View
-addElementToView key ( x, y ) (w, h) v =
+addElementToView key ( x, y ) ( w, h ) v =
     { v | elements = Dict.insert key (ViewElement x y w h Dict.empty) v.elements }
 
 
