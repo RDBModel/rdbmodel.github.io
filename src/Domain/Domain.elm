@@ -42,6 +42,8 @@ type alias ViewElementKey =
 type alias ViewElement =
     { x : Float
     , y : Float
+    , w : Float
+    , h : Float
     , relations : Dict Relation (List ViewRelationPoint)
     }
 
@@ -174,11 +176,7 @@ getVertex : ( Domain, View ) -> ( ViewElementKey, ViewElement ) -> Maybe Vertex
 getVertex ( domain, currentView ) ( viewElementKey, viewElement ) =
     let
         createVertex ( name, description ) =
-            let
-                ( xy, wh ) =
-                    getCoordinatesAndWidthHeight ( domain, currentView ) ( viewElementKey, viewElement )
-            in
-            Vertex name viewElementKey description xy wh
+            Vertex name viewElementKey description (viewElement.x, viewElement.y) (viewElement.w, viewElement.h)
     in
     getElementsNamesAndDescriptions domain
         |> getNameAndDescriptionByKey viewElementKey
@@ -246,8 +244,12 @@ updateElementsInViews selectedView views updateElements =
         |> Maybe.withDefault views
 
 
-updateParentElementCoordinatesInViews : Maybe Domain -> Maybe String -> Dict String View -> Dict String View
-updateParentElementCoordinatesInViews domain selectedView views =
+updateElementPositionsInViews : ( Domain, Dict String View ) -> Result String ( Domain, Dict String View )
+updateElementPositionsInViews (domain, views) =
+    Ok (domain, Dict.map (\_ view -> { view | elements = updateElementsCoordinates ( domain, view ) view.elements }) views)
+
+updateElementPositionsInView : Maybe Domain -> Maybe String -> Dict String View -> Dict String View
+updateElementPositionsInView domain selectedView views =
     case domain of
         Just d ->
             selectedView
@@ -261,10 +263,10 @@ updateElementsCoordinates ( domain, currentView ) =
     Dict.map
         (\viewElementKey viewElement ->
             let
-                ( xy, _ ) =
+                ( xy, wh ) =
                     getCoordinatesAndWidthHeight ( domain, currentView ) ( viewElementKey, viewElement )
             in
-            { viewElement | x = Tuple.first xy, y = Tuple.second xy }
+            { viewElement | x = Tuple.first xy, y = Tuple.second xy, w = Tuple.first wh, h = Tuple.second wh }
         )
 
 
@@ -439,9 +441,9 @@ getViewElements view =
         |> Dict.keys
 
 
-addElementToView : String -> ( Float, Float ) -> View -> View
-addElementToView key ( x, y ) v =
-    { v | elements = Dict.insert key (ViewElement x y Dict.empty) v.elements }
+addElementToView : String -> ( Float, Float ) -> ( Float, Float ) -> View -> View
+addElementToView key ( x, y ) (w, h) v =
+    { v | elements = Dict.insert key (ViewElement x y w h Dict.empty) v.elements }
 
 
 addRelationToView : String -> Relation -> Maybe View -> Maybe View

@@ -4,6 +4,8 @@ import Dict exposing (Dict)
 import Domain.Domain exposing (..)
 import Domain.Validation exposing (validateDomain, validateViews)
 import Yaml.Decode exposing (..)
+import ViewEditor.DrawContainer exposing (containerWidth)
+import ViewEditor.DrawContainer exposing (containerHeight)
 
 
 rdbDecoder : Decoder ( Domain, Dict String View )
@@ -16,6 +18,7 @@ rdbDecoder =
         domain
         (viewsDecoder |> andThen emptyDict)
         |> andThen (validateViews >> fromResult)
+        |> andThen (updateElementPositionsInViews >> fromResult)
 
 
 emptyDict : Maybe (Dict String View) -> Decoder (Dict String View)
@@ -88,9 +91,11 @@ viewDecoder =
 
 viewElementDecoder : Decoder ViewElement
 viewElementDecoder =
-    map3 ViewElement
+    map5 ViewElement
         (field "x" float)
         (field "y" float)
+        (succeed containerWidth)
+        (succeed containerHeight)
         (maybe (field "relations" (dict (list viewRelationPointDecoder) |> mapViewRelationDecoder))
             |> map (Maybe.withDefault Dict.empty)
         )

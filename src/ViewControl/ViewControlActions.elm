@@ -3,6 +3,8 @@ module ViewControl.ViewControlActions exposing (apply, monacoValueModified)
 import Dict exposing (Dict)
 import Domain.Domain exposing (View, addElementToView, getCurrentView, updateViewByKey)
 import ViewControl.ViewControl exposing (Action(..))
+import ViewEditor.DrawContainer exposing (containerWidth)
+import ViewEditor.DrawContainer exposing (containerHeight)
 
 
 type alias Params =
@@ -21,7 +23,7 @@ modifyViews params action ( views, currentView ) =
     case action of
         AddElementToView el ->
             ( getCurrentView params.selectedView views
-                |> Maybe.map (\v -> addElementToView (Tuple.first el) params.position v)
+                |> Maybe.map (\v -> addElementToView (Tuple.first el) params.position (containerWidth, containerHeight) v)
                 |> updateViewByKey params.selectedView views
             , currentView
             )

@@ -22,7 +22,7 @@ import Domain.Domain
         , getViewRelationPoints
         , removedEdge
         , updateElementsInViews
-        , updateParentElementCoordinatesInViews
+        , updateElementPositionsInView
         , updatePointsInRelations
         , updateRelationsInElements
         , updateViewByKey
@@ -389,7 +389,7 @@ update domain views msg model =
                         ( Nothing, Just _ ) ->
                             updateElementAndPointPosition state.selectedItems xy state
                                 |> updateElementsInViews state.selectedView views
-                                |> updateParentElementCoordinatesInViews domain state.selectedView
+                                |> updateElementPositionsInView domain state.selectedView
 
                         _ ->
                             views
