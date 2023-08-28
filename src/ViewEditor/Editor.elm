@@ -8,7 +8,8 @@ import ContainerMenu.MenuActions as MenuActions
 import Dict exposing (Dict)
 import Domain.Domain
     exposing
-        ( View
+        ( Domain
+        , View
         , ViewElement
         , ViewElementKey
         , ViewItemKey(..)
@@ -21,6 +22,7 @@ import Domain.Domain
         , getViewRelationPoints
         , removedEdge
         , updateElementsInViews
+        , updateParentElementCoordinatesInViews
         , updatePointsInRelations
         , updateRelationsInElements
         , updateViewByKey
@@ -76,8 +78,8 @@ type Action
     | ChangeView (Maybe String)
 
 
-update : Dict String View -> Msg -> Model -> ( Model, Cmd Msg, List Action )
-update views msg model =
+update : Maybe Domain -> Dict String View -> Msg -> Model -> ( Model, Cmd Msg, List Action )
+update domain views msg model =
     case ( model, msg ) of
         ( Init selectedView, ReceiveElementPosition (Ok { element }) ) ->
             let
@@ -387,6 +389,7 @@ update views msg model =
                         ( Nothing, Just _ ) ->
                             updateElementAndPointPosition state.selectedItems xy state
                                 |> updateElementsInViews state.selectedView views
+                                |> updateParentElementCoordinatesInViews domain state.selectedView
 
                         _ ->
                             views

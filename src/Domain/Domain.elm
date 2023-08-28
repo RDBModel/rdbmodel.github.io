@@ -116,7 +116,8 @@ getEdges ( domain, currentView ) =
         getTargetAndPoints : ( ViewElementKey, ViewElement ) -> List Edge
         getTargetAndPoints ( viewElementKey, viewElement ) =
             let
-                sourceContainer = getVertex ( domain, currentView ) ( viewElementKey, viewElement )
+                sourceContainer =
+                    getVertex ( domain, currentView ) ( viewElementKey, viewElement )
 
                 elementsNamesAndDescriptions =
                     getElementsNamesAndDescriptions domain
@@ -146,7 +147,8 @@ getEdges ( domain, currentView ) =
                                     description =
                                         Tuple.second relation
 
-                                    targetContainer = getVertex ( domain, currentView ) ( targetElementKey, targetElement )
+                                    targetContainer =
+                                        getVertex ( domain, currentView ) ( targetElementKey, targetElement )
                                 in
                                 targetContainer
                                     |> Maybe.map
@@ -165,11 +167,26 @@ getEdges ( domain, currentView ) =
 getContainers : ( Domain, View ) -> List Vertex
 getContainers ( domain, currentView ) =
     Dict.toList currentView.elements
-        |> List.filterMap (getVertex (domain, currentView))
+        |> List.filterMap (getVertex ( domain, currentView ))
 
 
 getVertex : ( Domain, View ) -> ( ViewElementKey, ViewElement ) -> Maybe Vertex
 getVertex ( domain, currentView ) ( viewElementKey, viewElement ) =
+    let
+        createVertex ( name, description ) =
+            let
+                ( xy, wh ) =
+                    getCoordinatesAndWidthHeight ( domain, currentView ) ( viewElementKey, viewElement )
+            in
+            Vertex name viewElementKey description xy wh
+    in
+    getElementsNamesAndDescriptions domain
+        |> getNameAndDescriptionByKey viewElementKey
+        |> Maybe.map createVertex
+
+
+getCoordinatesAndWidthHeight : ( Domain, View ) -> ( ViewElementKey, ViewElement ) -> ( ( Float, Float ), ( Float, Float ) )
+getCoordinatesAndWidthHeight ( domain, currentView ) ( viewElementKey, viewElement ) =
     let
         currentChildren childKey =
             allNodesOfNode domain childKey
@@ -208,22 +225,18 @@ getVertex ( domain, currentView ) ( viewElementKey, viewElement ) =
                 maxY =
                     List.maximum maxYValues |> Maybe.withDefault 0
 
-                paddingLeftBottomRight = 5
+                paddingLeftBottomRight =
+                    5
 
-                paddingTopForTitle = 25
+                paddingTopForTitle =
+                    25
             in
             Tuple.pair ( minX - paddingLeftBottomRight, minY - paddingTopForTitle ) ( maxX + paddingLeftBottomRight, maxY + paddingLeftBottomRight )
 
-        createVertex ( name, description ) =
-            let
-                ( ( minX, minY ), ( maxX, maxY ) ) =
-                    currentMaxMinXYValues viewElementKey viewElement
-            in
-            Vertex name viewElementKey description ( (minX + maxX) / 2, (maxY + minY) / 2 ) ( maxX - minX, maxY - minY )
+        ( ( minXValue, minYValue ), ( maxXValue, maxYValue ) ) =
+            currentMaxMinXYValues viewElementKey viewElement
     in
-    getElementsNamesAndDescriptions domain
-        |> getNameAndDescriptionByKey viewElementKey
-        |> Maybe.map createVertex
+    ( ( (minXValue + maxXValue) / 2, (maxYValue + minYValue) / 2 ), ( maxXValue - minXValue, maxYValue - minYValue ) )
 
 
 updateElementsInViews : Maybe String -> Dict String View -> (Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement) -> Dict String View
@@ -231,6 +244,28 @@ updateElementsInViews selectedView views updateElements =
     selectedView
         |> Maybe.map (\view -> Dict.update view (Maybe.map (\v -> { v | elements = updateElements v.elements })) views)
         |> Maybe.withDefault views
+
+
+updateParentElementCoordinatesInViews : Maybe Domain -> Maybe String -> Dict String View -> Dict String View
+updateParentElementCoordinatesInViews domain selectedView views =
+    case domain of
+        Just d ->
+            selectedView
+                |> Maybe.map (\view -> Dict.update view (Maybe.map (\v -> { v | elements = updateElementsCoordinates ( d, v ) v.elements })) views)
+                |> Maybe.withDefault views
+        Nothing -> views
+
+
+updateElementsCoordinates : ( Domain, View ) -> Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
+updateElementsCoordinates ( domain, currentView ) =
+    Dict.map
+        (\viewElementKey viewElement ->
+            let
+                ( xy, _ ) =
+                    getCoordinatesAndWidthHeight ( domain, currentView ) ( viewElementKey, viewElement )
+            in
+            { viewElement | x = Tuple.first xy, y = Tuple.second xy }
+        )
 
 
 updateRelationsInElements : ViewElementKey -> (Dict Relation (List ViewRelationPoint) -> Dict Relation (List ViewRelationPoint)) -> Dict ViewElementKey ViewElement -> Dict ViewElementKey ViewElement
