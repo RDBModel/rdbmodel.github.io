@@ -447,7 +447,7 @@ addElementToView domain key xy ( w, h ) v =
                         Just parentNodesValue ->
                             let
                                 parentKey =
-                                    parentNodesValue |> Debug.log "parentKey" |> List.filter (\k -> Dict.member k v.elements) |> List.head |> Debug.log "parentKey"
+                                    parentNodesValue |> List.filter (\k -> Dict.member k v.elements) |> List.head
                             in
                             case parentKey of
                                 Just parentKeyValue ->

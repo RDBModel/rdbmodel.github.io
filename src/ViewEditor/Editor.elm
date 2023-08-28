@@ -227,9 +227,6 @@ update domain views msg model =
 
         ( Ready state, DragViewElementStart viewElementKey xy ) ->
             let
-                _ =
-                    Debug.log "viewElementKey" viewElementKey
-
                 ( shiftedStartX, shiftedStartY ) =
                     ViewNavigation.shiftPosition state.viewNavigation ( state.svgElementPosition.x, state.svgElementPosition.y ) xy
 
