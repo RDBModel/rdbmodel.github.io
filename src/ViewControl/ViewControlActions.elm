@@ -1,29 +1,28 @@
 module ViewControl.ViewControlActions exposing (apply, monacoValueModified)
 
 import Dict exposing (Dict)
-import Domain.Domain exposing (View, addElementToView, getCurrentView, updateViewByKey)
+import Domain.Domain exposing (Domain, View, addElementToView, getCurrentView, updateViewByKey)
 import ViewControl.ViewControl exposing (Action(..))
-import ViewEditor.DrawContainer exposing (containerWidth)
-import ViewEditor.DrawContainer exposing (containerHeight)
+import ViewEditor.DrawContainer exposing (containerHeight, containerWidth)
 
 
 type alias Params =
-    { position : ( Float, Float )
+    { defaultPositions : ( Float, Float )
     , selectedView : Maybe String
     }
 
 
-apply : Params -> Dict String View -> List Action -> ( Dict String View, Maybe String )
-apply params views actions =
-    List.foldl (modifyViews params) ( views, params.selectedView ) actions
+apply : Maybe Domain -> Params -> Dict String View -> List Action -> ( Dict String View, Maybe String )
+apply domain params views actions =
+    List.foldl (modifyViews domain params) ( views, params.selectedView ) actions
 
 
-modifyViews : Params -> Action -> ( Dict String View, Maybe String ) -> ( Dict String View, Maybe String )
-modifyViews params action ( views, currentView ) =
+modifyViews : Maybe Domain -> Params -> Action -> ( Dict String View, Maybe String ) -> ( Dict String View, Maybe String )
+modifyViews domain params action ( views, currentView ) =
     case action of
         AddElementToView el ->
             ( getCurrentView params.selectedView views
-                |> Maybe.map (\v -> addElementToView (Tuple.first el) params.position (containerWidth, containerHeight) v)
+                |> Maybe.map (\v -> addElementToView domain (Tuple.first el) params.defaultPositions ( containerWidth, containerHeight ) v)
                 |> updateViewByKey params.selectedView views
             , currentView
             )

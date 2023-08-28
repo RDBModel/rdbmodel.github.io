@@ -134,12 +134,12 @@ update domain views msg model =
                     ViewNavigation.getPositionForNewElement state.viewNavigation state.svgElementPosition
 
                 params =
-                    { position = elementPosition
+                    { defaultPositions = elementPosition
                     , selectedView = state.selectedView
                     }
 
                 ( newViews, selectedView ) =
-                    ViewControlActions.apply params views actions
+                    ViewControlActions.apply domain params views actions
 
                 elementsKeysOfCurrentView =
                     getCurrentView selectedView views

@@ -3,7 +3,6 @@ module Domain.Domain exposing (..)
 import Array exposing (Array)
 import Dict exposing (Dict)
 import Scale exposing (domain)
-import Set
 
 
 type alias Domain =
@@ -120,12 +119,6 @@ getEdges ( domain, currentView ) =
             let
                 sourceContainer =
                     getVertex ( domain, currentView ) ( viewElementKey, viewElement )
-
-                elementsNamesAndDescriptions =
-                    getElementsNamesAndDescriptions domain
-
-                sourceNameAndDescription =
-                    getNameAndDescriptionByKey viewElementKey elementsNamesAndDescriptions
             in
             case sourceContainer of
                 Just sourceContainerValue ->
@@ -139,9 +132,6 @@ getEdges ( domain, currentView ) =
                                 let
                                     convertedViewRelationPoints =
                                         points |> List.map (\vrp -> Tuple.pair vrp.x vrp.y)
-
-                                    target =
-                                        Tuple.pair targetElement.x targetElement.y
 
                                     targetElementKey =
                                         Tuple.first relation
@@ -444,9 +434,38 @@ getViewElements view =
         |> Dict.keys
 
 
-addElementToView : String -> ( Float, Float ) -> ( Float, Float ) -> View -> View
-addElementToView key ( x, y ) ( w, h ) v =
-    { v | elements = Dict.insert key (ViewElement x y w h Dict.empty) v.elements }
+addElementToView : Maybe Domain -> String -> ( Float, Float ) -> ( Float, Float ) -> View -> View
+addElementToView domain key xy ( w, h ) v =
+    case domain of
+        Just d ->
+            let
+                parentNodes =
+                    getParentNodeKeys d key
+
+                ( x, y ) =
+                    case parentNodes of
+                        Just parentNodesValue ->
+                            let
+                                parentKey =
+                                    parentNodesValue |> Debug.log "parentKey" |> List.filter (\k -> Dict.member k v.elements) |> List.head |> Debug.log "parentKey"
+                            in
+                            case parentKey of
+                                Just parentKeyValue ->
+                                    Dict.get parentKeyValue v.elements |> Maybe.map (\viewElement -> ( viewElement.x, viewElement.y )) |> Maybe.withDefault xy
+
+                                Nothing ->
+                                    xy
+
+                        Nothing ->
+                            xy
+
+                viewWithNewElement =
+                    { v | elements = Dict.insert key (ViewElement x y w h Dict.empty) v.elements }
+            in
+            { viewWithNewElement | elements = updateElementsCoordinates ( d, viewWithNewElement ) viewWithNewElement.elements }
+
+        Nothing ->
+            { v | elements = Dict.insert key (ViewElement (Tuple.first xy) (Tuple.second xy) w h Dict.empty) v.elements }
 
 
 addRelationToView : String -> Relation -> Maybe View -> Maybe View
@@ -555,23 +574,6 @@ getName level =
     Array.get level levelChildrenNames
 
 
-getChildrenOfNode : Domain -> ViewElementKey -> List ViewElementKey
-getChildrenOfNode domain key =
-    let
-        extractData level _ _ =
-            if level == 0 then
-                Just key
-
-            else
-                Nothing
-    in
-    if Dict.member key domain.actors then
-        []
-
-    else
-        extractFromAllNodes domain.elements extractData
-
-
 extractFromAllNodes : Dict String Node -> (Int -> String -> Node -> Maybe a) -> List a
 extractFromAllNodes nodes extractFunc =
     let
@@ -584,6 +586,36 @@ extractFromAllNodes nodes extractFunc =
                     extractFunc level key node |> List.singleton
     in
     Dict.foldl (\k n result -> goDeep 0 k n |> List.append result) [] nodes |> List.filterMap identity
+
+
+getParentNodeKeys : Domain -> ViewElementKey -> Maybe (List ViewElementKey)
+getParentNodeKeys domain viewElementKey =
+    let
+        goDeep key node result =
+            case node of
+                Parent _ children ->
+                    let
+                        updatedResult =
+                            Dict.foldl (\k n subResult -> goDeep k n subResult) result children
+                    in
+                    if List.isEmpty updatedResult then
+                        updatedResult
+
+                    else
+                        key :: updatedResult
+
+                Leaf _ ->
+                    if key == viewElementKey then
+                        List.singleton key
+
+                    else
+                        result
+    in
+    if Dict.member viewElementKey domain.actors then
+        Nothing
+
+    else
+        Dict.foldl (\k n result -> goDeep k n result) [] domain.elements |> List.reverse |> List.tail
 
 
 findNodeByKey : Domain -> ViewElementKey -> Maybe Node
@@ -608,27 +640,6 @@ allNodesOfNode domain key =
         let
             extractData _ currentKey _ =
                 Just currentKey
-
-            node =
-                findNodeByKey domain key
-        in
-        case node of
-            Just (Parent _ children) ->
-                extractFromAllNodes children extractData
-
-            _ ->
-                []
-
-
-deepOfNode : Domain -> ViewElementKey -> List ( Int, ViewElementKey )
-deepOfNode domain key =
-    if Dict.member key domain.actors then
-        []
-
-    else
-        let
-            extractData level currentKey _ =
-                Just ( level, currentKey )
 
             node =
                 findNodeByKey domain key
