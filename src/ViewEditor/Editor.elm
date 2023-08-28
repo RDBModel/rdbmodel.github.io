@@ -13,7 +13,7 @@ import Domain.Domain
         , ViewElement
         , ViewElementKey
         , ViewItemKey(..)
-        , allLeafsOfNode
+        , allNodesOfNode
         , getCurrentView
         , getElement
         , getElements
@@ -227,7 +227,9 @@ update domain views msg model =
 
         ( Ready state, DragViewElementStart viewElementKey xy ) ->
             let
-                _ = Debug.log "viewElementKey" viewElementKey
+                _ =
+                    Debug.log "viewElementKey" viewElementKey
+
                 ( shiftedStartX, shiftedStartY ) =
                     ViewNavigation.shiftPosition state.viewNavigation ( state.svgElementPosition.x, state.svgElementPosition.y ) xy
 
@@ -248,13 +250,13 @@ update domain views msg model =
                         elementsOfCurrentView
                             |> (case domain of
                                     Just d ->
-                                        getElements (allLeafsOfNode d viewElementKey |> Debug.log "allLeafsOfNode")
+                                        getElements (viewElementKey :: allNodesOfNode d viewElementKey)
 
                                     Nothing ->
                                         getElement viewElementKey >> Maybe.map (Tuple.pair viewElementKey) >> Maybe.map List.singleton >> Maybe.withDefault []
                                )
-                            |> List.map (\(key , ve) -> (key, ( shiftedStartX - ve.x, shiftedStartY - ve.y )))
-                            |> List.map (\(key, shiftedXY) -> SelectedItem (ElementKey key) (Just shiftedXY))
+                            |> List.map (\( key, ve ) -> ( key, ( shiftedStartX - ve.x, shiftedStartY - ve.y ) ))
+                            |> List.map (\( key, shiftedXY ) -> SelectedItem (ElementKey key) (Just shiftedXY))
 
                     else
                         updateSelectedItemsDeltas elementsOfCurrentView ( shiftedStartX, shiftedStartY ) state.selectedItems

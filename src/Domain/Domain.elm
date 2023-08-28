@@ -650,34 +650,3 @@ allNodesOfNode domain key =
 
             _ ->
                 []
-
-
-allLeafsOfNode : Domain -> ViewElementKey -> List ViewElementKey
-allLeafsOfNode domain viewElementKey =
-    let
-        extractFunc : Int -> String -> Node -> Maybe String
-        extractFunc _ currentKey currentNode =
-            case currentNode of
-                Parent _ _ ->
-                    Nothing
-
-                Leaf _ ->
-                    Just currentKey
-    in
-    if Dict.member viewElementKey domain.actors then
-        List.singleton viewElementKey
-
-    else
-        let
-            targetNode =
-                findNodeByKey domain viewElementKey
-        in
-        case targetNode of
-            Just (Parent _ children) ->
-                extractFromAllNodes children extractFunc
-
-            Just (Leaf _) ->
-                List.singleton viewElementKey
-
-            Nothing ->
-                []
