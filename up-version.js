@@ -20,6 +20,7 @@ fs.readFile(filePath, "utf-8", (err, data) => {
       let newMinor = parseInt(minor)
       if (minorUp) {
         newMinor = parseInt(minor) + 1
+        newPatch = 0
       } else {
         newPatch = parseInt(patch) + 1
       }
