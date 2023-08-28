@@ -43,7 +43,7 @@ handleMouseMove xy ({ drag, brush } as state) currentView =
 
 
 elementWithinBrush : Brush -> ViewElementKey -> ViewElement -> Bool
-elementWithinBrush { start, end } _ { x, y } =
+elementWithinBrush { start, end } _ { x, y, w, h } =
     let
         ( startX1, startY1 ) =
             start
@@ -51,13 +51,13 @@ elementWithinBrush { start, end } _ { x, y } =
         ( endX2, endY2 ) =
             end
     in
-    x
+    (x - w / 2)
         > min startX1 endX2
-        && x
+        && (x + w / 2)
         < max startX1 endX2
-        && y
+        && (y - h / 2)
         > min startY1 endY2
-        && y
+        && (y + h / 2)
         < max startY1 endY2
 
 

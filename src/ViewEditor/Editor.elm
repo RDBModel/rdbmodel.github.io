@@ -13,16 +13,18 @@ import Domain.Domain
         , ViewElement
         , ViewElementKey
         , ViewItemKey(..)
+        , allLeafsOfNode
         , getCurrentView
         , getElement
+        , getElements
         , getPoint
         , getRelationPoints
         , getViewElements
         , getViewElementsOfCurrentView
         , getViewRelationPoints
         , removedEdge
-        , updateElementsInViews
         , updateElementPositionsInView
+        , updateElementsInViews
         , updatePointsInRelations
         , updateRelationsInElements
         , updateViewByKey
@@ -225,6 +227,7 @@ update domain views msg model =
 
         ( Ready state, DragViewElementStart viewElementKey xy ) ->
             let
+                _ = Debug.log "viewElementKey" viewElementKey
                 ( shiftedStartX, shiftedStartY ) =
                     ViewNavigation.shiftPosition state.viewNavigation ( state.svgElementPosition.x, state.svgElementPosition.y ) xy
 
@@ -243,10 +246,15 @@ update domain views msg model =
                 updatedSelectedItems =
                     if List.isEmpty state.selectedItems || not isWithinAlreadySelected then
                         elementsOfCurrentView
-                            |> getElement viewElementKey
-                            |> Maybe.map (\ve -> ( shiftedStartX - ve.x, shiftedStartY - ve.y ))
-                            |> SelectedItem (ElementKey viewElementKey)
-                            |> List.singleton
+                            |> (case domain of
+                                    Just d ->
+                                        getElements (allLeafsOfNode d viewElementKey |> Debug.log "allLeafsOfNode")
+
+                                    Nothing ->
+                                        getElement viewElementKey >> Maybe.map (Tuple.pair viewElementKey) >> Maybe.map List.singleton >> Maybe.withDefault []
+                               )
+                            |> List.map (\(key , ve) -> (key, ( shiftedStartX - ve.x, shiftedStartY - ve.y )))
+                            |> List.map (\(key, shiftedXY) -> SelectedItem (ElementKey key) (Just shiftedXY))
 
                     else
                         updateSelectedItemsDeltas elementsOfCurrentView ( shiftedStartX, shiftedStartY ) state.selectedItems

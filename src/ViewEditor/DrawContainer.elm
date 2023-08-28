@@ -144,7 +144,13 @@ renderContainerInternal selected { key, name, description, xy, wh } events =
             [ path
                 [ d dValue
                 , Attrs.fill PaintNone
-                , Attrs.stroke <| Paint <| Color.black
+                , Attrs.stroke <|
+                    Paint <|
+                        if selected then
+                            Color.blue
+
+                        else
+                            Color.black
                 , Attrs.strokeWidth <| Px 1
                 ]
                 []
@@ -161,17 +167,19 @@ renderContainerInternal selected { key, name, description, xy, wh } events =
                     , style "justify-content" "flex-start"
                     , style "align-items" "flex-start"
                     , style "height" "100%"
+                    , style "padding" "1px"
                     ]
                     [ div
                         ([ style "padding" "1px 3px 1px 3px"
-                            , style "text-align" "center"
-                            , style "max-height" "100%"
-                            , style "font-size" "14px"
-                            , style "border" "1px solid black"
-                            , style "border-radius" "0 0 3px 0"
-                            , style "background-color" "white"
-                            , style "pointer-events" "all"
-                            ]
+                         , style "text-align" "center"
+                         , style "max-height" "100%"
+                         , style "font-size" "14px"
+                         , style "border-bottom" ("1px solid " ++ (if selected then Color.blue |> Color.toCssString else Color.black |> Color.toCssString))
+                         , style "border-right" ("1px solid " ++ (if selected then Color.blue |> Color.toCssString else Color.black |> Color.toCssString))
+                         , style "border-radius" "0 0 3px 0"
+                         , style "background-color" "white"
+                         , style "pointer-events" "all"
+                         ]
                             ++ events
                         )
                         [ text name ]
