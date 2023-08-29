@@ -2,7 +2,7 @@ module Domain.Domain exposing (..)
 
 import Array exposing (Array)
 import Dict exposing (Dict)
-import Scale exposing (domain)
+import Scale exposing (domain, point)
 
 
 type alias Domain =
@@ -85,6 +85,27 @@ type alias ViewRelationKey =
 type ViewItemKey
     = ElementKey ViewElementKey
     | PointKey ViewRelationPointKey
+
+
+getRelationsPoints : ViewElementKey -> ViewElement -> ViewElement -> List ( ViewItemKey, ( Float, Float ) )
+getRelationsPoints viewElementKey parentViewElement currentViewElement =
+    currentViewElement.relations
+        |> Dict.toList
+        |> List.map (\( relation, points ) -> ( relation, points ))
+        |> List.concatMap (\( relation, points ) -> points |> getViewPointByCondition (pointWithinContainer parentViewElement) |> List.map (\( point, pointIndex ) -> ( relation, point, pointIndex )))
+        |> List.map (\( relation, point, pointIndex ) -> ( PointKey ( viewElementKey, relation, pointIndex ), ( point.x, point.y ) ))
+
+
+pointWithinContainer : ViewElement -> ViewRelationPoint -> Bool
+pointWithinContainer { x, y, w, h } point =
+    point.x
+        > (x - w / 2)
+        && point.x
+        < (x + w / 2)
+        && point.y
+        > (y - h / 2)
+        && point.y
+        < (y + h / 2)
 
 
 getSourceAndTargetElements : ViewRelationKey -> View -> ( Maybe ViewElement, Maybe ViewElement )
@@ -320,6 +341,19 @@ getViewPointKeysByCondition condition =
             (\( i, point ) ->
                 if condition point then
                     Just i
+
+                else
+                    Nothing
+            )
+
+
+getViewPointByCondition : (ViewRelationPoint -> Bool) -> List ViewRelationPoint -> List ( ViewRelationPoint, ViewRelationPointIndex )
+getViewPointByCondition condition =
+    List.indexedMap (\i point -> ( i, point ))
+        >> List.filterMap
+            (\( i, point ) ->
+                if condition point then
+                    Just ( point, i )
 
                 else
                     Nothing

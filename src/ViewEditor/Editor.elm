@@ -19,6 +19,7 @@ import Domain.Domain
         , getElements
         , getPoint
         , getRelationPoints
+        , getRelationsPoints
         , getViewElements
         , getViewElementsOfCurrentView
         , getViewRelationPoints
@@ -242,6 +243,17 @@ update domain views msg model =
                     getCurrentView state.selectedView views
                         |> getViewElementsOfCurrentView
 
+                currentViewElement =
+                    getElement viewElementKey elementsOfCurrentView
+
+                getPoints key =
+                    case currentViewElement of
+                        Just el ->
+                            getRelationsPoints key el
+
+                        Nothing ->
+                            \_ -> []
+
                 updatedSelectedItems =
                     if List.isEmpty state.selectedItems || not isWithinAlreadySelected then
                         elementsOfCurrentView
@@ -252,8 +264,8 @@ update domain views msg model =
                                     Nothing ->
                                         getElement viewElementKey >> Maybe.map (Tuple.pair viewElementKey) >> Maybe.map List.singleton >> Maybe.withDefault []
                                )
-                            |> List.map (\( key, ve ) -> ( key, ( shiftedStartX - ve.x, shiftedStartY - ve.y ) ))
-                            |> List.map (\( key, shiftedXY ) -> SelectedItem (ElementKey key) (Just shiftedXY))
+                            |> List.concatMap (\( key, ve ) -> ( ElementKey key, ( shiftedStartX - ve.x, shiftedStartY - ve.y ) ) :: (getPoints key ve |> List.map (\( pointKey, ( pointX, pointY ) ) -> ( pointKey, ( shiftedStartX - pointX, shiftedStartY - pointY ) ))))
+                            |> List.map (\( key, shiftedXY ) -> SelectedItem key (Just shiftedXY))
 
                     else
                         updateSelectedItemsDeltas elementsOfCurrentView ( shiftedStartX, shiftedStartY ) state.selectedItems
