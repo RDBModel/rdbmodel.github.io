@@ -41,7 +41,7 @@ function initMonaco(initialValue) {
     model: model,
     //value: modifyYamlValue(initialValue),
     language: 'yaml',
-    wordWrap: 'off',
+    wordWrap: 'on',
     automaticLayout: true,
     lineNumbers: 'off',
     glyphMargin: false,
