@@ -3,7 +3,7 @@ import * as monaco from 'monaco-editor'
 import { Elm } from './src/Main.elm'
 import { setDiagnosticsOptions } from 'monaco-yaml'
 
-const version = '0.2.3'
+const version = '0.2.4'
 
 const app = Elm.Main.init({
   node: document.getElementById('root'),
