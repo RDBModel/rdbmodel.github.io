@@ -3,9 +3,8 @@ module Domain.DomainDecoder exposing (rdbDecoder)
 import Dict exposing (Dict)
 import Domain.Domain exposing (..)
 import Domain.Validation exposing (validateDomain, validateViews)
+import ViewEditor.DrawContainer exposing (containerHeight, containerWidth)
 import Yaml.Decode exposing (..)
-import ViewEditor.DrawContainer exposing (containerWidth)
-import ViewEditor.DrawContainer exposing (containerHeight)
 
 
 rdbDecoder : Decoder ( Domain, Dict String View )
@@ -49,6 +48,7 @@ internalDomainDecoder =
         (field "actors" (dict dataDecoder))
         (field "systems" (dict (nodeDecoder 0)))
 
+
 nodeDecoder : Int -> Decoder Node
 nodeDecoder level =
     oneOf
@@ -56,11 +56,13 @@ nodeDecoder level =
         , map Leaf dataDecoder
         ]
 
+
 childrenDecoder : Int -> Decoder (Dict String Node)
 childrenDecoder level =
     case getName level of
         Just name ->
             field name (dict (lazy (\_ -> nodeDecoder (level + 1))))
+
         Nothing ->
             fail "Nested too deep"
 

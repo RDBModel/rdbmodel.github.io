@@ -201,7 +201,7 @@ update msg model =
         ViewEditorMsg subMsg ->
             let
                 ( updated, cmd, actions ) =
-                    ViewEditor.update model.monacoValue.present.domain  model.monacoValue.present.views subMsg model.viewEditor
+                    ViewEditor.update model.monacoValue.present.domain model.monacoValue.present.views subMsg model.viewEditor
 
                 updatedValues =
                     ViewEditorActions.apply model.session.key { monacoValue = model.monacoValue, cmd = cmd, errors = model.errors } actions

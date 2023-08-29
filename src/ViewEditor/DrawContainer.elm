@@ -174,8 +174,24 @@ renderContainerInternal selected { key, name, description, xy, wh } events =
                          , style "text-align" "center"
                          , style "max-height" "100%"
                          , style "font-size" "14px"
-                         , style "border-bottom" ("1px solid " ++ (if selected then Color.blue |> Color.toCssString else Color.black |> Color.toCssString))
-                         , style "border-right" ("1px solid " ++ (if selected then Color.blue |> Color.toCssString else Color.black |> Color.toCssString))
+                         , style "border-bottom"
+                            ("1px solid "
+                                ++ (if selected then
+                                        Color.blue |> Color.toCssString
+
+                                    else
+                                        Color.black |> Color.toCssString
+                                   )
+                            )
+                         , style "border-right"
+                            ("1px solid "
+                                ++ (if selected then
+                                        Color.blue |> Color.toCssString
+
+                                    else
+                                        Color.black |> Color.toCssString
+                                   )
+                            )
                          , style "border-radius" "0 0 3px 0"
                          , style "background-color" "white"
                          , style "pointer-events" "all"
