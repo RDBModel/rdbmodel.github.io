@@ -94,13 +94,25 @@ views:
       cache:
         x: 630
         y: 425
+      chunker:
+        x: 360
+        y: 185
       client:
-        x: 300
-        y: 225
+        x: 304.5
+        y: 205
         relations:
           synchronize data - load-balancer: []
+      dropbox:
+        x: 365
+        y: 332.5
+      indexer:
+        x: 249
+        y: 186
+      internal-db:
+        x: 250
+        y: 245
       load-balancer:
-        x: 300
+        x: 306
         y: 325
         relations:
           get/upload data - block-service: []
@@ -119,7 +131,7 @@ views:
           notify about data change - queue: []
       notification-service:
         x: 500
-        y: 225
+        y: 206
         relations:
           push data change notification - client: []
           listen data changes - queue: []
@@ -138,8 +150,8 @@ views:
         relations:
           get/update subscription data - subscription-db: []
       user:
-        x: 300
-        y: 125
+        x: 304
+        y: 66
         relations:
           upload/receive files - client: []
       user-db:
@@ -150,3 +162,6 @@ views:
         y: 425
         relations:
           get/update user information - user-db: []
+      watcher:
+        x: 360
+        y: 245
