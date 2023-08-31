@@ -14,19 +14,16 @@ import FilePicker
 import Html exposing (Html, div, text)
 import Html.Attributes exposing (style)
 import Http
-import JsInterop
+import InPorts exposing (initMonacoRequest, monacoEditorSavedValue, receivedFromLocalStorage, requestValueToSave)
+import Json.Decode as JsonDecoder
+import OutPorts
     exposing
         ( getFromLocalStorage
-        , initMonacoRequest
         , initMonacoResponse
-        , monacoEditorSavedValue
-        , receivedFromLocalStorage
-        , requestValueToSave
         , saveToLocalStorage
         , saveValueToFile
         , validationErrors
         )
-import Json.Decode as JsonDecoder
 import SaveDomain.SaveDomain as SaveDomain
 import Session exposing (Session)
 import SplitPanel.SplitPane as SplitPane exposing (Orientation(..), State, ViewConfig, createViewConfig)

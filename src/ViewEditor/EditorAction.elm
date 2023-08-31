@@ -5,7 +5,7 @@ import Dict exposing (Dict)
 import Domain.Domain exposing (Domain, View)
 import Domain.DomainEncoder exposing (rdbEncode)
 import Error.Error as Error
-import JsInterop exposing (updateMonacoValue)
+import OutPorts exposing (updateMonacoValue)
 import UndoRedo.ViewUndoRedo exposing (UndoRedoMonacoValue, mapPresent, newRecord)
 import ViewEditor.Editor exposing (Action(..))
 import ViewEditor.Msg exposing (Msg)

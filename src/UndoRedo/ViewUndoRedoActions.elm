@@ -3,7 +3,7 @@ module UndoRedo.ViewUndoRedoActions exposing (Action(..), MonacoValue, apply)
 import Dict exposing (Dict)
 import Domain.Domain exposing (Domain, View)
 import Domain.DomainEncoder exposing (rdbEncode)
-import JsInterop exposing (updateMonacoValue)
+import OutPorts exposing (updateMonacoValue)
 
 
 type Action

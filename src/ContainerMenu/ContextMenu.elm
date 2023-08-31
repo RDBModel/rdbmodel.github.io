@@ -7,8 +7,8 @@ import Domain.Domain exposing (Relation)
 import Html exposing (Attribute, Html, div, text)
 import Html.Attributes exposing (style)
 import Html.Events.Extra.Mouse as Mouse
-import JsInterop exposing (onWheel)
 import Json.Decode as Decode
+import InPorts exposing (onWheel)
 
 
 type alias Model =

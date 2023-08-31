@@ -20,7 +20,7 @@ import Browser.Events as Events
 import Html exposing (Attribute, Html, button, div)
 import Html.Attributes exposing (style, title, type_)
 import Html.Events exposing (onClick)
-import JsInterop exposing (zoomMsgReceived)
+import OutPorts exposing (zoomMsgReceived)
 import Json.Decode as Decode
 import TypedSvg exposing (circle, line, path, svg)
 import TypedSvg.Attributes

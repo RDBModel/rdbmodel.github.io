@@ -2,9 +2,9 @@ module FilePicker exposing (..)
 
 import Color
 import Html exposing (Html, button, div)
-import Html.Attributes exposing (style)
+import Html.Attributes exposing (style, title, type_)
 import Html.Events exposing (onClick)
-import JsInterop exposing (openFileOpenDialog, openSaveFileDialog, tryToSaveCurrentEditorValue)
+import OutPorts exposing (openFileOpenDialog, openSaveFileDialog, tryToSaveCurrentEditorValue)
 import SaveDomain.SaveDomain as SaveDomain
 import TypedSvg exposing (path, svg)
 import TypedSvg.Attributes
@@ -20,8 +20,6 @@ import TypedSvg.Attributes
         , width
         )
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
-import Html.Attributes exposing (title)
-import Html.Attributes exposing (type_)
 
 
 type Msg
