@@ -32,3 +32,6 @@ port tryToSaveCurrentEditorValue : () -> Cmd msg
 
 
 port shareElementsAtCurrentView : List String -> Cmd msg
+
+
+port focusContainerInEditor : String -> Cmd msg

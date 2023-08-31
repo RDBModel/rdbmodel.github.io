@@ -10,7 +10,7 @@ import Session exposing (Session)
 import Url exposing (Url)
 
 
-main : Program (Bool, String) Model Msg
+main : Program ( Bool, String ) Model Msg
 main =
     Browser.application
         { init = init
@@ -22,8 +22,8 @@ main =
         }
 
 
-init : (Bool, String) -> Url -> Nav.Key -> ( Model, Cmd Msg )
-init (isFileSystemSupported, version) url navKey =
+init : ( Bool, String ) -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init ( isFileSystemSupported, version ) url navKey =
     changeRouteTo (Route.fromUrl url) (Session isFileSystemSupported version navKey)
 
 
@@ -58,14 +58,15 @@ update msg model =
 
         ( ChangedUrl url, Editor editorModel ) ->
             let
-
-                newRoute = Route.fromUrl url
+                newRoute =
+                    Route.fromUrl url
             in
             case newRoute of
                 Just (Route.Editor selectedView _) ->
                     ( Editor (Editor.changeSelectedView selectedView editorModel)
                     , Cmd.none
                     )
+
                 _ ->
                     changeRouteTo newRoute editorModel.session
 

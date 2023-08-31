@@ -33,10 +33,10 @@ import Domain.Domain
 import Html exposing (Html, div)
 import Html.Attributes
 import Html.Events.Extra.Mouse as Mouse
-import InPorts exposing (focusContainer)
+import InPorts exposing (focusContainerInView)
 import Json.Decode as Decode
 import Navigation.ViewNavigation as ViewNavigation
-import OutPorts exposing (shareElementsAtCurrentView)
+import OutPorts exposing (focusContainerInEditor, shareElementsAtCurrentView)
 import SplitPanel.SplitPane exposing (Orientation(..))
 import Task
 import TypedSvg.Attributes exposing (r)
@@ -276,7 +276,7 @@ update domain views msg model =
                     | drag = Just { start = xy, current = xy }
                     , selectedItems = updatedSelectedItems
                 }
-            , Cmd.none
+            , focusContainerInEditor viewElementKey
             , SaveEditorState |> List.singleton
             )
 
@@ -561,7 +561,7 @@ subscriptions model =
                     [ readySubscriptions state
                     , ContextMenu.subscriptions state.containerMenu |> Sub.map ContainerContextMenu
                     , AddView.subscriptions |> Sub.map AddView
-                    , focusContainer FocusContainer
+                    , focusContainerInView FocusContainer
                     ]
         , Events.onResize (\_ _ -> Resize)
         ]

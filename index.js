@@ -65,7 +65,7 @@ function initMonaco(initialValue) {
     const lineContent = editor.getModel().getLineContent(position.lineNumber);
     const foundElement = currentElements.find(el => lineContent.trim() === el + ':')
     if (foundElement) {
-        app.ports.focusContainer.send(foundElement)
+        app.ports.focusContainerInView.send(foundElement)
     }
   });
 
@@ -85,7 +85,43 @@ function initMonaco(initialValue) {
 app.ports.zoomMsgReceived.subscribe(() => {
   app.ports.onWheel.send(null)
 })
+app.ports.focusContainerInEditor.subscribe((viewElementKey) => {
+  // Get the editor's model
+  const model = editor.getModel()
 
+  if (model) {
+      // Search for the text within the model
+      const matches = model.findMatches(viewElementKey + ":", true, false, true, null, true)
+
+      if (matches.length > 0) {
+          const match = matches[0] // Assuming you want to focus on the first match
+          const position = match.range.getStartPosition()
+
+          // Use the revealPosition method to focus on the specified position
+          editor.revealPosition(position, monaco.editor.ScrollType.Immediate)
+
+          // Create a decoration range using the match range
+          const decorationRange = {
+            startLineNumber: match.range.startLineNumber,
+            startColumn: match.range.startColumn,
+            endLineNumber: match.range.endLineNumber,
+            endColumn: match.range.endColumn
+          };
+
+          // Define the decoration options (e.g., background color)
+          const decorationOptions = {
+              isWholeLine: false,
+              className: 'highlighted-text' // CSS class for styling
+          };
+
+          // Add the decoration to the editor's model
+          editor.deltaDecorations(decorations, [{
+              range: decorationRange,
+              options: decorationOptions
+          }]);
+      }
+  }
+})
 app.ports.openFileOpenDialog.subscribe(async () => await showFilePicker())
 app.ports.openSaveFileDialog.subscribe(() => app.ports.requestValueToSave.send(null))
 app.ports.saveValueToFile.subscribe(async (value) => await showFileSaveDialog(value))
@@ -114,7 +150,7 @@ const viewsErrorKeys = ['Not existing element in domain', 'Not existing relation
 const yamlParseError = ['Non-unique keys in record']
 function showErrors(message, newDecorators) {
   const allErrors = []
-  console.log(message)
+  console.error(message)
   if (message.includes(yamlParseError)) {
     const elementName = message.split(`${yamlParseError}:`)[1].trim()
     allErrors.push([yamlParseError, elementName])
