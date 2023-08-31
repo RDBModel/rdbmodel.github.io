@@ -1,10 +1,10 @@
-# Welcome to the RDB Model Web Application!
+# Welcome to the RDB Model!
 
-This application allows you to create and visualize software architecture using a simplified version of the C4 model. You can create and edit existing yaml files that represent the domain of your application using the C4 model. It's important to note that while there is only one C4 model called domain, it is possible to create multiple views of this domain to better understand and communicate the relationships within a software system.
+This web application allows you to create and visualize software architecture using a simplified version of the C4 model. You can create and edit yaml files that represent the domain of your application. It's important to note that while there is only one domain that represents the architecture, but it is possible to create multiple views of this domain to better understand and communicate the relationships within a software system(s).
 
-Views allow to see the connections between actors, systems, containers, and their components, making it easy to understand the relationships within the software system. It is possible to layout the elements and edges of a view, that allowing to arrange and present the software architecture in a clear and visually appealing way. Other features like zoom, scroll, and navigate through the selected view, are allowing to easily explore and understand the software architecture in greater detail.
+Views allow to see the connections between actors, systems, containers, and their components. It is possible to layout the elements and edges of a view, that allowing to arrange and present the software architecture in a clear and visually appealing way. Other features like zoom, scroll, and navigate through the selected view, are allowing to easily explore and understand the software architecture in greater detail.
 
-Tis app also helps you during the editing process by highlighting any inconsistencies in the model and views using error messages. This ensures that the software architecture is clear and consistent.
+This app also helps you during the editing process by highlighting any inconsistencies in the model and views using error messages. This ensures that the software architecture is clear and consistent.
 
 The C4 model is a powerful tool for understanding and communicating the structure of a software system, and is typically used to represent the domain of the application. There are the four main types of entities in the C4 model: actors, systems, containers, and components. Systems in the C4 model usually represent applications or services that bring value to the end users, while containers are units that can usually be deployed independently. Components, on the other hand, are buildable packages that are usually represented as artifacts in the file system.
 
