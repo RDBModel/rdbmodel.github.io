@@ -20,8 +20,8 @@ import Browser.Events as Events
 import Html exposing (Attribute, Html, button, div)
 import Html.Attributes exposing (style, title, type_)
 import Html.Events exposing (onClick)
-import OutPorts exposing (zoomMsgReceived)
 import Json.Decode as Decode
+import OutPorts exposing (zoomMsgReceived)
 import TypedSvg exposing (circle, line, path, svg)
 import TypedSvg.Attributes
     exposing
@@ -129,6 +129,7 @@ view model =
         backgroundColorForStickyButton =
             if model.stickyPositioning then
                 "#cccccc"
+
             else
                 "white"
 
@@ -242,7 +243,7 @@ view model =
             , style "padding" "0"
             , title "Stick elements to the grid"
             , type_ "button"
-            , onClick <| SetSticky ( not (model.stickyPositioning))
+            , onClick <| SetSticky (not model.stickyPositioning)
             ]
             [ svg
                 [ style "vertical-align" "middle"
@@ -376,7 +377,7 @@ centralize ( x, y ) svgElement model =
             Zoom.asRecord model.zoom
 
         ( initY, initX ) =
-            ( svgElement.height/2, svgElement.width/2 )
+            ( svgElement.height / 2, svgElement.width / 2 )
 
         newZoom =
             Zoom.setTransform Zoom.instantly { scale = current.scale, translate = { x = initX - x * current.scale, y = initY - y * current.scale } } model.zoom

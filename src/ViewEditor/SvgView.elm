@@ -193,7 +193,7 @@ renderCurrentView ( v, domain ) model =
             |> List.map (drawEdge viewNavigation selectedItems model.currentMouseOverRelation)
             |> g [ class [ "links" ] ]
         , getContainers ( domain, v )
-            |> List.map (drawContainer viewNavigation selectedItems getPossibleRelations)
+            |> List.map (drawContainer model.highlightedElement viewNavigation selectedItems getPossibleRelations)
             |> g [ class [ "nodes" ] ]
         ]
 

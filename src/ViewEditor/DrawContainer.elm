@@ -38,8 +38,8 @@ import ViewEditor.Msg exposing (Msg(..))
 import ViewEditor.Types exposing (SelectedItem)
 
 
-drawContainer : ViewNavigation.Model -> List SelectedItem -> Dict String (List Domain.Domain.Relation) -> Vertex -> Svg Msg
-drawContainer viewNavigation selectedItems possibleContainersRelations container =
+drawContainer : Maybe String -> ViewNavigation.Model -> List SelectedItem -> Dict String (List Domain.Domain.Relation) -> Vertex -> Svg Msg
+drawContainer highlightedElement viewNavigation selectedItems possibleContainersRelations container =
     let
         mouseDownAttr =
             if ViewNavigation.panMode viewNavigation then
@@ -64,8 +64,13 @@ drawContainer viewNavigation selectedItems possibleContainersRelations container
                 |> ContextMenu.attach container.key
                 |> Html.Attributes.map ContainerContextMenu
                 |> List.singleton
+
+        highlighted =
+            case highlightedElement of
+                Just el -> el == container.key
+                Nothing -> False
     in
-    renderContainerFunc container (mouseDownAttr ++ contextMenuAttr)
+    renderContainerFunc highlighted container (mouseDownAttr ++ contextMenuAttr)
 
 
 mouseDownMain : (( Float, Float ) -> Msg) -> Attribute Msg
@@ -86,18 +91,18 @@ onlyMainButton e =
             Nothing
 
 
-renderContainerSelected : Vertex -> List (Attribute msg) -> Svg msg
-renderContainerSelected =
-    renderContainerInternal True
+renderContainerSelected : Bool -> Vertex -> List (Attribute msg) -> Svg msg
+renderContainerSelected highlighted =
+    renderContainerInternal True highlighted
 
 
-renderContainer : Vertex -> List (Attribute msg) -> Svg msg
-renderContainer =
-    renderContainerInternal False
+renderContainer : Bool -> Vertex -> List (Attribute msg) -> Svg msg
+renderContainer highlighted =
+    renderContainerInternal False highlighted
 
 
-renderContainerInternal : Bool -> Vertex -> List (Attribute msg) -> Svg msg
-renderContainerInternal selected { key, name, description, xy, wh } events =
+renderContainerInternal : Bool -> Bool -> Vertex -> List (Attribute msg) -> Svg msg
+renderContainerInternal selected highlighted { key, name, description, xy, wh } events =
     let
         ( xCenter, yCenter ) =
             xy
@@ -193,7 +198,7 @@ renderContainerInternal selected { key, name, description, xy, wh } events =
                                    )
                             )
                          , style "border-radius" "0 0 3px 0"
-                         , style "background-color" "white"
+                         , style "background-color" (if highlighted then "yellow" else "white")
                          , style "pointer-events" "all"
                          ]
                             ++ events
@@ -241,6 +246,7 @@ renderContainerInternal selected { key, name, description, xy, wh } events =
                         , style "text-align" "center"
                         , style "max-height" "100%"
                         , style "font-size" "14px"
+                        , style "background-color" (if highlighted then "yellow" else "white")
                         ]
                         [ text name ]
                     ]

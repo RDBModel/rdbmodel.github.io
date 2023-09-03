@@ -25,5 +25,6 @@ type Msg
     | ViewControl ViewControl.Msg
     | AddView AddView.Msg
     | ContainerContextMenu ContextMenu.Msg
-    | FocusContainer String
+    | FocusContainerStart String
+    | FocusContainerEnd ()
     | NoOp

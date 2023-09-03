@@ -17,6 +17,7 @@ type alias ViewEditorState =
     , selectedItems : List SelectedItem
     , containerMenu : ContextMenu.Model
     , currentMouseOverRelation : Maybe ViewRelationKey
+    , highlightedElement : Maybe String
     }
 
 type alias Element =

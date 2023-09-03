@@ -33,7 +33,7 @@ import Domain.Domain
 import Html exposing (Html, div)
 import Html.Attributes
 import Html.Events.Extra.Mouse as Mouse
-import InPorts exposing (focusContainerInView)
+import InPorts exposing (focusContainerInView, unfocusContainerInView)
 import Json.Decode as Decode
 import Navigation.ViewNavigation as ViewNavigation
 import OutPorts exposing (focusContainerInEditor, shareElementsAtCurrentView)
@@ -102,6 +102,7 @@ update domain views msg model =
                 , selectedItems = []
                 , containerMenu = ContainerMenu.Menu.init |> ContextMenu.init
                 , currentMouseOverRelation = Nothing
+                , highlightedElement = Nothing
                 }
             , shareElementsAtCurrentView elementsKeysOfCurrentView |> Cmd.map ViewControl
             , []
@@ -450,7 +451,7 @@ update domain views msg model =
             , []
             )
 
-        ( Ready state, FocusContainer containerKey ) ->
+        ( Ready state, FocusContainerStart containerKey ) ->
             let
                 navigationModel =
                     getCurrentView state.selectedView views
@@ -460,10 +461,13 @@ update domain views msg model =
             in
             case navigationModel of
                 Just m ->
-                    ( Ready { state | viewNavigation = m }, Cmd.none, [] )
+                    ( Ready { state | viewNavigation = m, highlightedElement = Just containerKey }, Cmd.none, [] )
 
                 Nothing ->
                     ( model, Cmd.none, [] )
+
+        ( Ready state, FocusContainerEnd _ ) ->
+            ( Ready { state | highlightedElement = Nothing }, Cmd.none, [] )
 
         _ ->
             ( model, Cmd.none, [] )
@@ -561,7 +565,8 @@ subscriptions model =
                     [ readySubscriptions state
                     , ContextMenu.subscriptions state.containerMenu |> Sub.map ContainerContextMenu
                     , AddView.subscriptions |> Sub.map AddView
-                    , focusContainerInView FocusContainer
+                    , focusContainerInView FocusContainerStart
+                    , unfocusContainerInView FocusContainerEnd
                     ]
         , Events.onResize (\_ _ -> Resize)
         ]

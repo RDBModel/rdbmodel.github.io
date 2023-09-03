@@ -65,9 +65,13 @@ function initMonaco(initialValue) {
     const lineContent = editor.getModel().getLineContent(position.lineNumber);
     const foundElement = currentElements.find(el => lineContent.trim() === el + ':')
     if (foundElement) {
-        app.ports.focusContainerInView.send(foundElement)
+      app.ports.focusContainerInView.send(foundElement)
     }
   });
+
+  editor.onMouseUp(function () {
+    app.ports.unfocusContainerInView.send(null)
+  })
 
   // remove editor focus if we clicked outside of it
   document.getElementById('main-graph').parentNode.parentNode.addEventListener('click', (ev) => {
