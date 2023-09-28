@@ -239,10 +239,10 @@ renderContainerInternal selected highlighted { key, name, description, xy, wh } 
                     , style "justify-content" "center"
                     , style "align-items" "center"
                     , style "height" "100%"
+                    , style "padding" "1px"
                     ]
                     [ div
                         [ style "margin" "auto"
-                        , style "padding" "1px"
                         , style "text-align" "center"
                         , style "max-height" "100%"
                         , style "font-size" "14px"
