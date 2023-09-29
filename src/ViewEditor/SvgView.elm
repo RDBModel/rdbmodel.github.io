@@ -70,7 +70,11 @@ svgView { views, domain } viewEditorState =
             case ( getCurrentView viewEditorState.selectedView views, domain ) of
                 ( Just v, Just d ) ->
                     ( renderCurrentView ( v, d ) viewEditorState, ViewControl.view viewEditorState.selectedView views (getElementsKeysAndNames d) viewControl |> Html.map ViewControl )
-
+                ( Nothing, Just d ) ->
+                    if Dict.keys views |> List.isEmpty then
+                        ( text "", text "" )
+                    else
+                        ( text "", ViewControl.view viewEditorState.selectedView views (getElementsKeysAndNames d) viewControl |> Html.map ViewControl )
                 _ ->
                     ( text "", text "" )
 

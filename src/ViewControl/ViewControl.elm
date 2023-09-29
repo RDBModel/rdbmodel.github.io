@@ -128,6 +128,12 @@ view selectedView views elements model =
             selectedView
                 |> Maybe.map (\v -> Dict.get v views |> getViewElements)
                 |> Maybe.withDefault []
+
+        toDisplay =
+            if selectedView |> Maybe.map (\v -> Dict.member v views) |> Maybe.withDefault False then
+                selectedView |> Maybe.map List.singleton |> Maybe.withDefault []
+            else
+                []
     in
     div
         [ style "position" "absolute"
@@ -146,7 +152,7 @@ view selectedView views elements model =
             model.selectView.config
             model.selectView.state
             (Dict.keys views)
-            (selectedView |> Maybe.map List.singleton |> Maybe.withDefault [])
+            toDisplay
         , Select.view
             model.selectElement.config
             model.selectElement.state
