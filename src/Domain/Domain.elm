@@ -473,22 +473,14 @@ addElementToView domain key xy ( w, h ) v =
     case domain of
         Just d ->
             let
-                parentNodes =
-                    getParentNodeKeys d key
-
                 ( x, y ) =
-                    case parentNodes of
-                        Just parentNodesValue ->
-                            let
-                                parentKey =
-                                    parentNodesValue |> List.filter (\k -> Dict.member k v.elements) |> List.head
-                            in
-                            case parentKey of
-                                Just parentKeyValue ->
-                                    Dict.get parentKeyValue v.elements |> Maybe.map (\viewElement -> ( viewElement.x, viewElement.y )) |> Maybe.withDefault xy
-
-                                Nothing ->
-                                    xy
+                    let
+                        parentKey =
+                            getParentNodeKeys d key |> List.filter (\k -> Dict.member k v.elements) |> List.head
+                    in
+                    case parentKey of
+                        Just parentKeyValue ->
+                            Dict.get parentKeyValue v.elements |> Maybe.map (\viewElement -> ( viewElement.x, viewElement.y )) |> Maybe.withDefault xy
 
                         Nothing ->
                             xy
@@ -622,8 +614,8 @@ extractFromAllNodes nodes extractFunc =
     Dict.foldl (\k n result -> goDeep 0 k n |> List.append result) [] nodes |> List.filterMap identity
 
 
-getParentNodeKeys : Domain -> ViewElementKey -> Maybe (List ViewElementKey)
-getParentNodeKeys domain viewElementKey =
+getParentNodeKeysAndItself : Domain -> ViewElementKey -> List ViewElementKey
+getParentNodeKeysAndItself domain viewElementKey =
     let
         goDeep key node result =
             case node of
@@ -646,10 +638,15 @@ getParentNodeKeys domain viewElementKey =
                         result
     in
     if Dict.member viewElementKey domain.actors then
-        Nothing
+        []
 
     else
-        Dict.foldl (\k n result -> goDeep k n result) [] domain.elements |> List.reverse |> List.tail
+        Dict.foldl (\k n result -> goDeep k n result) [] domain.elements |> List.reverse
+
+
+getParentNodeKeys : Domain -> ViewElementKey -> List ViewElementKey
+getParentNodeKeys domain viewElementKey =
+    getParentNodeKeysAndItself domain viewElementKey |> List.tail |> Maybe.withDefault []
 
 
 findNodeByKey : Domain -> ViewElementKey -> Maybe Node
