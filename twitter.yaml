@@ -4,103 +4,214 @@ domain:
   actors:
     client:
       name: Client
-      description: User that reads and search twits
-      relations: []
+      description: The end-user or application that interacts with Twitter's services, such as posting tweets, viewing timelines, and performing searches
+      relations:
+        - create, read tweets - load-balancer
+        - get media - cdn
+        - resolve connection - dns
   systems:
     dns:
       name: Domain Name System
       description: One of the industry-standard suite of protocols that comprise TCP/IP, and together the DNS Client and DNS Server provide computer name-to-IP address mapping name resolution services to computers and users
-    pastebin:
-      name: Pastebin
-      description: A type of online content-hosting service where users can store plain text (e.g. source code snippets for code review via Internet Relay Chat (IRC))
+    twitter:
+      name: Twitter
+      description: Enables users to post short messages, follow other users, and engage in real-time conversations.
       containers:
-        analytics:
-          name: Analytics
-          description: Collect statistics about saved texts
-          relations:
-            - get information from - object-store
-            - save analytics data - analytics-db
-          components:
-            analytics--app:
-              name: Analytics service
-              description: Check storage and save stats
-              relations:
-                - check storage - object-store--bucket
-                - save stats - analytics-db--main
-        analytics-db:
-          name: Analytics DB
-          description: Stats information
-          components:
-            analytics-db--main:
-              name: Main schema
-              description: Store stats about object store
         cdn:
           name: Content delivery network
-          description: A network of interconnected servers that speeds up webpage loading for data-heavy applications
+          description: Distributed network of servers designed to deliver web content, such as images, videos, and other resources, to users with low latency and high availability by caching and serving content from servers geographically closer to the user
           relations:
             - read text - object-store
+        fan-out-service:
+          name: Fan Out service
+          description: Distributes a user's tweet to all of their followers, ensuring that each follower receives the tweet in their home timeline.
+          relations:
+            - find user's followers - user-graph-service
+            - stores tweet in the home tileline of the user's followers - memory-cache
+            - stores tweet - search-service
+            - stores media - object-store
+            - send push notifications to followers - notification-service
         load-balancer:
           name: Load Balancer
           description: Distribute network traffic equally across a pool of resources that support an application
           relations:
-            - forward - web-server
+            - forward requests - web-server
         memory-cache:
           name: Memory cache
-          description: Useful for handling the unevenly distributed traffic and traffic spikes
+          description: A high-speed data storage mechanism to store frequently accessed data, such as user timelines and tweets, in memory to improve access speed and reduce the load on other data storage systems.
+        notification-service:
+          name: Notification service
+          description: Responsible for sending push notifications to users' followers when a new tweet is posted.
         object-store:
           name: Object store
-          description: Store text
-          components:
-            object-store--bucket:
-              name: Main bucket
-              description: Store pasted texts
+          description: Store and manage media assets such as photos or videos
         read-api:
           name: Read API
-          description: Check provided link and return text
+          description: Responsible for handling user requests to view their home timeline or user timeline, and it communicates with various services to retrieve and deliver the relevant tweet data
           relations:
-            - read url - sql-db
-            - read saved text - object-store
-            - uses - memory-cache
-          components:
-            read-api--app:
-              name: Read API service
-              description: Check url and provide text
-              relations:
-                - check url - sql-db--main
-                - read pasted text if url exists - object-store--bucket
-        sql-db:
-          name: Url database
-          description: Store map beyween url and path of text
-          components:
-            sql-db--main:
-              name: Main schema
-              description: Store url, expiration, creation time and path
+            - contacts - timeline-service
+            - retrieves the user timeline - sql-read-db
+        search-api:
+          name: Search API
+          description: Responsible for handling search requests, parsing and processing user queries, and querying the Search Service to retrieve and return relevant tweet results based on the search query
+          relations:
+            - contacts - search-service
+        search-service:
+          name: Search service
+          description: Responsible for parsing and processing user search queries, querying the search cluster (e.g., Lucene) for matching results, and returning relevant tweets based on the search query.
+        sql-read-db:
+          name: Read DB
+          description: Responsible for storing and serving read requests, such as user timelines and tweet information, using a relational database management system (RDBMS).
+        sql-write-db:
+          name: Write DB
+          description: Responsible for storing and serving read requests, such as user timelines and tweet information, using a relational database management system (RDBMS).
+          relations:
+            - replicate - sql-read-db
+        timeline-service:
+          name: Timeline service
+          description: Responsible for retrieving and assembling the user's home timeline, which includes tweets from people the user is following, by querying the memory cache and relevant data services.
+          relations:
+            - get timeline data - memory-cache
+            - obtain additional info about the tweet - tweet-info-service
+            - obtain additional info about the user - user-info-service
+        tweet-info-service:
+          name: Tweet Info service
+          description: Stores additional information about tweets, such as their content and metadata, to facilitate fast retrieval and serving of tweet data
+        user-graph-service:
+          name: User Graph service
+          description: Responsible for managing and retrieving information about the relationships between Twitter users, such as who a user is following
+          relations:
+            - get followers - memory-cache
+        user-info-service:
+          name: User Info service
+          description: Stores and provides information about Twitter users, which is used to fulfill various user-related queries and requests
         web-server:
-          name: PasteBin app
-          description: Allows to store plain text (support editing and versioning)
+          name: Reverse proxy
+          description: Handles incoming HTTP requests from clients, such as users' timeline requests, and forwards them to the appropriate API server for processing
           relations:
-            - save text - write-api
-            - read text - read-api
-          components:
-            web-server--app:
-              name: PasteBin service
-              description: Forward requests to proper API services
-              relations:
-                - save text - write-api--app
-                - read text - read-api--app
+            - forward new tweets - write-api
+            - post a home timeline request - read-api
+            - seach request - search-api
         write-api:
           name: Write API
-          description: Generate a unique url, save pasted text
+          description: Responsible for storing tweets in the user's timeline on a SQL database and coordinating the process of pushing those tweets to the home timelines of the user's followers using various services
           relations:
-            - save url and path - sql-db
-            - save text - object-store
-          components:
-            write-api--app:
-              name: Write API service
-              description: Generate a unique url, save pasted text
-              relations:
-                - write created url and path - sql-db--main
-                - save pasted text - object-store--bucket
+            - contacts - fan-out-service
+            - store tweets - sql-write-db
 views:
   main:
-    elements: {}
+    elements:
+      cdn:
+        x: 705
+        y: 428
+        relations:
+          read text - object-store:
+            - x: 707
+              y: 843
+      client:
+        x: 350
+        y: 275
+        relations:
+          get media - cdn:
+            - x: 641
+              y: 342
+          resolve connection - dns: []
+          create, read tweets - load-balancer: []
+      dns:
+        x: 550
+        y: 275
+      fan-out-service:
+        x: 400
+        y: 665
+        relations:
+          stores tweet in the home tileline of the user's followers - memory-cache: []
+          send push notifications to followers - notification-service:
+            - x: 466
+              y: 768
+          stores media - object-store:
+            - x: 460
+              y: 838
+          stores tweet - search-service: []
+          find user's followers - user-graph-service: []
+      load-balancer:
+        x: 350
+        y: 425
+        relations:
+          forward requests - web-server: []
+      memory-cache:
+        x: 320
+        y: 815
+      notification-service:
+        x: 550
+        y: 815
+      object-store:
+        x: 550
+        y: 895
+      read-api:
+        x: 90
+        y: 575
+        relations:
+          retrieves the user timeline - sql-read-db:
+            - x: 49
+              y: 633
+            - x: 51
+              y: 845
+          contacts - timeline-service: []
+      search-api:
+        x: 650
+        y: 575
+        relations:
+          contacts - search-service:
+            - x: 650
+              y: 690
+      search-service:
+        x: 550
+        y: 745
+      sql-read-db:
+        x: 280
+        y: 895
+      sql-write-db:
+        x: 420
+        y: 895
+        relations:
+          replicate - sql-read-db: []
+      timeline-service:
+        x: 110
+        y: 655
+        relations:
+          get timeline data - memory-cache:
+            - x: 280
+              y: 685
+          obtain additional info about the tweet - tweet-info-service: []
+          obtain additional info about the user - user-info-service: []
+      tweet-info-service:
+        x: 110
+        y: 725
+      twitter:
+        x: 397.5
+        y: 650
+      user-graph-service:
+        x: 550
+        y: 665
+      user-info-service:
+        x: 220
+        y: 725
+      web-server:
+        x: 350
+        y: 505
+        relations:
+          post a home timeline request - read-api: []
+          seach request - search-api: []
+          forward new tweets - write-api: []
+      write-api:
+        x: 400
+        y: 575
+        relations:
+          contacts - fan-out-service: []
+          store tweets - sql-write-db:
+            - x: 630
+              y: 621
+            - x: 630
+              y: 848
+            - x: 501
+              y: 850

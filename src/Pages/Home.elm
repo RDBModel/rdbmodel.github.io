@@ -8,6 +8,7 @@ import Element
         , alpha
         , centerX
         , centerY
+        , column
         , el
         , fill
         , fillPortion
@@ -29,8 +30,7 @@ import Element.Background as Background
 import Element.Border exposing (rounded)
 import Element.Font as Font exposing (justify)
 import Html exposing (Html)
-import Route exposing (editorLinkInit, editorLinkPastebin, editorLinkDropbox)
-import Element exposing (column)
+import Route exposing (editorLinkDropbox, editorLinkInit, editorLinkPastebin, editorLinkTwitter)
 
 
 view : Html msg
@@ -66,6 +66,7 @@ editorLink =
         , row [ spacing 10 ]
             [ el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ( "Pastebin", editorLinkPastebin ))
             , el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ( "Dropbox", editorLinkDropbox ))
+            , el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ( "Twitter", editorLinkTwitter ))
             ]
         ]
 
