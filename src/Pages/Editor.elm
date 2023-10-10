@@ -155,7 +155,7 @@ update msg model =
                 cleaned =
                     String.replace "\u{000D}\n" "\n" val
             in
-            case D.fromString rdbDecoder cleaned |> Debug.log "here" of
+            case D.fromString rdbDecoder cleaned of
                 Ok ( domain, views ) ->
                     let
                         newMonacoValue =
