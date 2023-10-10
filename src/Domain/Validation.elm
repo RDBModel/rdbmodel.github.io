@@ -2,10 +2,11 @@ module Domain.Validation exposing (errorDomainDecoder, validateDomain, validateV
 
 import Dict exposing (Dict)
 import Domain.Domain exposing (..)
-import Error.Error exposing (Source(..), ErrorLocation(..), ViewError(..))
+import Error.Error exposing (ErrorLocation(..), Source(..), ViewError(..))
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode exposing (dict, encode, list, string)
 import Set exposing (..)
+
 
 validateDomain : Domain -> Result String Domain
 validateDomain domain =
@@ -98,16 +99,16 @@ validateViews ( domain, views ) =
                             Set.diff viewElementNames domainElementNames
                                 |> Set.toList
 
-                        relationErrors : Dict String String
+                        relationErrors : Dict String (List String)
                         relationErrors =
                             Set.diff viewRelations domainRelations
                                 |> Set.toList
-                                |> Dict.fromList
-                                |> Dict.map (\_ relation -> getStringFromRelation relation)
+                                |> fromListToDictOfList
+                                |> Dict.map (\_ relations -> List.map getStringFromRelation relations)
                     in
                     if (elementsErrors |> List.isEmpty |> not) && (relationErrors |> Dict.isEmpty |> not) then
                         [ Dict.singleton "Not existing element in domain" (elementsErrors |> list string)
-                        , Dict.singleton "Not existing relation in domain" (relationErrors |> dict identity string)
+                        , Dict.singleton "Not existing relation in domain" (relationErrors |> dict identity (list string))
                         ]
 
                     else if elementsErrors |> List.isEmpty |> not then
@@ -115,7 +116,7 @@ validateViews ( domain, views ) =
                         ]
 
                     else if relationErrors |> Dict.isEmpty |> not then
-                        [ Dict.singleton "Not existing relation in domain" (relationErrors |> dict identity string)
+                        [ Dict.singleton "Not existing relation in domain" (relationErrors |> dict identity (list string))
                         ]
 
                     else
@@ -131,6 +132,22 @@ validateViews ( domain, views ) =
 
     else
         Err validateResult
+
+
+fromListToDictOfList : List ( comparable, a ) -> Dict comparable (List a)
+fromListToDictOfList items =
+    let
+        addNewValueFunc newValue list =
+            Maybe.map ((::) newValue) list
+
+        reductFunc ( key, value ) dict =
+            if Dict.member key dict then
+                Dict.update key (addNewValueFunc value) dict
+
+            else
+                Dict.insert key [ value ] dict
+    in
+    List.foldl reductFunc Dict.empty items
 
 
 getViewElementKeys : View -> Set String
@@ -161,9 +178,11 @@ getRelations domain =
     extractRelations domain.actors
         ++ (extractDataFromAllNodes domain.elements extractFromNode |> List.concat)
 
+
 extractRelations : Dict String Data -> List ( String, Relation )
 extractRelations actors =
-    (Dict.toList actors |> List.map (\( k, actor ) -> actor.relations |> Maybe.withDefault [] |> List.map (\x -> ( k, x ))) |> List.concat)
+    Dict.toList actors |> List.map (\( k, actor ) -> actor.relations |> Maybe.withDefault [] |> List.map (\x -> ( k, x ))) |> List.concat
+
 
 getUniqueRelations : Domain -> Set ( String, Relation )
 getUniqueRelations =
@@ -176,7 +195,10 @@ errorDomainDecoder =
         [ Decode.string |> Decode.list |> Decode.dict |> Decode.map DomainLocation
         , Decode.oneOf
             [ Decode.string |> Decode.list |> Decode.dict |> Decode.map SimpleViewError
-            , Decode.string |> Decode.dict |> Decode.dict |> Decode.map ComplexViewError
-            ] |> Decode.list |> Decode.dict |> Decode.map ViewsLocation
+            , Decode.string |> Decode.list |> Decode.dict |> Decode.dict |> Decode.map ComplexViewError
+            ]
+            |> Decode.list
+            |> Decode.dict
+            |> Decode.map ViewsLocation
         ]
         |> Decode.map DomainDecode

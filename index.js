@@ -176,7 +176,9 @@ function showErrors(message, newDecorators) {
             } else if (viewErrorKey === 'Not existing relation in domain') {
               for (const containerKey in viewError[viewErrorKey]) {
                 console.log(viewError[viewErrorKey])
-                allErrors.push([viewErrorKey, viewError[viewErrorKey][containerKey]])
+                for (const relation of viewError[viewErrorKey][containerKey]) {
+                  allErrors.push([viewErrorKey, relation])
+                }
               }
             }
           }
@@ -204,12 +206,12 @@ function showErrors(message, newDecorators) {
             isDomainOrView = 2
           }
           for (const [name, error] of allErrors) {
-            const domainError = domainErrorKeys.indexOf(name) > -1 && isDomainOrView === 1
-            if (subValue.key.value === error && domainError) {
+            const domainError = domainErrorKeys.indexOf(name) > -1
+            if (subValue.key.value === error && domainError && isDomainOrView === 1) {
               pushDecorator(subValue.key.srcToken.offset, error, name)
             }
-            const viewsError = viewsErrorKeys.indexOf(name) > -1 && isDomainOrView === 2
-            if (subValue.key.value === error && viewsError) {
+            const viewsError = viewsErrorKeys.indexOf(name) > -1
+            if (subValue.key.value === error && viewsError && isDomainOrView === 2) {
               pushDecorator(subValue.key.srcToken.offset, error, name)
             }
             if (subValue.key.value === error && !viewsError && !domainError) {
@@ -221,12 +223,12 @@ function showErrors(message, newDecorators) {
           populateAnalyzers(subValue, isDomainOrView)
         } else if ('type' in subValue && subValue.type === 'PLAIN') {
           for (const [name, error] of allErrors) {
-            const domainError = domainErrorKeys.indexOf(name) > -1 && isDomainOrView === 1
-            if (subValue.value === error && domainError) {
+            const domainError = domainErrorKeys.indexOf(name) > -1
+            if (subValue.value === error && domainError && isDomainOrView === 1) {
               pushDecorator(subValue.srcToken.offset, error, name)
             }
-            const viewsError = viewsErrorKeys.indexOf(name) > -1 && isDomainOrView === 2
-            if (subValue.value === error && viewsError) {
+            const viewsError = viewsErrorKeys.indexOf(name) > -1
+            if (subValue.value === error && viewsError && isDomainOrView === 2) {
               pushDecorator(subValue.srcToken.offset, error, name)
             }
             if (subValue.value === error && !viewsError && !domainError) {

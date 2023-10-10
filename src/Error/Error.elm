@@ -60,7 +60,7 @@ type alias SimpleListOfErrors =
 
 
 type alias ComplexListOfErrors =
-    Dict String (Dict String String)
+    Dict String (Dict String (List String))
 
 
 type Msg
@@ -110,7 +110,7 @@ viewError errorSource =
 
         ParseError err ->
             [ closeButton (RemoveErrorBySource errorSource)
-            , text "Really sorry for this error. Unfortunately, you have to provide more details about the error. "
+            , text "Really sorry for this error. Unfortunately, you have to provide more details about the error to solve this issue. "
             , a [ href "https://github.com/RDBModel/rdbmodel.github.io/issues" ] [ text "Please contact the author." ]
             , text " Original error: "
             , br [] []
@@ -220,7 +220,7 @@ showListOfViewError viewName viewErrorsType items =
                     showDictOfList dictOfLists
 
                 ComplexViewError dictOfDicts ->
-                    showDictOfDict dictOfDicts
+                    showDictOfDictList dictOfDicts
 
         closeButtonRender =
             closeButton (RemoveViewErrors viewName)
@@ -236,9 +236,9 @@ showDictOfList values =
     Dict.toList values |> List.concatMap (\( x, y ) -> errorTypeView x :: showList y)
 
 
-showDictOfDict : Dict String (Dict String String) -> List (Html msg)
-showDictOfDict values =
-    Dict.toList values |> List.concatMap (\( x, y ) -> errorTypeView x :: showDict y)
+showDictOfDictList : Dict String (Dict String (List String)) -> List (Html msg)
+showDictOfDictList values =
+    Dict.toList values |> List.concatMap (\( x, y ) -> errorTypeView x :: showDictList y)
 
 
 viewNameRender : String -> Html msg
@@ -258,6 +258,10 @@ showList =
     Set.fromList >> Set.toList >> List.foldl (\i prev -> div [] [ text i ] :: prev) []
 
 
-showDict : Dict String String -> List (Html msg)
-showDict =
-    Dict.foldl (\k v prev -> text (v ++ " (" ++ k ++ ")") :: prev) []
+showDictList : Dict String (List String) -> List (Html msg)
+showDictList =
+    let
+        reduceFunc k v =
+            List.map (\i -> div [] [ text (i ++ " (" ++ k ++ ")") ]) v
+    in
+    Dict.foldl (\k v prev -> List.append (reduceFunc k v) prev) []
