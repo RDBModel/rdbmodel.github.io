@@ -147,7 +147,7 @@ update msg model =
 
         PaneMsg paneMsg ->
             ( { model | pane = SplitPane.update paneMsg model.pane }
-            , Cmd.none
+            , ViewEditor.getSvgElementPosition |> Cmd.map ViewEditorMsg
             )
 
         MonacoEditorValueReceived val ->
