@@ -28,7 +28,7 @@ import Element
         )
 import Element.Background as Background
 import Element.Border exposing (rounded)
-import Element.Font as Font exposing (justify)
+import Element.Font as Font
 import Html exposing (Html)
 import Route exposing (editorLinkDropbox, editorLinkInit, editorLinkPastebin, editorLinkTwitter)
 
@@ -118,3 +118,33 @@ mainPartShort =
         , editorLink
         , footer
         ]
+
+-- Create any new view for the domain
+-- Edit any existing view
+-- Select any view from existing views using dropdown or using direct link
+-- Describe domain in the text editor using hints
+    -- Add name and desription for the domain
+    -- Add actors (name, description)
+    -- Add systems (external and target one) by providing names and descriptions
+    -- Add containers to the interested system (name and description)
+    -- Add components to the interested containers (name and description)
+    -- Add blocks to the interested components (name and description)
+    -- Add relations to all interested actors, systems, containers, components and blocks (short description and the target item)
+-- Create a view for the created domain (plus button)
+    -- Add any type of items to the view
+    -- Move and adjust item position on the view by dragging the item box
+    -- Binding to grid can be enabled so items will be aligned to the grid
+    -- Right click on an added item to add relations from it to any other item on the view which is described in the domain
+    -- Right click on an added item to remove it from the view
+    -- Click on an arrow (relation) to modify its appearance on the view
+    -- Right click on the arrow (relation) to remove it from the view
+    -- Add any child item of the existing item and it will be placed inside the parent item (e.g. all containers will be inside its parent system)
+    -- Select multiple items on the view and move them on the view simultaneously
+    -- Hold Ctrl and click on the view to move up, down, left or right
+    -- Use button 'Move' to start navigating on view instead of item selecting
+    -- Use zoom buttons to zoom in and zoom out
+    -- Any action on view can be undone and redone (history)
+-- Any inconsistency in domain and its views will be highlighted in the document
+-- Many view can be added to represent different slices of the domain
+-- Save the yaml to the local storage of the browser
+-- Download/upload yaml
