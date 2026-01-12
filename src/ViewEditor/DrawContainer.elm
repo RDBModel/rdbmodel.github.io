@@ -203,7 +203,7 @@ renderContainerInternal selected highlighted { key, name, description, xy, wh } 
                          ]
                             ++ events
                         )
-                        [ text name ]
+                        [ text (truncateName name) ]
                     ]
                 ]
             ]
@@ -248,7 +248,7 @@ renderContainerInternal selected highlighted { key, name, description, xy, wh } 
                         , style "font-size" "14px"
                         , style "background-color" (if highlighted then "yellow" else "white")
                         ]
-                        [ text name ]
+                        [ text (truncateName name) ]
                     ]
                 , title [] [ text tooltip ]
                 ]
@@ -263,3 +263,12 @@ containerWidth =
 containerHeight : Float
 containerHeight =
     50
+
+
+truncateName : String -> String
+truncateName name =
+    if String.length name > 14 then
+        String.slice 0 14 name ++ "..."
+
+    else
+        name
