@@ -24,7 +24,6 @@
             "gampleman/elm-visualization": "2.4.2",
             "mdgriffith/elm-ui": "1.1.8",
             "mpizenberg/elm-pointer-events": "4.0.2",
-            "ryannhg/date-format": "2.3.0",
             "sporto/elm-select": "6.4.0"
         },
         "indirect": {
