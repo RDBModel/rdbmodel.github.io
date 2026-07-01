@@ -26,8 +26,22 @@ jobs:
         run: npm run build
 
       - name: Publish generated content to GitHub Pages
-        uses: tsunematsu21/actions-publish-gh-pages@v1.0.2
-        with:
-          dir: dist
-          branch: gh-pages
-          token: ${{ secrets.ACCESS_TOKEN }}
+        run: |
+          cp -r dist /tmp/dist-fresh
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git fetch origin gh-pages 2>/dev/null; then
+            git checkout gh-pages
+          else
+            git checkout --orphan gh-pages
+            git rm -rf .
+          fi
+          rm -rf dist
+          cp -r /tmp/dist-fresh dist
+          if git diff --quiet -- dist/; then
+            echo "No changes to publish."
+          else
+            git add dist/
+            git commit -m "Publish dist to gh-pages"
+            git push origin gh-pages
+          fi
