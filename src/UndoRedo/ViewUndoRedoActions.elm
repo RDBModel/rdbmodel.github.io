@@ -1,28 +1,28 @@
-module UndoRedo.ViewUndoRedoActions exposing (Action(..), MonacoValue, apply)
+module UndoRedo.ViewUndoRedoActions exposing (Action(..), EditorValue, apply)
 
 import Dict exposing (Dict)
 import Domain.Domain exposing (Domain, View)
 import Domain.DomainEncoder exposing (rdbEncode)
-import OutPorts exposing (updateMonacoValue)
+import OutPorts exposing (updateEditorValue)
 
 
 type Action
-    = UpdateMonacoValue
+    = UpdateEditorValue
 
 
-type alias MonacoValue =
+type alias EditorValue =
     { views : Dict String View
     , domain : Maybe Domain
     }
 
 
-apply : MonacoValue -> List Action -> Cmd msg
-apply monacoValue =
-    List.foldl (prepareOutput monacoValue) Cmd.none
+apply : EditorValue -> List Action -> Cmd msg
+apply editorValue =
+    List.foldl (prepareOutput editorValue) Cmd.none
 
 
-prepareOutput : MonacoValue -> Action -> Cmd msg -> Cmd msg
-prepareOutput monacoValue action cmd =
+prepareOutput : EditorValue -> Action -> Cmd msg -> Cmd msg
+prepareOutput editorValue action cmd =
     case action of
-        UpdateMonacoValue ->
-            Cmd.batch [ updateMonacoValue (rdbEncode monacoValue), cmd ]
+        UpdateEditorValue ->
+            Cmd.batch [ updateEditorValue (rdbEncode editorValue), cmd ]

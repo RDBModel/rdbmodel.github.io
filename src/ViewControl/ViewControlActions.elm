@@ -1,4 +1,4 @@
-module ViewControl.ViewControlActions exposing (apply, monacoValueModified)
+module ViewControl.ViewControlActions exposing (apply, editorValueModified)
 
 import Dict exposing (Dict)
 import Domain.Domain exposing (Domain, View, addElementToView, getCurrentView, updateViewByKey)
@@ -40,8 +40,8 @@ modifyViews domain params action ( views, currentView ) =
                     )
 
 
-monacoValueModified : List Action -> Bool
-monacoValueModified =
+editorValueModified : List Action -> Bool
+editorValueModified =
     List.foldl (\a v -> actionModifyView a |> (||) v) False
 
 

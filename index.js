@@ -15,7 +15,7 @@ let model
 let decorations = []
 let currentElements = []
 
-function initMonaco(initialValue) {
+function initEditor(initialValue) {
   if (editor != null) {
     model.dispose()
     editor.dispose()
@@ -35,7 +35,7 @@ function initMonaco(initialValue) {
     }],
   });
   model = monaco.editor.createModel(modifyYamlValue(initialValue), 'yaml', modelUri)
-  editor = monaco.editor.create(document.getElementById('monaco'), {
+  editor = monaco.editor.create(document.getElementById('code-editor'), {
     // theme: 'vs-dark',
     automaticLayout: true,
     model: model,
@@ -56,7 +56,7 @@ function initMonaco(initialValue) {
   editor.addCommand(
     monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
     function () {
-      app.ports.monacoEditorSavedValue.send(editor.getValue())
+      app.ports.editorValueSaved.send(editor.getValue())
     }
   )
 
@@ -78,7 +78,7 @@ function initMonaco(initialValue) {
     if (editor.hasWidgetFocus()) {
       // TODO cover clicks on button
       document.activeElement.blur()
-      app.ports.monacoEditorSavedValue.send(editor.getValue())
+      app.ports.editorValueSaved.send(editor.getValue())
     }
     if (ev.target.className !== 'elm-select-input') {
       document.querySelectorAll('.elm-select-input').forEach(el => el.blur())
@@ -130,9 +130,9 @@ app.ports.openFileOpenDialog.subscribe(async () => await showFilePicker())
 app.ports.openSaveFileDialog.subscribe(() => app.ports.requestValueToSave.send(null))
 app.ports.saveValueToFile.subscribe(async (value) => await showFileSaveDialog(value))
 
-app.ports.initMonacoResponse.subscribe((message) => initMonaco(message))
-app.ports.tryToSaveCurrentEditorValue.subscribe(() => app.ports.monacoEditorSavedValue.send(editor.getValue()))
-app.ports.updateMonacoValue.subscribe((message) => updateMonacoValue(message))
+app.ports.initEditorResponse.subscribe((message) => initEditor(message))
+app.ports.tryToSaveCurrentEditorValue.subscribe(() => app.ports.editorValueSaved.send(editor.getValue()))
+app.ports.updateEditorValue.subscribe((message) => updateEditorValue(message))
 app.ports.validationErrors.subscribe((message) => {
   const newDecorators = []
   if (message !== '') showErrors(message, newDecorators)
@@ -146,7 +146,7 @@ app.ports.getFromLocalStorage.subscribe(() => getFromLocalStorage())
 app.ports.shareElementsAtCurrentView.subscribe((message) => currentElements = message)
 // delay monaco initialization (via Elm) test
 // TODO: remove?
-// app.ports.initMonacoRequest.send(null)
+// app.ports.initEditorRequest.send(null)
 
 // TODO: import from ELM
 const domainErrorKeys = ['Elements with empty name', 'Not existing target', 'Duplicated element key']
@@ -254,7 +254,7 @@ function showErrors(message, newDecorators) {
   }
 }
 
-function updateMonacoValue(message) {
+function updateEditorValue(message) {
   editor.setValue(modifyYamlValue(message))
 }
 
@@ -278,7 +278,7 @@ async function showFilePicker() {
   history.replaceState(state, '')
   const content = (await readFileAsync(await state.currentFile.getFile())).replace(/\r/g, '')
   editor.setValue(content)
-  app.ports.monacoEditorSavedValue.send(content)
+  app.ports.editorValueSaved.send(content)
 }
 
 function readFileAsync(file) {

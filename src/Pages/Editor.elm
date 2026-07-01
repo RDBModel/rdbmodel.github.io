@@ -14,12 +14,12 @@ import FilePicker
 import Html exposing (Html, div, text)
 import Html.Attributes exposing (style)
 import Http
-import InPorts exposing (initMonacoRequest, monacoEditorSavedValue, receivedFromLocalStorage, requestValueToSave)
+import InPorts exposing (editorValueSaved, initEditorRequest, receivedFromLocalStorage, requestValueToSave)
 import Json.Decode as JsonDecoder
 import OutPorts
     exposing
         ( getFromLocalStorage
-        , initMonacoResponse
+        , initEditorResponse
         , saveToLocalStorage
         , saveValueToFile
         , validationErrors
@@ -47,8 +47,8 @@ import TypedSvg.Attributes
         , y2
         )
 import TypedSvg.Types exposing (Length(..), Paint(..), StrokeLinecap(..), StrokeLinejoin(..))
-import UndoRedo.ViewUndoRedo as ViewUndoRedo exposing (UndoRedoMonacoValue, getUndoRedoMonacoValue, newRecord)
-import UndoRedo.ViewUndoRedoActions as ViewUndoRedoActions exposing (MonacoValue)
+import UndoRedo.ViewUndoRedo as ViewUndoRedo exposing (UndoRedoEditorValue, getUndoRedoEditorValue, newRecord)
+import UndoRedo.ViewUndoRedoActions as ViewUndoRedoActions exposing (EditorValue)
 import ViewEditor.Editor as ViewEditor
 import ViewEditor.EditorAction as ViewEditorActions
 import ViewEditor.Msg as ViewEditorMsg
@@ -59,7 +59,7 @@ type alias Model =
     { session : Session
     , pane : State
     , viewEditor : ViewEditor.Model
-    , monacoValue : UndoRedoMonacoValue MonacoValue
+    , editorValue : UndoRedoEditorValue EditorValue
     , viewUndoRedo : ViewUndoRedo.Model
     , errors : Error.Model
     }
@@ -71,24 +71,24 @@ init session selectedView link =
         session
         (SplitPane.init Horizontal)
         (ViewEditor.init selectedView)
-        (getUndoRedoMonacoValue getMonacoValue)
+        (getUndoRedoEditorValue getInitialEditorValue)
         ViewUndoRedo.init
         []
-    , Task.attempt (ReceiveMonacoElementPosition link) (Dom.getElement "monaco")
+    , Task.attempt (ReceiveEditorElementPosition link) (Dom.getElement "code-editor")
     )
 
 
-getMonacoValue : MonacoValue
-getMonacoValue =
-    MonacoValue Dict.empty Nothing
+getInitialEditorValue : EditorValue
+getInitialEditorValue =
+    EditorValue Dict.empty Nothing
 
 
 type Msg
-    = MonacoEditorValueReceived String
-    | ReceiveMonacoElementPosition (Maybe String) (Result Dom.Error Dom.Element)
+    = EditorValueReceived String
+    | ReceiveEditorElementPosition (Maybe String) (Result Dom.Error Dom.Element)
     | ViewEditorMsg ViewEditorMsg.Msg
     | PaneMsg SplitPane.Msg
-    | InitMonacoRequestReceived ()
+    | InitEditorRequestReceived ()
     | RequestValueToSave ()
     | FilePicker FilePicker.Msg
     | ViewUndoRedo ViewUndoRedo.Msg
@@ -105,18 +105,18 @@ update msg model =
             case D.fromString rdbDecoder val of
                 Ok ( domain, views ) ->
                     let
-                        monacoModel =
-                            MonacoValue views (Just domain)
+                        editorModel =
+                            EditorValue views (Just domain)
 
                         newModel =
                             { model
                                 | errors = []
-                                , monacoValue = monacoModel |> getUndoRedoMonacoValue
+                                , editorValue = editorModel |> getUndoRedoEditorValue
                             }
                     in
                     ( newModel
                     , Cmd.batch
-                        [ initMonacoResponse (rdbEncode monacoModel)
+                        [ initEditorResponse (rdbEncode editorModel)
                         , saveToLocalStorage val
                         , selectedViewNameUrlChange model views
                         , ViewEditor.getSvgElementPosition |> Cmd.map ViewEditorMsg
@@ -129,7 +129,7 @@ update msg model =
         GetDomainFromExternal (Err errValue) ->
             ( { model | errors = Error.ExternalDomainDownload errValue |> List.singleton }, Cmd.none )
 
-        ReceiveMonacoElementPosition link (Ok _) ->
+        ReceiveEditorElementPosition link (Ok _) ->
             ( model
             , case link of
                 Just l ->
@@ -142,7 +142,7 @@ update msg model =
                     getFromLocalStorage ()
             )
 
-        ReceiveMonacoElementPosition _ (Err errValue) ->
+        ReceiveEditorElementPosition _ (Err errValue) ->
             ( { model | errors = Error.GetElementPosition errValue |> List.singleton }, Cmd.none )
 
         PaneMsg paneMsg ->
@@ -150,7 +150,7 @@ update msg model =
             , ViewEditor.getSvgElementPosition |> Cmd.map ViewEditorMsg
             )
 
-        MonacoEditorValueReceived val ->
+        EditorValueReceived val ->
             let
                 cleaned =
                     String.replace "\u{000D}\n" "\n" val
@@ -158,23 +158,23 @@ update msg model =
             case D.fromString rdbDecoder cleaned of
                 Ok ( domain, views ) ->
                     let
-                        newMonacoValue =
+                        newEditorValue =
                             let
-                                currentMonacoValue =
-                                    model.monacoValue.present
+                                currentEditorValue =
+                                    model.editorValue.present
 
-                                updatedMonacoValue =
-                                    { currentMonacoValue
+                                updatedEditorValue =
+                                    { currentEditorValue
                                         | domain = Just domain
                                         , views = views
                                     }
                             in
-                            newRecord updatedMonacoValue model.monacoValue
+                            newRecord updatedEditorValue model.editorValue
 
                         newModel =
                             { model
                                 | errors = []
-                                , monacoValue = newMonacoValue
+                                , editorValue = newEditorValue
                             }
                     in
                     ( newModel
@@ -182,30 +182,30 @@ update msg model =
                         [ ViewEditor.getSvgElementPosition |> Cmd.map ViewEditorMsg
                         , validationErrors ""
                         , selectedViewNameUrlChange model views
-                        , saveToLocalStorage (rdbEncode newModel.monacoValue.present)
+                        , saveToLocalStorage (rdbEncode newModel.editorValue.present)
                         ]
                     )
 
                 Err err ->
                     showError err model
 
-        InitMonacoRequestReceived _ ->
-            ( model, initMonacoResponse "" )
+        InitEditorRequestReceived _ ->
+            ( model, initEditorResponse "" )
 
         RequestValueToSave _ ->
-            ( model, saveValueToFile (rdbEncode model.monacoValue.present) )
+            ( model, saveValueToFile (rdbEncode model.editorValue.present) )
 
         ViewEditorMsg subMsg ->
             let
                 ( updated, cmd, actions ) =
-                    ViewEditor.update model.monacoValue.present.domain model.monacoValue.present.views subMsg model.viewEditor
+                    ViewEditor.update model.editorValue.present.domain model.editorValue.present.views subMsg model.viewEditor
 
                 updatedValues =
-                    ViewEditorActions.apply model.session.key { monacoValue = model.monacoValue, cmd = cmd, errors = model.errors } actions
+                    ViewEditorActions.apply model.session.key { editorValue = model.editorValue, cmd = cmd, errors = model.errors } actions
             in
             ( { model
                 | viewEditor = updated
-                , monacoValue = updatedValues.monacoValue
+                , editorValue = updatedValues.editorValue
                 , errors = updatedValues.errors
               }
             , updatedValues.cmd |> Cmd.map ViewEditorMsg
@@ -220,14 +220,14 @@ update msg model =
 
         ViewUndoRedo subMsg ->
             let
-                ( subModel, updatedMonacoValue, actions ) =
-                    ViewUndoRedo.update model.monacoValue subMsg model.viewUndoRedo
+                ( subModel, updatedEditorValue, actions ) =
+                    ViewUndoRedo.update model.editorValue subMsg model.viewUndoRedo
             in
             ( { model
                 | viewUndoRedo = subModel
-                , monacoValue = updatedMonacoValue
+                , editorValue = updatedEditorValue
               }
-            , ViewUndoRedoActions.apply updatedMonacoValue.present actions
+            , ViewUndoRedoActions.apply updatedEditorValue.present actions
             )
 
         ErrorMsg subMsg ->
@@ -241,18 +241,18 @@ update msg model =
                     case D.fromString rdbDecoder val of
                         Ok ( domain, views ) ->
                             let
-                                monacoModel =
-                                    MonacoValue views (Just domain)
+                                editorModel =
+                                    EditorValue views (Just domain)
 
                                 newModel =
                                     { model
                                         | errors = []
-                                        , monacoValue = monacoModel |> getUndoRedoMonacoValue
+                                        , editorValue = editorModel |> getUndoRedoEditorValue
                                     }
                             in
                             ( newModel
                             , Cmd.batch
-                                [ initMonacoResponse (rdbEncode monacoModel)
+                                [ initEditorResponse (rdbEncode editorModel)
                                 , ViewEditor.getSvgElementPosition |> Cmd.map ViewEditorMsg
                                 , Nav.replaceUrl model.session.key ("/#/editor/" ++ (ViewEditor.getSelectedView model.viewEditor |> Maybe.withDefault ""))
                                 ]
@@ -264,14 +264,14 @@ update msg model =
                 Nothing ->
                     ( model
                     , Cmd.batch
-                        [ initMonacoResponse ""
+                        [ initEditorResponse ""
                         , ViewEditor.getSvgElementPosition |> Cmd.map ViewEditorMsg
                         ]
                     )
 
         ClickSaveDomain ->
             ( model
-            , saveToLocalStorage (rdbEncode model.monacoValue.present)
+            , saveToLocalStorage (rdbEncode model.editorValue.present)
             )
 
 
@@ -323,7 +323,7 @@ showError err model =
 view : Model -> Document Msg
 view model =
     let
-        { pane, viewEditor, monacoValue } =
+        { pane, viewEditor, editorValue } =
             model
     in
     { title = "RDB Model Editor"
@@ -331,10 +331,10 @@ view model =
         [ div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
             [ SplitPane.view
                 viewConfig
-                (monacoViewPart model.session.isFileSystemSupported (ViewEditor.isInitState model.viewEditor))
+                (editorViewPart model.session.isFileSystemSupported (ViewEditor.isInitState model.viewEditor))
                 (div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
-                    [ ViewEditor.view monacoValue.present viewEditor |> Html.map ViewEditorMsg
-                    , ViewUndoRedo.view model.monacoValue |> Html.map ViewUndoRedo
+                    [ ViewEditor.view editorValue.present viewEditor |> Html.map ViewEditorMsg
+                    , ViewUndoRedo.view model.editorValue |> Html.map ViewUndoRedo
                     , div
                         [ style "position" "absolute"
                         , style "top" "5px"
@@ -362,10 +362,10 @@ viewConfig =
         }
 
 
-monacoViewPart : Bool -> Bool -> Html Msg
-monacoViewPart showFileButton showLoading =
+editorViewPart : Bool -> Bool -> Html Msg
+editorViewPart showFileButton showLoading =
     div [ Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
-        [ div [ id "monaco", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
+        [ div [ id "code-editor", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%" ]
             [ if showLoading then
                 svg
                     [ style "vertical-align" "middle"
@@ -408,8 +408,8 @@ subscriptions model =
         [ ViewEditor.subscriptions model.viewEditor |> Sub.map ViewEditorMsg
         , ViewUndoRedo.subscriptions model.viewUndoRedo |> Sub.map ViewUndoRedo
         , Sub.map PaneMsg <| SplitPane.subscriptions model.pane
-        , monacoEditorSavedValue <| MonacoEditorValueReceived
-        , initMonacoRequest InitMonacoRequestReceived
+        , editorValueSaved <| EditorValueReceived
+        , initEditorRequest InitEditorRequestReceived
         , requestValueToSave RequestValueToSave
         , receivedFromLocalStorage ReceivedFromLocalStorage
         ]

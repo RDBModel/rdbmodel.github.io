@@ -20,8 +20,8 @@ modifyViews action ( views, cmd, _ ) =
             )
 
 
-monacoValueModified : List Action -> Bool
-monacoValueModified =
+editorValueModified : List Action -> Bool
+editorValueModified =
     List.foldl (\a v -> actionModifyView a |> (||) v) False
 
 

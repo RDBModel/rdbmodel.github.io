@@ -49,7 +49,7 @@ import ViewEditor.AddNewPointToEdge exposing (pointsWithNewPoint)
 import ViewEditor.MouseMove exposing (handleMouseMove)
 import ViewEditor.MovingViewElements exposing (getSelectedElementKeysAndDeltas, getSelectedPointKeysAndDeltas, updateElementAndPointPosition)
 import ViewEditor.Msg exposing (Msg(..))
-import ViewEditor.SvgView exposing (MonacoState, emptySvg, svgView)
+import ViewEditor.SvgView exposing (EditorState, emptySvg, svgView)
 import ViewEditor.Types exposing (Brush, SelectedItem, ViewEditorState)
 
 
@@ -77,7 +77,7 @@ type Action
     = UpdateViews (Dict String View)
     | SaveEditorState
     | ResetCurrentEditorState (Dict String View)
-    | UpdateMonacoValue
+    | UpdateEditorValue
     | PushDomError Dom.Error
     | ChangeView (Maybe String)
 
@@ -156,12 +156,12 @@ update domain views msg model =
                             | viewControl = updated
                             , selectedView = selectedView
                         }
-                    , if ViewControlActions.monacoValueModified actions || state.selectedView == selectedView then
+                    , if ViewControlActions.editorValueModified actions || state.selectedView == selectedView then
                         cmd |> Cmd.map ViewControl
 
                       else
                         Cmd.batch [ cmd, shareElementsAtCurrentView elementsKeysOfCurrentView ] |> Cmd.map ViewControl
-                    , if ViewControlActions.monacoValueModified actions then
+                    , if ViewControlActions.editorValueModified actions then
                         [ UpdateViews newViews ]
 
                       else if state.selectedView == selectedView then
@@ -185,7 +185,7 @@ update domain views msg model =
                     AddViewActions.apply views actions
 
                 ( updatedViewEditor, finalCmds, newActions ) =
-                    if AddViewActions.monacoValueModified actions then
+                    if AddViewActions.editorValueModified actions then
                         ( Ready
                             { state
                                 | addView = updated
@@ -435,7 +435,7 @@ update domain views msg model =
                         Just _ ->
                             ( Ready { state | drag = Nothing, selectedItems = [] }
                             , Cmd.none
-                            , UpdateMonacoValue |> List.singleton
+                            , UpdateEditorValue |> List.singleton
                             )
 
                         _ ->
@@ -514,7 +514,7 @@ updateSelectedItemsDeltas viewElementsOfCurrentView ( shiftedStartX, shiftedStar
     selectedElementsWithDeltas ++ selectedPointsWithDeltas
 
 
-view : MonacoState -> Model -> Html Msg
+view : EditorState -> Model -> Html Msg
 view domain model =
     let
         graphics =

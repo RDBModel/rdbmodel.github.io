@@ -1,10 +1,10 @@
 port module InPorts exposing (..)
 
 
-port monacoEditorSavedValue : (String -> msg) -> Sub msg
+port editorValueSaved : (String -> msg) -> Sub msg
 
 
-port initMonacoRequest : (() -> msg) -> Sub msg
+port initEditorRequest : (() -> msg) -> Sub msg
 
 
 port requestValueToSave : (() -> msg) -> Sub msg

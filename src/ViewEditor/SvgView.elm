@@ -51,13 +51,13 @@ import ViewEditor.Msg exposing (Msg(..))
 import ViewEditor.Types exposing (ViewEditorState)
 
 
-type alias MonacoState =
+type alias EditorState =
     { views : Dict String View
     , domain : Maybe Domain
     }
 
 
-svgView : MonacoState -> ViewEditorState -> List (Html Msg)
+svgView : EditorState -> ViewEditorState -> List (Html Msg)
 svgView { views, domain } viewEditorState =
     let
         { viewNavigation, viewControl } =

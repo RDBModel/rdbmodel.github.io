@@ -1,4 +1,4 @@
-module UndoRedo.ViewUndoRedo exposing (Model, Msg, UndoRedoMonacoValue, getUndoRedoMonacoValue, init, mapPresent, newRecord, subscriptions, update, view)
+module UndoRedo.ViewUndoRedo exposing (Model, Msg, UndoRedoEditorValue, getUndoRedoEditorValue, init, mapPresent, newRecord, subscriptions, update, view)
 
 import Browser.Events as Events
 import Html exposing (Html, button, div)
@@ -33,22 +33,22 @@ init =
     Model False
 
 
-getUndoRedoMonacoValue : a -> UndoRedoMonacoValue a
-getUndoRedoMonacoValue a =
+getUndoRedoEditorValue : a -> UndoRedoEditorValue a
+getUndoRedoEditorValue a =
     a |> UndoList.fresh
 
 
-newRecord : a -> UndoRedoMonacoValue a -> UndoRedoMonacoValue a
+newRecord : a -> UndoRedoEditorValue a -> UndoRedoEditorValue a
 newRecord a previous =
     UndoList.new a previous
 
 
-mapPresent : (a -> a) -> UndoRedoMonacoValue a -> UndoRedoMonacoValue a
+mapPresent : (a -> a) -> UndoRedoEditorValue a -> UndoRedoEditorValue a
 mapPresent a current =
     UndoList.mapPresent a current
 
 
-type alias UndoRedoMonacoValue a =
+type alias UndoRedoEditorValue a =
     UndoList a
 
 
@@ -59,14 +59,14 @@ type Msg
     | SetCtrlIsDown Bool
 
 
-update : UndoRedoMonacoValue a -> Msg -> Model -> ( Model, UndoRedoMonacoValue a, List Action )
+update : UndoRedoEditorValue a -> Msg -> Model -> ( Model, UndoRedoEditorValue a, List Action )
 update targetValue msg model =
     case msg of
         Undo ->
-            ( model, UndoList.undo targetValue, List.singleton UpdateMonacoValue )
+            ( model, UndoList.undo targetValue, List.singleton UpdateEditorValue )
 
         Redo ->
-            ( model, UndoList.redo targetValue, List.singleton UpdateMonacoValue )
+            ( model, UndoList.redo targetValue, List.singleton UpdateEditorValue )
 
         SetCtrlIsDown value ->
             ( { model | ctrlIsDown = value }, targetValue, [] )
@@ -75,7 +75,7 @@ update targetValue msg model =
             ( model, targetValue, [] )
 
 
-view : UndoRedoMonacoValue a -> Html Msg
+view : UndoRedoEditorValue a -> Html Msg
 view undoRedo =
     div
         [ style "position" "absolute"

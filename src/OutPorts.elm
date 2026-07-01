@@ -1,13 +1,13 @@
 port module OutPorts exposing (..)
 
 
-port initMonacoResponse : String -> Cmd msg
+port initEditorResponse : String -> Cmd msg
 
 
 port zoomMsgReceived : () -> Cmd msg
 
 
-port updateMonacoValue : String -> Cmd msg
+port updateEditorValue : String -> Cmd msg
 
 
 port validationErrors : String -> Cmd msg
