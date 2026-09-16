@@ -25,12 +25,13 @@ import Element
         , text
         , textColumn
         , width
+        , wrappedRow
         )
 import Element.Background as Background
 import Element.Border exposing (rounded)
 import Element.Font as Font
 import Html exposing (Html)
-import Route exposing (editorLinkDropbox, editorLinkInit, editorLinkPastebin, editorLinkTwitter)
+import Route exposing (editorLinkDropbox, editorLinkInit, editorLinkPastebin, editorLinkSocialGraph, editorLinkTwitter)
 
 
 view : Html msg
@@ -63,10 +64,11 @@ editorLink =
     column []
         [ el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ( "Start new 🚀", editorLinkInit ))
         , el [ centerX ] (text "Or check examples ☀️")
-        , row [ spacing 10 ]
-            [ el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ( "Pastebin", editorLinkPastebin ))
-            , el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ( "Dropbox", editorLinkDropbox ))
-            , el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ( "Twitter", editorLinkTwitter ))
+        , wrappedRow [ spacing 10 ]
+            [ el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Pastebin", editorLinkPastebin ))
+            , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Dropbox", editorLinkDropbox ))
+            , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Twitter", editorLinkTwitter ))
+            , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Social graph", editorLinkSocialGraph ))
             ]
         ]
 
@@ -76,7 +78,7 @@ editorButton ( txt, lnk ) =
     el [ centerX, centerY ] <|
         link [ Color.lightBlue |> mapColor |> Background.color, rounded 5 ]
             { url = "/" ++ lnk
-            , label = el [ paddingXY 50 20, defaultFontSize ] <| text txt
+            , label = el [ paddingXY 30 20, defaultFontSize ] <| text txt
             }
 
 

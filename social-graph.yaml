@@ -1,0 +1,177 @@
+domain:
+  name: Social graph
+  description: Friend search over the connection graph of a social network, adapted from the system-design-primer social graph exercise. The main view shows the scaled design, where the graph is sharded across person servers, resolved through a lookup service and fronted by a memory cache. The initial view shows the same system before scaling, and the graph-service view opens up the user graph service that runs the search.
+  actors:
+    client:
+      name: Client
+      description: A user of the social network searching for another person and asking for the shortest path to them
+      relations:
+        - resolve connection - dns
+        - search for a person - load-balancer
+        - search for a person - web-server
+  systems:
+    dns:
+      name: Domain Name System
+      description: One of the industry-standard suite of protocols that comprise TCP/IP, and together the DNS Client and DNS Server provide computer name-to-IP address mapping name resolution services to computers and users
+    social-graph:
+      name: Social graph
+      description: Searches the connection graph between people and returns the shortest path from one person to another. Graph edges are unweighted. 100 million users with 50 friends each give 5 billion edges, and an average of 400 searches per second.
+      containers:
+        load-balancer:
+          name: Load balancer
+          description: Distributes incoming search requests across a pool of web servers
+          relations:
+            - forward requests - web-server
+        web-server:
+          name: Reverse proxy
+          description: Handles incoming HTTP requests from clients and forwards them to the query API
+          relations:
+            - friend search request - query-api
+        query-api:
+          name: Query API
+          description: Serves the friend search REST API, parses the search request and asks the user graph service for the shortest path
+          relations:
+            - query connection path - user-graph-service
+            - read cached person data - memory-cache
+        user-graph-service:
+          name: User graph service
+          description: Runs a breadth-first search from the source person to the target person, resolving every person it visits through the lookup service and the person servers
+          relations:
+            - resolve person server for id - lookup-service
+            - fetch people by ids - person-server
+          components:
+            bfs-traversal:
+              name: BFS traversal
+              description: Walks friend ids breadth first, keeping the set of visited ids and the predecessor of every hop
+              relations:
+                - request adjacent people for each friend id - person-loader
+            person-loader:
+              name: Person loader
+              description: Resolves a person id to the person server that stores it, then fetches people in batches by id
+              relations:
+                - resolve person server for id - lookup-service
+                - fetch people by ids - person-server
+            path-assembler:
+              name: Path assembler
+              description: Walks the predecessor map back from the target person to build the ordered shortest path
+              relations:
+                - read predecessor map - bfs-traversal
+        lookup-service:
+          name: Lookup service
+          description: Maps a person id to the person server that stores that person. The lookup table is the sharding key, so it stays small enough to be held in memory
+        person-server:
+          name: Person server
+          description: Sharded store of people and their friend ids, holding a part of the graph on each server
+        memory-cache:
+          name: Memory cache
+          description: Holds person data and partial breadth-first traversals, so repeated searches for well connected people avoid the person servers
+views:
+  main:
+    elements:
+      client:
+        x: 175
+        y: 75
+        relations:
+          resolve connection - dns: []
+          search for a person - load-balancer: []
+      dns:
+        x: 535
+        y: 75
+      load-balancer:
+        x: 245
+        y: 265
+        relations:
+          forward requests - web-server: []
+      web-server:
+        x: 245
+        y: 460
+        relations:
+          friend search request - query-api: []
+      query-api:
+        x: 120
+        y: 720
+        relations:
+          read cached person data - memory-cache: []
+          query connection path - user-graph-service:
+            - x: 255
+              y: 700
+      user-graph-service:
+        x: 380
+        y: 735
+        relations:
+          resolve person server for id - lookup-service: []
+          fetch people by ids - person-server: []
+      lookup-service:
+        x: 640
+        y: 680
+      person-server:
+        x: 640
+        y: 800
+      memory-cache:
+        x: 250
+        y: 945
+      social-graph:
+        x: 380
+        y: 610
+  initial:
+    elements:
+      client:
+        x: 215
+        y: 70
+        relations:
+          search for a person - web-server: []
+      web-server:
+        x: 250
+        y: 272
+        relations:
+          friend search request - query-api: []
+      query-api:
+        x: 130
+        y: 510
+        relations:
+          query connection path - user-graph-service: []
+      user-graph-service:
+        x: 372
+        y: 460
+        relations:
+          resolve person server for id - lookup-service: []
+          fetch people by ids - person-server: []
+      lookup-service:
+        x: 630
+        y: 405
+      person-server:
+        x: 625
+        y: 517
+      social-graph:
+        x: 350
+        y: 330
+  graph-service:
+    elements:
+      bfs-traversal:
+        x: 280
+        y: 380
+        relations:
+          request adjacent people for each friend id - person-loader: []
+      person-loader:
+        x: 480
+        y: 380
+        relations:
+          resolve person server for id - lookup-service: []
+          fetch people by ids - person-server: []
+      path-assembler:
+        x: 280
+        y: 480
+        relations:
+          read predecessor map - bfs-traversal: []
+      lookup-service:
+        x: 700
+        y: 340
+      person-server:
+        x: 700
+        y: 460
+      social-graph:
+        x: 450
+        y: 420
+      user-graph-service:
+        x: 380
+        y: 420
