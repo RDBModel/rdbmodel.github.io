@@ -23,4 +23,4 @@
 - [x] 4.1 Run `npm run dev` and open `#/editor/main?link=/social-graph.yaml` to prove the model loads from a plain URL without depending on the published `master` copy.
 - [x] 4.2 Switch between all three views from the view control and confirm each renders its own element set with no validation errors.
 - [x] 4.3 Confirm that opening the editor with no link still loads the locally stored or starter model, so the new example has not changed default loading.
-- [ ] 4.4 After merging, confirm the landing page button opens the example from the published URL and that the domain survives a browser reload from local storage.
+- [x] 4.4 After merging, confirm the landing page button opens the example from the published URL and that the domain survives a browser reload from local storage.
