@@ -34,14 +34,16 @@ jobs:
             git checkout gh-pages
           else
             git checkout --orphan gh-pages
-            git rm -rf .
           fi
-          rm -rf dist
-          cp -r /tmp/dist-fresh dist
-          if git diff --quiet -- dist/; then
+          # GitHub Pages serves this branch from its root, so the fresh build
+          # replaces the tracked files there. Staging only the built paths keeps
+          # the ignored build inputs (node_modules, elm-stuff, dist) out of it.
+          git rm -rfq .
+          cp -r /tmp/dist-fresh/. .
+          git add -A -- $(cd /tmp/dist-fresh && ls -A)
+          if git diff --cached --quiet; then
             echo "No changes to publish."
           else
-            git add dist/
             git commit -m "Publish dist to gh-pages"
             git push origin gh-pages
           fi
