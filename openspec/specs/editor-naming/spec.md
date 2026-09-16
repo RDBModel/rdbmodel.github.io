@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Keeps application-level naming independent of the editor library, so the editor can be replaced or renamed without touching the application's own types, ports, and element identifiers.
+
+## Requirements
 
 ### Requirement: Application identifiers are editor-agnostic
 
