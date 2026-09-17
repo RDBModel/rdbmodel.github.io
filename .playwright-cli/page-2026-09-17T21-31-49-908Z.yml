@@ -1,0 +1,41 @@
+- generic [ref=f2e4]:
+  - generic [ref=f2e5]:
+    - generic [ref=f2e6]: RDB modeling
+    - generic [ref=f2e8]: ...a way to simplify your C4 model
+    - link "[Source]" [ref=f2e11] [cursor=pointer]:
+      - /url: https://github.com/RDBModel/rdbmodel.github.io
+  - generic [ref=f2e13]: 😎 This application allows to create and visualize software architecture using a simplified version of the C4 model
+  - generic [ref=f2e14]:
+    - img "diagram" [ref=f2e17]
+    - img "editor" [ref=f2e20]
+  - generic [ref=f2e21]: ✍ Intuitive interface makes it easy to create and edit yaml files that represent the domain of your application
+  - generic [ref=f2e22]: 🪟 Multiple views of the domain can be created to better understand and communicate the relationships within the software system
+  - generic [ref=f2e23]: 🔎 Graphical interface allows to create and edit views, layout elements and edges, zoom, scroll, and navigate through the selected view
+  - generic [ref=f2e24]: 💣 RDB Model Web application highlights any inconsistencies in the model and views using error messages, ensuring the software architecture is clear and consistent
+  - generic [ref=f2e25]: "☝ The C4 model is a powerful tool for understanding and communicating the structure of the software system, and RDB Model Web application supports the four main types of entities in the model: actors, systems, containers, and components"
+  - generic [ref=f2e26]: 👨‍🔬 Whether you're a seasoned software architect or just starting out, RDB Model Web application makes it easy to design and understand a software architecture
+  - generic [ref=f2e27]: 🎉 Start creating your C4 model today!
+  - generic [ref=f2e28]:
+    - link "Start new 🚀" [ref=f2e31] [cursor=pointer]:
+      - /url: /#/editor/main?link=https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/init.yaml
+    - generic [ref=f2e34]: Or check examples ☀️
+    - generic [ref=f2e37]:
+      - link "Pastebin" [ref=f2e40] [cursor=pointer]:
+        - /url: /#/editor/main?link=https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/pastebin.yaml
+      - link "Dropbox" [ref=f2e45] [cursor=pointer]:
+        - /url: /#/editor/main?link=https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/dropbox.yaml
+      - link "Twitter" [ref=f2e50] [cursor=pointer]:
+        - /url: /#/editor/main?link=https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/twitter.yaml
+      - link "Social graph" [ref=f2e55] [cursor=pointer]:
+        - /url: /#/editor/main?link=https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/social-graph.yaml
+      - link "Web crawler" [ref=f2e60] [cursor=pointer]:
+        - /url: /#/editor/main?link=https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/web-crawler.yaml
+  - generic [ref=f2e63]:
+    - generic [ref=f2e64]:
+      - text: created by
+      - link "Yauhen Pyl" [ref=f2e65] [cursor=pointer]:
+        - /url: https://www.linkedin.com/in/yauhenpyl/
+    - generic [ref=f2e67]:
+      - text: written in ❤️
+      - link "Elm lang" [ref=f2e68] [cursor=pointer]:
+        - /url: https://elm-lang.org/
