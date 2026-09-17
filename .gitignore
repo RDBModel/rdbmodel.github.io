@@ -140,3 +140,6 @@ dist
 
 # End of https://www.toptal.com/developers/gitignore/api/elm,node
 main.js
+
+# Playwright CLI scratch output
+.playwright-cli/
