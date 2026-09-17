@@ -63,6 +63,37 @@ npm run build   # Production build
 
 The dev container (`.devcontainer/`) handles the Elm toolchain automatically via Docker.
 
+### Feature Workflow
+
+Every feature starts from a GitHub issue (`gh issue list --repo RDBModel/rdbmodel.github.io`) and runs through OpenSpec. Work happens on `master`. The skills are in `.pi/skills/openspec-*`; the CLI is `openspec`.
+
+**1. Explore** — read the issue, the source material it links, and the code the change touches. For an example, that means `src/Route.elm`, `src/Pages/Home.elm`, an existing example YAML, and the matching spec under `openspec/specs/`. Look for an archived change of the same shape in `openspec/changes/archive/` and reuse its decisions.
+
+**2. Propose** — create the change and fill every artifact before writing code:
+
+```bash
+openspec new change <kebab-name>
+openspec status --change <name> --json          # artifact order and paths
+openspec instructions <artifact> --change <name> --json   # template + rules
+openspec validate <name> --strict
+```
+
+Artifacts in dependency order: `proposal.md` (why, capabilities), `specs/<capability>/spec.md` (delta: ADDED/MODIFIED/REMOVED requirements, each with scenarios), `design.md` (decisions with alternatives, risks), `tasks.md` (numbered checkboxes, each stating how to verify). Reuse an existing capability path; only add a new one when nothing covers the behaviour.
+
+**3. Apply** — work the tasks in order and tick `- [ ]` to `- [x]` as each one lands. Verify in the running app (`npm run dev`, then `playwright-cli`), not just by reading code. Three things that waste time if forgotten:
+
+- The editor caches the model in `localStorage`. After editing a YAML example, close and reopen the browser (or clear storage and open a fresh page); a plain reload keeps serving the cached model.
+- Stop the dev server before `openspec archive`. On Windows the Vite file watcher holds a lock and the archive move fails with `EPERM`; the spec sync silently rolls back with it.
+- Check layout against geometry, not screenshots: read the rendered `rect` and `path` bounding boxes out of the SVG and assert no two boxes overlap and no edge crosses a box. Seed coordinates from the source diagram when one exists.
+
+**4. Archive** — `openspec archive <name> --yes` writes the delta into `openspec/specs/` and moves the change to `openspec/changes/archive/YYYY-MM-DD-<name>/`. Mark the archived `tasks.md` complete once the post-deploy check passes.
+
+**5. Publish** — commit in the project's order (implementation, then archive, then task ticks), then `git push origin master`. The `githubpage.yaml` workflow builds `dist` and pushes it to `gh-pages`; example YAML is fetched raw from `master`, so both halves ship with the same push. Wait for the run (`gh run watch <id> --exit-status`), then verify on the live site. The Pages CDN can serve a stale `index.html` for a minute after deploy.
+
+**6. Close the issue** — comment with what shipped, the verification, and the URL, then `gh issue close <n> --reason completed`. See the issue #30 and #32 comments for the house style.
+
+`.playwright-cli/` is scratch output and is gitignored; leave it out of commits.
+
 ### Elm Conventions
 
 - Module names follow directory structure (e.g., `src/Domain/Validation.elm` → `Domain.Validation`)
