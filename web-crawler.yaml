@@ -1,0 +1,235 @@
+domain:
+  name: Web crawler
+  description: A crawler that walks the web, builds a reverse index and document summaries from the pages it fetches, and serves search queries over them, adapted from the system-design-primer web crawler exercise. The main view shows the scaled design, where DNS, a load balancer and a memory cache are added around the first-pass pipeline. The initial view shows the same pipeline before scaling, and the crawler-service view opens up the crawler service that feeds the queues.
+  actors:
+    client:
+      name: Client
+      description: A user of the search engine, reading the titles and snippets the crawler generated for the pages matching a search term
+      relations:
+        - search for a term - web-server
+        - resolve connection - dns
+        - search for a term - load-balancer
+  systems:
+    dns:
+      name: Domain Name System
+      description: One of the industry-standard suite of protocols that comprise TCP/IP, and together the DNS Client and DNS Server provide computer name-to-IP address mapping name resolution services to computers and users
+    websites:
+      name: Websites
+      description: The public web pages the crawler fetches. The crawler walks their links until it has covered the 1 billion links in scope, averaging about 500 KB of content per page.
+    web-crawler:
+      name: Web crawler
+      description: Crawls a ranked list of links, generates a reverse index of words to pages and static titles and snippets, and answers search queries over them. 1 billion links to crawl and 4 billion links crawled each month, so 2 PB of page content and 72 PB over three years, against 1,600 crawl writes and 40,000 searches per second.
+      containers:
+        load-balancer:
+          name: Load balancer
+          description: Distributes incoming search requests across a pool of web servers
+          relations:
+            - forward requests - web-server
+        web-server:
+          name: Reverse proxy
+          description: Handles incoming HTTP requests from clients and forwards them to the query API
+          relations:
+            - search request - query-api
+        query-api:
+          name: Query API
+          description: Serves the search REST API. Parses the query, asks the reverse index service for matching documents, asks the document service for their titles and snippets, and reads popular results from the memory cache
+          relations:
+            - match query terms - reverse-index-service
+            - read titles and snippets - document-service
+            - read cached results - memory-cache
+        reverse-index-service:
+          name: Reverse index service
+          description: Generates and searches a reverse index of words to the pages containing them, sharded and federated to carry the index of 1 billion links
+        document-service:
+          name: Document service
+          description: Generates and serves the static titles and snippets of crawled pages, sharded and federated to carry the pages themselves
+        index-queue:
+          name: Index queue
+          description: Holds crawled pages waiting for the reverse index service. The queue decouples crawl throughput from indexing throughput, so a slow index build does not stall the crawler
+          relations:
+            - deliver index jobs - reverse-index-service
+        document-queue:
+          name: Document queue
+          description: Holds crawled pages waiting for the document service. The queue decouples crawl throughput from document generation, so a slow snippet build does not stall the crawler
+          relations:
+            - deliver document jobs - document-service
+        crawler-service:
+          name: Crawler service
+          description: Takes the highest ranked link to crawl, skips pages whose signature was already crawled, fetches the page, and writes the crawl state back to the key-value database
+          relations:
+            - enqueue pages to index - index-queue
+            - enqueue pages to document - document-queue
+            - read and write crawl state - nosql-database
+          components:
+            crawl-scheduler:
+              name: Crawl loop
+              description: Takes the top ranked link, checks the crawled signatures for a similar page, lowers the priority of a duplicate to avoid crawling a cycle, and otherwise hands the page to the fetcher
+              relations:
+                - read top link and lower duplicate priority - pages-data-store
+                - crawl the page - page-fetcher
+            page-fetcher:
+              name: Page fetcher
+              description: Fetches the page contents and child urls, builds a page signature from them, enqueues the indexing and document jobs, and records the signature
+              relations:
+                - fetch page contents - websites
+                - enqueue page for indexing - index-queue
+                - enqueue page for documents - document-queue
+                - store the page signature - pages-data-store
+            pages-data-store:
+              name: Pages data store
+              description: The only path from the crawler to the key-value database, adding and removing links to crawl, lowering the priority of duplicates, and reading back crawled signatures
+              relations:
+                - read and write links to crawl - nosql-database
+        nosql-database:
+          name: NoSQL database
+          description: Key-value store of links_to_crawl, ranked by page popularity, and of crawled_links with their page signatures. Redis sorted sets keep the ranking of links to crawl
+        memory-cache:
+          name: Memory cache
+          description: Caches popular query results and absorbs the unevenly distributed search traffic, keeping the reverse index service and the document service off the hot path
+views:
+  main:
+    elements:
+      client:
+        x: 327
+        y: 92
+        relations:
+          resolve connection - dns: []
+          search for a term - load-balancer: []
+      dns:
+        x: 672
+        y: 88
+      load-balancer:
+        x: 397
+        y: 310
+        relations:
+          forward requests - web-server: []
+      web-server:
+        x: 397
+        y: 505
+        relations:
+          search request - query-api: []
+      query-api:
+        x: 147
+        y: 792
+        relations:
+          match query terms - reverse-index-service: []
+          read titles and snippets - document-service: []
+          read cached results - memory-cache: []
+      reverse-index-service:
+        x: 397
+        y: 717
+      document-service:
+        x: 397
+        y: 860
+      index-queue:
+        x: 650
+        y: 717
+        relations:
+          deliver index jobs - reverse-index-service: []
+      document-queue:
+        x: 650
+        y: 860
+        relations:
+          deliver document jobs - document-service: []
+      crawler-service:
+        x: 905
+        y: 792
+        relations:
+          enqueue pages to index - index-queue: []
+          enqueue pages to document - document-queue: []
+          read and write crawl state - nosql-database: []
+      nosql-database:
+        x: 640
+        y: 1177
+      memory-cache:
+        x: 420
+        y: 1012
+      web-crawler:
+        x: 520
+        y: 640
+  initial:
+    elements:
+      client:
+        x: 487
+        y: 92
+        relations:
+          search for a term - web-server: []
+      web-server:
+        x: 487
+        y: 285
+        relations:
+          search request - query-api: []
+      query-api:
+        x: 150
+        y: 537
+        relations:
+          match query terms - reverse-index-service: []
+          read titles and snippets - document-service: []
+      reverse-index-service:
+        x: 399
+        y: 491
+      document-service:
+        x: 399
+        y: 591
+      index-queue:
+        x: 640
+        y: 491
+        relations:
+          deliver index jobs - reverse-index-service: []
+      document-queue:
+        x: 640
+        y: 591
+        relations:
+          deliver document jobs - document-service: []
+      crawler-service:
+        x: 867
+        y: 537
+        relations:
+          enqueue pages to index - index-queue: []
+          enqueue pages to document - document-queue: []
+          read and write crawl state - nosql-database: []
+      nosql-database:
+        x: 492
+        y: 785
+      web-crawler:
+        x: 500
+        y: 420
+  crawler-service:
+    elements:
+      websites:
+        x: 450
+        y: 120
+      crawl-scheduler:
+        x: 250
+        y: 400
+        relations:
+          read top link and lower duplicate priority - pages-data-store: []
+          crawl the page - page-fetcher: []
+      page-fetcher:
+        x: 480
+        y: 400
+        relations:
+          fetch page contents - websites: []
+          enqueue page for indexing - index-queue: []
+          enqueue page for documents - document-queue: []
+          store the page signature - pages-data-store: []
+      pages-data-store:
+        x: 250
+        y: 540
+        relations:
+          read and write links to crawl - nosql-database: []
+      index-queue:
+        x: 800
+        y: 380
+      document-queue:
+        x: 800
+        y: 500
+      nosql-database:
+        x: 800
+        y: 640
+      crawler-service:
+        x: 250
+        y: 400
+      web-crawler:
+        x: 250
+        y: 400

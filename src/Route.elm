@@ -1,4 +1,4 @@
-module Route exposing (Route(..), editorLinkPastebin, editorLinkInit, editorLinkDropbox, fromUrl, editorLinkSocialGraph, editorLinkTwitter)
+module Route exposing (Route(..), editorLinkPastebin, editorLinkInit, editorLinkDropbox, fromUrl, editorLinkSocialGraph, editorLinkTwitter, editorLinkWebCrawler)
 
 import Url exposing (Url)
 import Url.Parser as Parser exposing ((</>), (<?>), Parser, oneOf, s, string)
@@ -61,6 +61,11 @@ editorLinkTwitter =
 editorLinkSocialGraph : String
 editorLinkSocialGraph =
     "#/editor/main?link=https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/social-graph.yaml"
+
+
+editorLinkWebCrawler : String
+editorLinkWebCrawler =
+    "#/editor/main?link=https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/web-crawler.yaml"
 
 
 editorLinkInit : String

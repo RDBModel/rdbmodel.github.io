@@ -31,7 +31,7 @@ import Element.Background as Background
 import Element.Border exposing (rounded)
 import Element.Font as Font
 import Html exposing (Html)
-import Route exposing (editorLinkDropbox, editorLinkInit, editorLinkPastebin, editorLinkSocialGraph, editorLinkTwitter)
+import Route exposing (editorLinkDropbox, editorLinkInit, editorLinkPastebin, editorLinkSocialGraph, editorLinkTwitter, editorLinkWebCrawler)
 
 
 view : Html msg
@@ -69,6 +69,7 @@ editorLink =
             , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Dropbox", editorLinkDropbox ))
             , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Twitter", editorLinkTwitter ))
             , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Social graph", editorLinkSocialGraph ))
+            , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Web crawler", editorLinkWebCrawler ))
             ]
         ]
 
