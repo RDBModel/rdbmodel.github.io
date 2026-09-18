@@ -1,0 +1,217 @@
+domain:
+  name: Sales rank
+  description: Amazon's sales rank by category, adapted from the system-design-primer sales rank exercise. An hourly batch job ranks the products of each category by the units sold in the past week and writes the ranking to a table that the read path serves from a memory cache and read replicas. The main view shows the scaled design, where the read path is split from the writers through DNS, a CDN and a load balancer. The initial view shows the same feature before scaling, and the sales-rank-service view opens up the ranking job.
+  actors:
+    client:
+      name: Client
+      description: A shopper viewing the past week's most popular products in a category, and the storefront recording their purchases
+      relations:
+        - view popular products - web-server
+        - resolve connection - dns
+        - load static content - cdn
+        - view popular products - load-balancer
+  systems:
+    dns:
+      name: Domain Name System
+      description: One of the industry-standard suite of protocols that comprise TCP/IP, and together the DNS Client and DNS Server provide computer name-to-IP address mapping name resolution services to computers and users
+    amazon:
+      name: Amazon
+      description: The storefront and its sales rank. 10 million products in 1,000 categories, 1 billion transactions and 100 billion reads a month, a 100 to 1 read to write ratio, so 400 transaction writes and 40,000 reads per second against 40 GB of new transaction content a month.
+      containers:
+        load-balancer:
+          name: Load balancer
+          description: Distributes incoming requests across a pool of web servers
+          relations:
+            - forward requests - web-server
+        cdn:
+          name: Content delivery network
+          description: Distributed network of servers that serves the static content of the store, taking what it caches from the object store
+          relations:
+            - cache static content - object-store
+        web-server:
+          name: Reverse proxy
+          description: Handles incoming HTTP requests from clients and forwards them to the API servers
+          relations:
+            - record a transaction - sales-api
+            - read popular products - read-api
+        sales-api:
+          name: Sales API
+          description: Serves the REST API that records a transaction, writing it to the transactions table and its raw log entry to the object store. The storefront itself is out of scope for this exercise
+          relations:
+            - store the transaction - sql-database
+            - store the raw log files - object-store
+        read-api:
+          name: Read API
+          description: Serves the popular products of a category, 40,000 requests per second at peak, from the memory cache when it can and from the database when it cannot
+          relations:
+            - serve popular products from cache - memory-cache
+            - read the sales rank - sql-read-replicas
+            - read the sales rank - sql-database
+        sales-rank-service:
+          name: Sales rank service
+          description: Runs hourly over the transaction log files in the object store. A multi-step MapReduce sums the quantity sold per product per category for the past week and then sorts the totals, and the ranked list is written to the sales_rank table
+          relations:
+            - read the raw log files - object-store
+            - write the sales rank - sql-database
+          components:
+            weekly-window:
+              name: Weekly window
+              description: Keeps only the transactions of the past week, so the ranking covers a rolling week and the hourly job stays cheap
+            quantity-totals:
+              name: Quantity totals
+              description: The first MapReduce step. Emits each (category, product) with the quantity sold and sums it, giving a product's units sold in a category for the week
+              relations:
+                - keep only the past week - weekly-window
+                - read the raw log entries - object-store
+            distributed-sort:
+              name: Distributed sort
+              description: The second MapReduce step. Re-keys each total by (category, quantity) so the shuffle sorts products by units sold within a category, and the identity reducer emits the ranked list
+              relations:
+                - rank the totals - quantity-totals
+                - write the sales rank - sql-database
+        memory-cache:
+          name: Memory cache
+          description: Caches the popular products and their sales rank, taking the unevenly distributed read traffic off the database
+        sql-database:
+          name: SQL database
+          description: Relational store of the transactions and of the sales_rank table the batch job produces. One write master-slave pair takes the 400 writes per second, which is why the 40,000 reads per second go elsewhere
+          relations:
+            - replicate writes - sql-read-replicas
+        sql-read-replicas:
+          name: SQL read replicas
+          description: Serve the reads that the memory cache misses, so they do not compete with the writers for the master
+        object-store:
+          name: Object store
+          description: Holds the raw Sales API log files the ranking job reads and the static content the CDN serves. 40 bytes per transaction, 40 GB of new content a month and 1.44 TB over three years
+views:
+  main:
+    elements:
+      client:
+        x: 150
+        y: 98
+        relations:
+          resolve connection - dns: []
+          load static content - cdn: []
+          view popular products - load-balancer: []
+      dns:
+        x: 490
+        y: 95
+      cdn:
+        x: 497
+        y: 213
+        relations:
+          cache static content - object-store: []
+      load-balancer:
+        x: 345
+        y: 410
+        relations:
+          forward requests - web-server: []
+      web-server:
+        x: 345
+        y: 610
+        relations:
+          record a transaction - sales-api: []
+          read popular products - read-api: []
+      sales-api:
+        x: 210
+        y: 828
+        relations:
+          store the transaction - sql-database: []
+          store the raw log files - object-store: []
+      read-api:
+        x: 470
+        y: 828
+        relations:
+          serve popular products from cache - memory-cache: []
+          read the sales rank - sql-read-replicas: []
+      sales-rank-service:
+        x: 765
+        y: 825
+        relations:
+          read the raw log files - object-store: []
+          write the sales rank - sql-database: []
+      memory-cache:
+        x: 340
+        y: 1035
+      sql-database:
+        x: 230
+        y: 1240
+        relations:
+          replicate writes - sql-read-replicas: []
+      sql-read-replicas:
+        x: 443
+        y: 1240
+      object-store:
+        x: 730
+        y: 1240
+      amazon:
+        x: 450
+        y: 700
+  initial:
+    elements:
+      client:
+        x: 330
+        y: 75
+        relations:
+          view popular products - web-server: []
+      web-server:
+        x: 337
+        y: 277
+        relations:
+          record a transaction - sales-api: []
+          read popular products - read-api: []
+      sales-api:
+        x: 120
+        y: 508
+        relations:
+          store the transaction - sql-database: []
+          store the raw log files - object-store: []
+      read-api:
+        x: 337
+        y: 508
+        relations:
+          read the sales rank - sql-database: []
+      sales-rank-service:
+        x: 567
+        y: 508
+        relations:
+          read the raw log files - object-store: []
+          write the sales rank - sql-database: []
+      sql-database:
+        x: 228
+        y: 733
+      object-store:
+        x: 437
+        y: 733
+      amazon:
+        x: 340
+        y: 420
+  sales-rank-service:
+    elements:
+      weekly-window:
+        x: 250
+        y: 380
+      quantity-totals:
+        x: 250
+        y: 500
+        relations:
+          keep only the past week - weekly-window: []
+          read the raw log entries - object-store: []
+      distributed-sort:
+        x: 250
+        y: 620
+        relations:
+          rank the totals - quantity-totals: []
+          write the sales rank - sql-database: []
+      object-store:
+        x: 700
+        y: 420
+      sql-database:
+        x: 700
+        y: 620
+      sales-rank-service:
+        x: 250
+        y: 500
+      amazon:
+        x: 400
+        y: 480
