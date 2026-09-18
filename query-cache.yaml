@@ -1,0 +1,154 @@
+domain:
+  name: Query cache
+  description: The search path behind a query cache, adapted from the system-design-primer query cache exercise. A query API serves popular queries from an LRU memory cache and falls back to the reverse index service and the document service on a miss. The main view shows the scaled design, where the client reaches a pool of web servers through DNS and a load balancer. The initial view shows the same path before scaling, and the memory-cache view opens up the cache itself.
+  actors:
+    client:
+      name: Client
+      description: A user of the search engine running a query and reading the titles and snippets that come back
+      relations:
+        - send a search - web-server
+        - resolve connection - dns
+        - send a search - load-balancer
+  systems:
+    dns:
+      name: Domain Name System
+      description: One of the industry-standard suite of protocols that comprise TCP/IP, and together the DNS Client and DNS Server provide computer name-to-IP address mapping name resolution services to computers and users
+    search:
+      name: Search service
+      description: Answers search queries over a reverse index, serving the popular ones from a memory cache. 10 million users, 10 billion queries a month and 4,000 requests per second, against 270 bytes per cached entry and 2.7 TB a month if every query were stored.
+      containers:
+        load-balancer:
+          name: Load balancer
+          description: Distributes incoming search requests across a pool of web servers
+          relations:
+            - forward requests - web-server
+        web-server:
+          name: Reverse proxy
+          description: Handles incoming HTTP requests from clients and forwards them to the query API
+          relations:
+            - search request - query-api
+        query-api:
+          name: Query API
+          description: Parses the query - markup removed, terms split, typos fixed, capitalization normalized, boolean form - then serves it from the memory cache and, on a miss, ranks it with the reverse index service, reads the titles and snippets from the document service and fills the cache
+          relations:
+            - search the reverse index - reverse-index-service
+            - read titles and snippets - document-service
+            - read and fill cached results - memory-cache
+        reverse-index-service:
+          name: Reverse index service
+          description: Finds and ranks the documents matching a parsed query, so the query API gets the top results without asking every shard
+        document-service:
+          name: Document service
+          description: Returns the static titles and snippets of the matching documents. They do not change with the query, so they can be cached alongside the results
+        memory-cache:
+          name: Memory cache
+          description: Holds the results of the most recent queries, keyed by the parsed query, 270 bytes per entry. Memory is limited and popular queries should almost always be in the cache, so entries expire by least recently used and by a time to live refreshed when page contents, the page set or the page rank change
+          components:
+            query-lookup:
+              name: Key lookup table
+              description: Hash table from the parsed query to the list entry that holds its results, so a hit does not walk the list
+              relations:
+                - point at the list entry of each query - lru-list
+            lru-list:
+              name: LRU list
+              description: Doubly-linked list of cached entries. New and touched entries move to the head, entries to expire wait at the tail
+            cache-policy:
+              name: Cache policy
+              description: Serves a read by returning the entry and moving it to the head, serves a write by adding or updating at the head, evicts the tail when the cache is at capacity, and lets a time to live expire entries when the page contents, the page set or the page rank change
+              relations:
+                - look the query up in the table - query-lookup
+                - move, add and evict entries - lru-list
+views:
+  main:
+    elements:
+      client:
+        x: 150
+        y: 65
+        relations:
+          resolve connection - dns: []
+          send a search - load-balancer: []
+      dns:
+        x: 400
+        y: 65
+      load-balancer:
+        x: 265
+        y: 290
+        relations:
+          forward requests - web-server: []
+      web-server:
+        x: 265
+        y: 490
+        relations:
+          search request - query-api: []
+      query-api:
+        x: 135
+        y: 730
+        relations:
+          search the reverse index - reverse-index-service: []
+          read titles and snippets - document-service: []
+          read and fill cached results - memory-cache: []
+      reverse-index-service:
+        x: 410
+        y: 680
+      document-service:
+        x: 410
+        y: 805
+      memory-cache:
+        x: 260
+        y: 970
+      search:
+        x: 250
+        y: 400
+  initial:
+    elements:
+      client:
+        x: 230
+        y: 75
+        relations:
+          send a search - web-server: []
+      web-server:
+        x: 245
+        y: 275
+        relations:
+          search request - query-api: []
+      query-api:
+        x: 120
+        y: 512
+        relations:
+          search the reverse index - reverse-index-service: []
+          read titles and snippets - document-service: []
+          read and fill cached results - memory-cache: []
+      reverse-index-service:
+        x: 370
+        y: 466
+      document-service:
+        x: 370
+        y: 557
+      memory-cache:
+        x: 245
+        y: 740
+      search:
+        x: 250
+        y: 400
+  memory-cache:
+    elements:
+      query-lookup:
+        x: 500
+        y: 340
+        relations:
+          point at the list entry of each query - lru-list: []
+      lru-list:
+        x: 500
+        y: 500
+      cache-policy:
+        x: 250
+        y: 400
+        relations:
+          look the query up in the table - query-lookup: []
+          move, add and evict entries - lru-list: []
+      memory-cache:
+        x: 375
+        y: 420
+      search:
+        x: 375
+        y: 420

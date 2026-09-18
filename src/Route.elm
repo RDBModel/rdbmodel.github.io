@@ -1,4 +1,4 @@
-module Route exposing (Route(..), editorLinkPastebin, editorLinkInit, editorLinkDropbox, fromUrl, editorLinkMint, editorLinkSocialGraph, editorLinkTwitter, editorLinkWebCrawler)
+module Route exposing (Route(..), editorLinkPastebin, editorLinkInit, editorLinkDropbox, fromUrl, editorLinkMint, editorLinkQueryCache, editorLinkSocialGraph, editorLinkTwitter, editorLinkWebCrawler)
 
 import Url exposing (Url)
 import Url.Parser as Parser exposing ((</>), (<?>), Parser, oneOf, s, string)
@@ -71,6 +71,11 @@ editorLinkWebCrawler =
 editorLinkMint : String
 editorLinkMint =
     "#/editor/main?link=https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/mint.yaml"
+
+
+editorLinkQueryCache : String
+editorLinkQueryCache =
+    "#/editor/main?link=https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/query-cache.yaml"
 
 
 editorLinkInit : String
