@@ -1,4 +1,4 @@
-module Route exposing (Route(..), editorLinkPastebin, editorLinkInit, editorLinkDropbox, fromUrl, editorLinkMint, editorLinkQueryCache, editorLinkSalesRank, editorLinkSocialGraph, editorLinkTwitter, editorLinkWebCrawler)
+module Route exposing (Route(..), editorLinkPastebin, editorLinkInit, editorLinkDropbox, fromUrl, editorLinkMint, editorLinkQueryCache, editorLinkSalesRank, editorLinkScalingAws, editorLinkSocialGraph, editorLinkTwitter, editorLinkWebCrawler)
 
 import Url exposing (Url)
 import Url.Parser as Parser exposing ((</>), (<?>), Parser, oneOf, s, string)
@@ -81,6 +81,11 @@ editorLinkQueryCache =
 editorLinkSalesRank : String
 editorLinkSalesRank =
     "#/editor/main?link=https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/sales-rank.yaml"
+
+
+editorLinkScalingAws : String
+editorLinkScalingAws =
+    "#/editor/main?link=https://raw.githubusercontent.com/RDBModel/rdbmodel.github.io/master/scaling-aws.yaml"
 
 
 editorLinkInit : String

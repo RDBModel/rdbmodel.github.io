@@ -31,7 +31,7 @@ import Element.Background as Background
 import Element.Border exposing (rounded)
 import Element.Font as Font
 import Html exposing (Html)
-import Route exposing (editorLinkDropbox, editorLinkInit, editorLinkMint, editorLinkPastebin, editorLinkQueryCache, editorLinkSalesRank, editorLinkSocialGraph, editorLinkTwitter, editorLinkWebCrawler)
+import Route exposing (editorLinkDropbox, editorLinkInit, editorLinkMint, editorLinkPastebin, editorLinkQueryCache, editorLinkSalesRank, editorLinkScalingAws, editorLinkSocialGraph, editorLinkTwitter, editorLinkWebCrawler)
 
 
 view : Html msg
@@ -73,6 +73,7 @@ editorLink =
             , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Mint", editorLinkMint ))
             , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Query cache", editorLinkQueryCache ))
             , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Sales rank", editorLinkSalesRank ))
+            , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Scaling on AWS", editorLinkScalingAws ))
             ]
         ]
 

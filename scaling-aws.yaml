@@ -1,0 +1,224 @@
+domain:
+  name: Scaling on AWS
+  description: A web application scaled from one box to millions of users, adapted from the system-design-primer scaling on AWS exercise. Each view is one stage of the source's progression, and each stage is the previous one plus the fix for the bottleneck it measured. The main view is the final stage, where the read path is served from a memory cache and read replicas instead of the write database, and the single-box and earlier views step back through the same design.
+  actors:
+    client:
+      name: Client
+      description: A user making a read or write request
+      relations:
+        - resolve connection - dns
+        - use the service - web-server
+        - load static content - cdn
+        - use the service - load-balancer
+  systems:
+    dns:
+      name: Domain Name System
+      description: One of the industry-standard suite of protocols that comprise TCP/IP, and together the DNS Client and DNS Server provide computer name-to-IP address mapping name resolution services to computers and users
+    app:
+      name: Web application
+      description: The application being scaled, from one box to 10 million users. A 100 to 1 read to write ratio at 1 billion writes and 100 billion reads a month, so 400 writes and 40,000 reads per second, 1 KB per write and 1 TB of new content a month.
+      containers:
+        web-server:
+          name: Web server
+          description: The single box the service starts on, an EC2 instance running the web server and MySQL together. Vertical scaling and monitoring take it as far as it goes before the database and the static content move off it, and from the API split onwards it runs as a reverse proxy
+          relations:
+            - use the database - sql-database
+            - store static content - object-store
+            - write request - write-api
+            - read request - read-api
+        load-balancer:
+          name: Load balancer
+          description: Added when the single web server bottlenecked at peak. An ELB terminates SSL and spreads requests over a pool of web servers in several availability zones
+          relations:
+            - forward requests - web-server
+        cdn:
+          name: Content delivery network
+          description: Added with the load balancer to move static and some dynamic content off the application, taking it from the object store and serving it from the edge
+          relations:
+            - cache static content - object-store
+        write-api:
+          name: Write API
+          description: One half of the API tier the web servers were split into, so that the two layers scale independently. Serves the write requests, which are 400 per second
+          relations:
+            - store data - sql-database
+            - store user content - object-store
+        read-api:
+          name: Read API
+          description: The other half of the API tier. Serves the read requests, 40,000 per second, which is why the stage after this one moves its reads onto a memory cache and read replicas
+          relations:
+            - read data - sql-database
+            - read data - sql-read-replicas
+            - read cached data - memory-cache
+        sql-database:
+          name: SQL database
+          description: MySQL, moved off the web server's box onto its own so that the database and the application can scale independently. It takes every write, which is why the read replicas and the cache exist in the final stage
+          relations:
+            - replicate writes - sql-read-replicas
+        sql-read-replicas:
+          name: SQL read replicas
+          description: Added when the database suffered under the read-heavy load. Master-slave replication serves the reads that the memory cache misses, keeping them off the write master
+        memory-cache:
+          name: Memory cache
+          description: Holds the frequently read rows and the session data, which also makes the web servers stateless so they can autoscale. Reading 1 MB from memory takes about 250 microseconds, against 4 times that from SSD
+        object-store:
+          name: Object store
+          description: Holds the static content - user files, JavaScript, CSS, images and videos - once it moves off the web server's box. 1 TB of new content a month and 36 TB over three years
+views:
+  main:
+    elements:
+      client:
+        x: 114
+        y: 42
+        relations:
+          resolve connection - dns: []
+          load static content - cdn: []
+          use the service - load-balancer: []
+      dns:
+        x: 362
+        y: 44
+      cdn:
+        x: 362
+        y: 171
+        relations:
+          cache static content - object-store:
+            - x: 430
+              y: 480
+            - x: 440
+              y: 900
+      load-balancer:
+        x: 245
+        y: 400
+        relations:
+          forward requests - web-server: []
+      web-server:
+        x: 245
+        y: 590
+        relations:
+          write request - write-api: []
+          read request - read-api: []
+      write-api:
+        x: 118
+        y: 808
+        relations:
+          store data - sql-database: []
+          store user content - object-store:
+            - x: 380
+              y: 950
+      read-api:
+        x: 370
+        y: 808
+        relations:
+          read data - sql-read-replicas: []
+          read cached data - memory-cache: []
+      memory-cache:
+        x: 240
+        y: 1030
+      sql-database:
+        x: 65
+        y: 1250
+        relations:
+          replicate writes - sql-read-replicas: []
+      sql-read-replicas:
+        x: 240
+        y: 1250
+      object-store:
+        x: 416
+        y: 1250
+      app:
+        x: 240
+        y: 700
+  users-plus-plus:
+    elements:
+      client:
+        x: 102
+        y: 44
+        relations:
+          resolve connection - dns: []
+          load static content - cdn: []
+          use the service - load-balancer: []
+      dns:
+        x: 351
+        y: 43
+      cdn:
+        x: 350
+        y: 171
+        relations:
+          cache static content - object-store:
+            - x: 430
+              y: 480
+            - x: 420
+              y: 900
+      load-balancer:
+        x: 230
+        y: 395
+        relations:
+          forward requests - web-server: []
+      web-server:
+        x: 219
+        y: 579
+        relations:
+          write request - write-api: []
+          read request - read-api: []
+      write-api:
+        x: 105
+        y: 795
+        relations:
+          store data - sql-database: []
+          store user content - object-store: []
+      read-api:
+        x: 341
+        y: 789
+        relations:
+          read data - sql-database: []
+      sql-database:
+        x: 135
+        y: 1032
+      object-store:
+        x: 305
+        y: 1032
+      app:
+        x: 220
+        y: 520
+  users-plus:
+    elements:
+      client:
+        x: 122
+        y: 68
+        relations:
+          resolve connection - dns: []
+          use the service - web-server: []
+      dns:
+        x: 370
+        y: 67
+      web-server:
+        x: 242
+        y: 267
+        relations:
+          use the database - sql-database: []
+          store static content - object-store: []
+      sql-database:
+        x: 161
+        y: 443
+      object-store:
+        x: 322
+        y: 443
+      app:
+        x: 240
+        y: 300
+  single-box:
+    elements:
+      client:
+        x: 121
+        y: 67
+        relations:
+          resolve connection - dns: []
+          use the service - web-server: []
+      dns:
+        x: 371
+        y: 66
+      web-server:
+        x: 241
+        y: 267
+      app:
+        x: 241
+        y: 200
