@@ -1,0 +1,304 @@
+domain:
+  name: Mint
+  description: A personal finance service that links the accounts a user holds at financial institutions, extracts and categorizes their transactions, tracks monthly spending against a budget and alerts the user, adapted from the system-design-primer mint exercise. The main view shows the scaled design, where the read path is split from the write path by a read API, a memory cache and read replicas. The initial view shows the write path before that split, and the category-service and budget-service views open up the two services the source decomposes.
+  actors:
+    client:
+      name: Client
+      description: A user of Mint who links financial accounts, reviews transactions and reads monthly spending summaries
+      relations:
+        - connect an account - web-server
+        - use the site - load-balancer
+        - resolve connection - dns
+        - load static content - cdn
+  systems:
+    dns:
+      name: Domain Name System
+      description: One of the industry-standard suite of protocols that comprise TCP/IP, and together the DNS Client and DNS Server provide computer name-to-IP address mapping name resolution services to computers and users
+    mint:
+      name: Mint
+      description: Aggregates the transactions of 30 million financial accounts into one place. 10 million users, 5 billion transactions and 500 million reads a month, so 2,000 transaction writes against 200 reads per second, a 10 to 1 write to read ratio, and 250 GB of new transaction content a month.
+      containers:
+        load-balancer:
+          name: Load balancer
+          description: Distributes incoming requests across a pool of web servers
+          relations:
+            - forward requests - web-server
+        cdn:
+          name: Content delivery network
+          description: Distributed network of servers that serves the static content of the site from locations close to the user, caching what it takes from the object store
+          relations:
+            - cache static content - object-store
+        web-server:
+          name: Reverse proxy
+          description: Handles incoming HTTP requests from clients and forwards them to the API servers
+          relations:
+            - account and transaction request - accounts-api
+            - read request - read-api
+        accounts-api:
+          name: Accounts API
+          description: Serves the REST API for linking, refreshing and removing an account, and for asking for a transaction extraction
+          relations:
+            - place extraction job - queue
+            - store account info - sql-database
+        read-api:
+          name: Read API
+          description: Serves reads of transactions and monthly summaries, from the memory cache when it can and from the read replicas when it cannot, filling the cache on a miss
+          relations:
+            - read cached transactions and summaries - memory-cache
+            - read transactions - sql-read-replicas
+        queue:
+          name: Queue
+          description: Holds account extraction jobs. Extraction talks to a financial institution and takes a while, so it runs asynchronously off the queue instead of in the request
+          relations:
+            - deliver extraction jobs - transaction-extraction-service
+        transaction-extraction-service:
+          name: Transaction extraction service
+          description: Pulls extraction jobs from the queue, extracts the account's transactions from the financial institution, writes the raw results to the object store, categorizes each transaction with the category service, aggregates spending with the budget service and writes the results to the database
+          relations:
+            - categorize transactions - category-service
+            - update monthly spending - budget-service
+            - notify when extraction completes - notification-service
+            - store raw transaction logs - object-store
+            - store categorized transactions - sql-database
+        category-service:
+          name: Category service
+          description: Turns a seller into a budget category, first from a seeded dictionary of 50,000 sellers and then from the manual overrides users make when the dictionary misses
+          components:
+            seller-category-map:
+              name: Seller category map
+              description: The seeded dictionary of about 50,000 sellers to categories, roughly 12 MB, small enough to hold in memory
+            crowd-overrides:
+              name: Crowd overrides
+              description: The per-seller heap of the manual category overrides users have made, most common first, used for the sellers the seeded dictionary misses
+              relations:
+                - seed the map with the winning override - seller-category-map
+            categorizer:
+              name: Categorizer
+              description: Looks the transaction's seller up in the seeded dictionary, and on a miss takes the winning crowd override and seeds the dictionary with it
+              relations:
+                - look up the seller category - seller-category-map
+                - fall back to the most common override - crowd-overrides
+        budget-service:
+          name: Budget service
+          description: Recommends a budget from the user's income tier and keeps only the categories the user overrides, instead of storing all 100 million budget items. Recomputes monthly spending per category and alerts when a category approaches or passes its budget
+          relations:
+            - send budget alert - notification-service
+          components:
+            budget-template:
+              name: Budget template
+              description: Builds the default category amounts from the user's income tier and keeps only the categories the user overrides
+            spending-aggregation:
+              name: Spending aggregation
+              description: The MapReduce job over the raw transaction logs. The mapper turns each seller into a category and emits spending by user, month and category; the reducer sums the amounts
+              relations:
+                - categorize each transaction - category-service
+                - compare the monthly total with the budget - budget-template
+                - report a category near or over its budget - budget-alerts
+            budget-alerts:
+              name: Budget alerts
+              description: Calls the notification service when a category is nearing or past its budget, so the user hears about it without waiting for the next visit
+              relations:
+                - send the budget notification - notification-service
+        notification-service:
+          name: Notification service
+          description: Sends extraction and budget notifications over a queue, so the sender does not wait for delivery. Budget notifications do not need to be instant
+        sql-database:
+          name: SQL database
+          description: Relational store of the users, accounts, transactions and monthly_spending tables. One write master-slave pair takes every write, which averages 2,000 transactions per second and is the reason reads move off it
+          relations:
+            - replicate writes - sql-read-replicas
+        sql-read-replicas:
+          name: SQL read replicas
+          description: Serve the read traffic that the memory cache misses, so the 200 reads per second do not compete with the writes for the master
+        object-store:
+          name: Object store
+          description: Holds the raw transaction log files and the static content of the site. 250 GB of new transaction content a month, about 9 TB over three years
+        memory-cache:
+          name: Memory cache
+          description: Caches user sessions, monthly summaries and recent transactions, so the popular reads and the unevenly distributed traffic never reach the database
+views:
+  main:
+    elements:
+      client:
+        x: 495
+        y: 90
+        relations:
+          resolve connection - dns: []
+          load static content - cdn: []
+          use the site - load-balancer: []
+      dns:
+        x: 830
+        y: 85
+      cdn:
+        x: 830
+        y: 215
+        relations:
+          cache static content - object-store: []
+      load-balancer:
+        x: 565
+        y: 315
+        relations:
+          forward requests - web-server: []
+      web-server:
+        x: 565
+        y: 510
+        relations:
+          account and transaction request - accounts-api: []
+          read request - read-api: []
+      category-service:
+        x: 165
+        y: 640
+      budget-service:
+        x: 165
+        y: 755
+        relations:
+          send budget alert - notification-service: []
+      notification-service:
+        x: 165
+        y: 875
+      transaction-extraction-service:
+        x: 390
+        y: 770
+        relations:
+          categorize transactions - category-service: []
+          update monthly spending - budget-service: []
+          notify when extraction completes - notification-service: []
+          store raw transaction logs - object-store: []
+          store categorized transactions - sql-database: []
+      queue:
+        x: 615
+        y: 770
+        relations:
+          deliver extraction jobs - transaction-extraction-service: []
+      accounts-api:
+        x: 880
+        y: 770
+        relations:
+          place extraction job - queue: []
+          store account info - sql-database: []
+      read-api:
+        x: 1105
+        y: 770
+        relations:
+          read cached transactions and summaries - memory-cache: []
+          read transactions - sql-read-replicas: []
+      memory-cache:
+        x: 930
+        y: 1010
+      sql-database:
+        x: 390
+        y: 1180
+        relations:
+          replicate writes - sql-read-replicas: []
+      sql-read-replicas:
+        x: 590
+        y: 1180
+      object-store:
+        x: 790
+        y: 1180
+      mint:
+        x: 600
+        y: 700
+  initial:
+    elements:
+      client:
+        x: 485
+        y: 92
+        relations:
+          connect an account - web-server: []
+      web-server:
+        x: 485
+        y: 287
+        relations:
+          account and transaction request - accounts-api: []
+      category-service:
+        x: 150
+        y: 437
+      budget-service:
+        x: 150
+        y: 525
+        relations:
+          send budget alert - notification-service: []
+      notification-service:
+        x: 150
+        y: 613
+      transaction-extraction-service:
+        x: 380
+        y: 525
+        relations:
+          categorize transactions - category-service: []
+          update monthly spending - budget-service: []
+          notify when extraction completes - notification-service: []
+          store raw transaction logs - object-store: []
+          store categorized transactions - sql-database: []
+      queue:
+        x: 605
+        y: 525
+        relations:
+          deliver extraction jobs - transaction-extraction-service: []
+      accounts-api:
+        x: 825
+        y: 525
+        relations:
+          place extraction job - queue: []
+          store account info - sql-database: []
+      sql-database:
+        x: 485
+        y: 792
+      object-store:
+        x: 682
+        y: 792
+      mint:
+        x: 480
+        y: 460
+  category-service:
+    elements:
+      categorizer:
+        x: 250
+        y: 400
+        relations:
+          look up the seller category - seller-category-map: []
+          fall back to the most common override - crowd-overrides: []
+      seller-category-map:
+        x: 500
+        y: 340
+      crowd-overrides:
+        x: 500
+        y: 470
+        relations:
+          seed the map with the winning override - seller-category-map: []
+      category-service:
+        x: 350
+        y: 400
+      mint:
+        x: 400
+        y: 400
+  budget-service:
+    elements:
+      budget-template:
+        x: 250
+        y: 380
+      spending-aggregation:
+        x: 250
+        y: 500
+        relations:
+          categorize each transaction - category-service: []
+          compare the monthly total with the budget - budget-template: []
+          report a category near or over its budget - budget-alerts: []
+      budget-alerts:
+        x: 250
+        y: 620
+        relations:
+          send the budget notification - notification-service: []
+      category-service:
+        x: 700
+        y: 400
+      notification-service:
+        x: 700
+        y: 620
+      budget-service:
+        x: 250
+        y: 500
+      mint:
+        x: 400
+        y: 480
