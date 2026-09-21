@@ -1,7 +1,6 @@
 module Error.Error exposing (ErrorLocation(..), Model, Msg, Source(..), ViewError(..), update, view)
 
 import Browser.Dom as Dom
-import Color
 import Dict exposing (Dict)
 import Html exposing (Html, a, br, button, div, text)
 import Html.Attributes exposing (href, style)
@@ -9,6 +8,7 @@ import Html.Events exposing (onClick)
 import Http
 import Json.Decode as Decode
 import Set
+import Theme
 import TypedSvg exposing (line, path, svg)
 import TypedSvg.Attributes
     exposing
@@ -177,7 +177,7 @@ closeButton closeMsg =
             , height <| Px 24
             , viewBox 0 0 24 24
             , strokeWidth <| Px 1
-            , stroke (Paint Color.black)
+            , stroke (Paint <| Theme.toSvg Theme.darkWarm)
             , fill PaintNone
             , strokeLinecap StrokeLinecapRound
             , strokeLinejoin StrokeLinejoinRound
@@ -192,10 +192,12 @@ closeButton closeMsg =
 wrapIntoBox : List (Html msg) -> Html msg
 wrapIntoBox inner =
     div
-        [ style "background-color" "#fecaca"
+        [ style "background-color" (Theme.toCss Theme.errorBg)
+        , style "color" (Theme.toCss Theme.errorFg)
         , style "padding" "10px 30px 10px 15px"
         , style "margin" "5px"
-        , style "border-radius" "5px"
+        , style "border-radius" "8px"
+        , style "box-shadow" "0 6px 16px rgba(20, 20, 19, 0.10)"
         , style "position" "relative"
         ]
         inner

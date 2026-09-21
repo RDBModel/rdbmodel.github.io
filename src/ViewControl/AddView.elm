@@ -1,11 +1,11 @@
 module ViewControl.AddView exposing (Action(..), Model, Msg, init, subscriptions, update, view)
 
 import Browser.Events as Events
-import Color
 import Html exposing (Html, button, div, input, text)
 import Html.Attributes exposing (class, style, value)
 import Html.Events exposing (onBlur, onClick, onFocus, onInput)
 import Json.Decode as Decode
+import Theme
 import TypedSvg exposing (line, path, svg)
 import TypedSvg.Attributes
     exposing
@@ -108,7 +108,7 @@ view model =
                 , height <| Px 24
                 , viewBox 0 0 24 24
                 , strokeWidth <| Px 1
-                , stroke (Paint Color.black)
+                , stroke (Paint (Theme.toSvg Theme.darkWarm))
                 , fill PaintNone
                 , strokeLinecap StrokeLinecapRound
                 , strokeLinejoin StrokeLinejoinRound
@@ -120,8 +120,9 @@ view model =
             ]
         , if model.addNewViewBoxVisible then
             input
-                [ style "background-color" "white"
-                , style "border" "1px solid rgba(204, 204, 204, .6)"
+                [ style "background-color" (Theme.toCss Theme.ivory)
+                , style "border" ("1px solid " ++ Theme.toCss Theme.border)
+                , style "border-radius" "8px"
                 , class "elm-select-input"
                 , style "margin-top" "2px"
                 , style "min-height" "20px"

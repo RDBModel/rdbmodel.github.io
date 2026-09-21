@@ -34,9 +34,34 @@ function initEditor(initialValue) {
       fileMatch: [String(modelUri)],
     }],
   });
+  // Kami palette, mirrored from src/Theme.elm and index.html :root.
+  monaco.editor.defineTheme('rdb-parchment', {
+    base: 'vs',
+    inherit: true,
+    rules: [
+      { token: '', foreground: '3d3d3a' },
+      { token: 'type', foreground: '1B365D' },
+      { token: 'keyword', foreground: '1B365D' },
+      { token: 'string', foreground: '504e49' },
+      { token: 'number', foreground: '3d3d3a' },
+      { token: 'comment', foreground: '6b6a64', fontStyle: 'italic' }
+    ],
+    colors: {
+      'editor.background': '#f5f4ed',
+      'editor.foreground': '#3d3d3a',
+      'editorLineNumber.foreground': '#6b6a64',
+      'editor.selectionBackground': '#E4ECF5',
+      'editor.lineHighlightBackground': '#faf9f5',
+      'editorCursor.foreground': '#1B365D',
+      'editorWidget.background': '#faf9f5',
+      'editorWidget.border': '#e8e6dc',
+      'scrollbarSlider.background': '#6b6a6455',
+      'scrollbarSlider.hoverBackground': '#6b6a6488'
+    }
+  });
   model = monaco.editor.createModel(modifyYamlValue(initialValue), 'yaml', modelUri)
   editor = monaco.editor.create(document.getElementById('code-editor'), {
-    // theme: 'vs-dark',
+    theme: 'rdb-parchment',
     automaticLayout: true,
     model: model,
     //value: modifyYamlValue(initialValue),

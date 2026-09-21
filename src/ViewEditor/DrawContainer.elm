@@ -33,6 +33,7 @@ import TypedSvg.Types
         , Paint(..)
         , Transform(..)
         )
+import Theme
 import ViewEditor.MovingViewElements exposing (getSelectedElementKeysAndDeltas)
 import ViewEditor.Msg exposing (Msg(..))
 import ViewEditor.Types exposing (SelectedItem)
@@ -126,7 +127,7 @@ renderContainerInternal selected highlighted { key, name, description, xy, wh } 
                 PaintNone
 
             else
-                Paint <| Color.white
+                Paint <| Theme.toSvg Theme.ivory
 
         yValue =
             yCenter - h / 2
@@ -152,10 +153,10 @@ renderContainerInternal selected highlighted { key, name, description, xy, wh } 
                 , Attrs.stroke <|
                     Paint <|
                         if selected then
-                            Color.blue
+                            Theme.toSvg Theme.brand
 
                         else
-                            Color.black
+                            Theme.toSvg Theme.olive
                 , Attrs.strokeWidth <| Px 1
                 ]
                 []
@@ -182,23 +183,23 @@ renderContainerInternal selected highlighted { key, name, description, xy, wh } 
                          , style "border-bottom"
                             ("1px solid "
                                 ++ (if selected then
-                                        Color.blue |> Color.toCssString
+                                        Theme.toSvg Theme.brand |> Color.toCssString
 
                                     else
-                                        Color.black |> Color.toCssString
+                                        Theme.toSvg Theme.olive |> Color.toCssString
                                    )
                             )
                          , style "border-right"
                             ("1px solid "
                                 ++ (if selected then
-                                        Color.blue |> Color.toCssString
+                                        Theme.toSvg Theme.brand |> Color.toCssString
 
                                     else
-                                        Color.black |> Color.toCssString
+                                        Theme.toSvg Theme.olive |> Color.toCssString
                                    )
                             )
                          , style "border-radius" "0 0 3px 0"
-                         , style "background-color" (if highlighted then "yellow" else "white")
+                         , style "background-color" (if highlighted then Theme.toCss Theme.brandTint else Theme.toCss Theme.ivory)
                          , style "pointer-events" "all"
                          ]
                             ++ events
@@ -219,10 +220,10 @@ renderContainerInternal selected highlighted { key, name, description, xy, wh } 
                 , Attrs.stroke <|
                     Paint <|
                         if selected then
-                            Color.blue
+                            Theme.toSvg Theme.brand
 
                         else
-                            Color.black
+                            Theme.toSvg Theme.olive
                 , Attrs.strokeWidth <| Px 1
                 , id key
                 ]
@@ -246,7 +247,7 @@ renderContainerInternal selected highlighted { key, name, description, xy, wh } 
                         , style "text-align" "center"
                         , style "max-height" "100%"
                         , style "font-size" "14px"
-                        , style "background-color" (if highlighted then "yellow" else "white")
+                        , style "background-color" (if highlighted then Theme.toCss Theme.brandTint else Theme.toCss Theme.ivory)
                         ]
                         [ text (truncateName name) ]
                     ]

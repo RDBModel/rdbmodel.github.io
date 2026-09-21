@@ -1,6 +1,6 @@
 module SaveDomain.SaveDomain exposing (..)
 
-import Color
+import Theme
 import Html exposing (Html, button)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
@@ -42,7 +42,7 @@ view event =
             , height <| Px 24
             , viewBox 0 0 24 24
             , strokeWidth <| Px 1
-            , stroke (Paint Color.black)
+            , stroke (Paint (Theme.toSvg Theme.darkWarm))
             , fill PaintNone
             , strokeLinecap StrokeLinecapRound
             , strokeLinejoin StrokeLinejoinRound

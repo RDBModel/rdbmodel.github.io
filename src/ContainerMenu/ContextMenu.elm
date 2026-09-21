@@ -9,6 +9,7 @@ import Html.Attributes exposing (style)
 import Html.Events.Extra.Mouse as Mouse
 import Json.Decode as Decode
 import InPorts exposing (onWheel)
+import Theme
 
 
 type alias Model =
@@ -96,6 +97,9 @@ view model =
                 [ style "position" "fixed"
                 , style "left" ((state.position |> Tuple.first |> String.fromFloat) ++ "px")
                 , style "top" ((state.position |> Tuple.second |> String.fromFloat) ++ "px")
+                , style "background-color" (Theme.toCss Theme.ivory)
+                , style "border-radius" "8px"
+                , style "box-shadow" "0 6px 16px rgba(20, 20, 19, 0.12)"
                 , Mouse.onEnter (\_ -> EnterMenu)
                 , Mouse.onLeave (\_ -> LeaveMenu)
                 ]

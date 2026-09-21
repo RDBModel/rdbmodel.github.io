@@ -7,6 +7,7 @@ import Html exposing (Html, button, div, text)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
 import Select
+import Theme
 
 
 type alias SelectModel a =
@@ -104,10 +105,10 @@ view : Model -> Html Msg
 view model =
     div []
         [ button
-            [ style "background-color" "white"
+            [ style "background-color" (Theme.toCss Theme.ivory)
             , style "border-width" "1px 1px 0 1px"
             , style "border-style" "solid"
-            , style "border-color" "rgba(204, 204, 204, .6)"
+            , style "border-color" (Theme.toCss Theme.border)
             , style "width" "100%"
             , style "min-height" "24px"
             , style "padding" "0"

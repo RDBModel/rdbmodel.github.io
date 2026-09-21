@@ -60,6 +60,7 @@ import SplitPanel.Bound
         , getValue
         , updateValue
         )
+import Theme
 
 
 
@@ -642,9 +643,9 @@ defaultHorizontalSplitterStyle dragState =
 baseDefaultSplitterStyles : List (Attribute a)
 baseDefaultSplitterStyles =
     [ style "width" "100%"
-    , style "background" "#000"
+    , style "background" (Theme.toCss Theme.stone)
     , style "boxSizing" "border-box"
-    , style "opacity" ".2"
+    , style "opacity" ".35"
     , style "zIndex" "1"
     , style "webkitUserSelect" "none"
     , style "mozUserSelect" "none"

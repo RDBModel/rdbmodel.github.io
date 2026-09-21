@@ -1,157 +1,196 @@
 module Pages.Home exposing (view)
 
-import Color
 import Element
     exposing
         ( Element
         , alignRight
-        , alpha
         , centerX
-        , centerY
         , column
         , el
         , fill
-        , fillPortion
-        , height
         , image
         , link
+        , maximum
         , paddingXY
         , paragraph
         , px
-        , rgba
         , row
-        , shrink
         , spacing
+        , spacingXY
         , text
-        , textColumn
-        , width
         , wrappedRow
         )
 import Element.Background as Background
-import Element.Border exposing (rounded)
+import Element.Border as Border exposing (rounded)
 import Element.Font as Font
 import Html exposing (Html)
 import Route exposing (editorLinkDropbox, editorLinkInit, editorLinkMint, editorLinkPastebin, editorLinkQueryCache, editorLinkSalesRank, editorLinkScalingAws, editorLinkSocialGraph, editorLinkTwitter, editorLinkWebCrawler)
+import Theme
 
 
 view : Html msg
 view =
-    Element.layout [] indexMain
+    Element.layout Theme.pageAttributes indexMain
 
 
 indexMain : Element msg
 indexMain =
-    el [ width fill, height fill ]
-        mainPartShort
+    el [ widthFill, Element.height fill ] <| page
+
+
+widthFill : Element.Attribute msg
+widthFill =
+    Element.width fill
+
+
+page : Element msg
+page =
+    column
+        [ Element.width (maximum 980 fill)
+        , centerX
+        , paddingXY 24 56
+        , spacing 36
+        ]
+        [ header
+        , hero
+        , previewRow
+        , featureGrid
+        , actions
+        , footer
+        ]
 
 
 header : Element msg
 header =
-    row [ centerX, height <| px 50, spacing 20 ]
-        [ el [ Font.size 32 ] <| text "RDB modeling"
-        , el [ defaultFontSize, Font.light ] <| text "...a way to simplify your C4 model"
-        , link [ Color.blue |> mapColor |> Font.color, alignRight, Font.size 22 ] { label = text "[Source]", url = "https://github.com/RDBModel/rdbmodel.github.io" }
+    row [ widthFill, spacing 24 ]
+        [ el (Theme.headingAttributes ++ [ Font.size 44 ]) <| text "RDB modeling"
+        , el [ alignRight, Element.paddingXY 0 14 ] <|
+            link [ Font.color (Theme.toElement Theme.brand), Font.size 16 ]
+                { label = text "Source ↗", url = "https://github.com/RDBModel/rdbmodel.github.io" }
         ]
 
 
-mapColor : Color.Color -> Element.Color
-mapColor =
-    Color.toRgba >> (\{ red, green, blue, alpha } -> rgba red green blue alpha)
+hero : Element msg
+hero =
+    column [ widthFill, spacing 12 ]
+        [ paragraph [ Font.size 20, Font.color (Theme.toElement Theme.darkWarm) ]
+            [ text "Design and communicate software architecture with a simplified version of the C4 model. Describe your domain in YAML and see it as live diagrams." ]
+        ]
 
 
-editorLink : Element msg
-editorLink =
-    column []
-        [ el [ centerX, height <| px 120, paddingXY 0 15 ] (editorButton ( "Start new 🚀", editorLinkInit ))
-        , el [ centerX ] (text "Or check examples ☀️")
-        , wrappedRow [ spacing 10 ]
-            [ el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Pastebin", editorLinkPastebin ))
-            , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Dropbox", editorLinkDropbox ))
-            , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Twitter", editorLinkTwitter ))
-            , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Social graph", editorLinkSocialGraph ))
-            , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Web crawler", editorLinkWebCrawler ))
-            , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Mint", editorLinkMint ))
-            , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Query cache", editorLinkQueryCache ))
-            , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Sales rank", editorLinkSalesRank ))
-            , el [ height <| px 120, paddingXY 0 15 ] (editorButton ( "Scaling on AWS", editorLinkScalingAws ))
+previewRow : Element msg
+previewRow =
+    row [ widthFill, spacing 16 ]
+        [ previewCard "Diagram" "[VITE_PLUGIN_ELM_ASSET:/src/img/diagram.gif]"
+        , previewCard "Editor" "[VITE_PLUGIN_ELM_ASSET:/src/img/editor.gif]"
+        ]
+
+
+previewCard : String -> String -> Element msg
+previewCard label src =
+    column
+        [ Element.width (Element.fillPortion 1)
+        , spacing 8
+        ]
+        [ el [ Font.size 12, Font.color (Theme.toElement Theme.stone) ] (text label)
+        , el
+            ([ widthFill
+             , Element.padding 8
+             , Border.color (Theme.toElement Theme.border)
+             , Border.width 1
+             , rounded 8
+             ]
+                ++ Theme.cardAttributes
+            )
+            (image [ widthFill ] { src = src, description = label })
+        ]
+
+
+featureGrid : Element msg
+featureGrid =
+    wrappedRow [ widthFill, spacing 12 ]
+        [ featureCard "Written in YAML" "A short, readable document describes actors, systems, containers and components."
+        , featureCard "Many views" "Create as many views of the domain as you need to explain the system."
+        , featureCard "Interactive canvas" "Lay out elements and relations, zoom, pan and move between views."
+        , featureCard "Validation" "Inconsistencies in the model and its views are highlighted in the document."
+        , featureCard "The C4 model" "Actors, systems, containers and components, in the shape the C4 model defines."
+        , featureCard "Start anywhere" "Open one of the worked examples and adapt it to your own architecture."
+        ]
+
+
+featureCard : String -> String -> Element msg
+featureCard title body =
+    column
+        ([ Element.width (px 296)
+         , Element.padding 18
+         , spacing 6
+         , rounded 8
+         ]
+            ++ Theme.cardAttributes
+        )
+        [ el [ Font.family Theme.serifFamily, Font.size 18, Font.medium, Font.color (Theme.toElement Theme.nearBlack) ] <|
+            text title
+        , paragraph [ Font.size 14, Font.color (Theme.toElement Theme.olive) ] [ text body ]
+        ]
+
+
+actions : Element msg
+actions =
+    column [ widthFill, spacingXY 0 20, Element.paddingXY 0 8 ]
+        [ primaryButton ( "Start a new model", editorLinkInit )
+        , column [ spacing 12 ]
+            [ el [ Font.size 14, Font.color (Theme.toElement Theme.stone) ] <| text "Or open a worked example"
+            , wrappedRow [ spacing 10 ]
+                [ secondaryButton ( "Pastebin", editorLinkPastebin )
+                , secondaryButton ( "Dropbox", editorLinkDropbox )
+                , secondaryButton ( "Twitter", editorLinkTwitter )
+                , secondaryButton ( "Social graph", editorLinkSocialGraph )
+                , secondaryButton ( "Web crawler", editorLinkWebCrawler )
+                , secondaryButton ( "Mint", editorLinkMint )
+                , secondaryButton ( "Query cache", editorLinkQueryCache )
+                , secondaryButton ( "Sales rank", editorLinkSalesRank )
+                , secondaryButton ( "Scaling on AWS", editorLinkScalingAws )
+                ]
             ]
         ]
 
 
-editorButton : ( String, String ) -> Element msg
-editorButton ( txt, lnk ) =
-    el [ centerX, centerY ] <|
-        link [ Color.lightBlue |> mapColor |> Background.color, rounded 5 ]
-            { url = "/" ++ lnk
-            , label = el [ paddingXY 30 20, defaultFontSize ] <| text txt
-            }
+primaryButton : ( String, String ) -> Element msg
+primaryButton ( label, lnk ) =
+    link
+        [ Background.color (Theme.toElement Theme.brand)
+        , Font.color (Theme.toElement Theme.ivory)
+        , Font.size 17
+        , Font.medium
+        , rounded 8
+        , paddingXY 22 13
+        ]
+        { url = "/" ++ lnk, label = text label }
+
+
+secondaryButton : ( String, String ) -> Element msg
+secondaryButton ( label, lnk ) =
+    link
+        [ Background.color (Theme.toElement Theme.warmSand)
+        , Border.color (Theme.toElement Theme.border)
+        , Border.width 1
+        , Font.color (Theme.toElement Theme.darkWarm)
+        , Font.size 15
+        , rounded 8
+        , paddingXY 14 9
+        ]
+        { url = "/" ++ lnk, label = text label }
 
 
 footer : Element msg
 footer =
-    row [ centerX, paddingXY 0 15 ]
-        [ paragraph []
+    row [ widthFill, Border.widthEach { top = 1, bottom = 0, left = 0, right = 0 }, Border.color (Theme.toElement Theme.border), Element.paddingXY 0 20 ]
+        [ paragraph [ Font.size 14, Font.color (Theme.toElement Theme.stone) ]
             [ text "created by "
-            , link [ Color.blue |> mapColor |> Font.color ] { label = text "Yauhen Pyl", url = "https://www.linkedin.com/in/yauhenpyl/" }
+            , link [ Font.color (Theme.toElement Theme.brand) ] { label = text "Yauhen Pyl", url = "https://www.linkedin.com/in/yauhenpyl/" }
             ]
-        , paragraph [ alignRight, width shrink ]
-            [ text "written in ❤️ "
-            , link [ Color.blue |> mapColor |> Font.color ] { label = text "Elm lang", url = "https://elm-lang.org/" }
+        , paragraph [ alignRight, Element.width (Element.shrink), Font.size 14, Font.color (Theme.toElement Theme.stone) ]
+            [ text "written in "
+            , link [ Font.color (Theme.toElement Theme.brand) ] { label = text "Elm", url = "https://elm-lang.org/" }
             ]
         ]
-
-
-defaultFontSize : Element.Attr decorative msg
-defaultFontSize =
-    Font.size 28
-
-
-mainPartShort : Element msg
-mainPartShort =
-    textColumn [ centerX ]
-        [ header
-        , paragraph [ paddingXY 0 15 ] [ text "😎 This application allows to create and visualize software architecture using a simplified version of the C4 model" ]
-        , row [ spacing 15, paddingXY 0 15 ]
-            [ el [ width (fillPortion 2) ] (image [ width fill ] { src = "[VITE_PLUGIN_ELM_ASSET:/src/img/diagram.gif]", description = "diagram" })
-            , el [ width (fillPortion 2) ] (image [ width fill ] { src = "[VITE_PLUGIN_ELM_ASSET:/src/img/editor.gif]", description = "editor" })
-            ]
-        , paragraph [ paddingXY 0 15 ] [ text "✍ Intuitive interface makes it easy to create and edit yaml files that represent the domain of your application" ]
-        , paragraph [ paddingXY 0 15 ] [ text "\u{1FA9F} Multiple views of the domain can be created to better understand and communicate the relationships within the software system" ]
-        , paragraph [ paddingXY 0 15 ] [ text "🔎 Graphical interface allows to create and edit views, layout elements and edges, zoom, scroll, and navigate through the selected view" ]
-        , paragraph [ paddingXY 0 15 ] [ text "💣 RDB Model Web application highlights any inconsistencies in the model and views using error messages, ensuring the software architecture is clear and consistent" ]
-        , paragraph [ paddingXY 0 15 ] [ text "☝ The C4 model is a powerful tool for understanding and communicating the structure of the software system, and RDB Model Web application supports the four main types of entities in the model: actors, systems, containers, and components" ]
-        , paragraph [ paddingXY 0 15 ] [ text "👨\u{200D}🔬 Whether you're a seasoned software architect or just starting out, RDB Model Web application makes it easy to design and understand a software architecture" ]
-        , paragraph [ paddingXY 0 15 ] [ text "🎉 Start creating your C4 model today!" ]
-        , editorLink
-        , footer
-        ]
-
--- Create any new view for the domain
--- Edit any existing view
--- Select any view from existing views using dropdown or using direct link
--- Describe domain in the text editor using hints
-    -- Add name and desription for the domain
-    -- Add actors (name, description)
-    -- Add systems (external and target one) by providing names and descriptions
-    -- Add containers to the interested system (name and description)
-    -- Add components to the interested containers (name and description)
-    -- Add blocks to the interested components (name and description)
-    -- Add relations to all interested actors, systems, containers, components and blocks (short description and the target item)
--- Create a view for the created domain (plus button)
-    -- Add any type of items to the view
-    -- Move and adjust item position on the view by dragging the item box
-    -- Binding to grid can be enabled so items will be aligned to the grid
-    -- Right click on an added item to add relations from it to any other item on the view which is described in the domain
-    -- Right click on an added item to remove it from the view
-    -- Click on an arrow (relation) to modify its appearance on the view
-    -- Right click on the arrow (relation) to remove it from the view
-    -- Add any child item of the existing item and it will be placed inside the parent item (e.g. all containers will be inside its parent system)
-    -- Select multiple items on the view and move them on the view simultaneously
-    -- Hold Ctrl and click on the view to move up, down, left or right
-    -- Use button 'Move' to start navigating on view instead of item selecting
-    -- Use zoom buttons to zoom in and zoom out
-    -- Any action on view can be undone and redone (history)
--- Any inconsistency in domain and its views will be highlighted in the document
--- Many view can be added to represent different slices of the domain
--- Save the yaml to the local storage of the browser
--- Download/upload yaml

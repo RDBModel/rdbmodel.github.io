@@ -1,10 +1,10 @@
 module ViewEditor.DrawEdges exposing (drawEdge, edgeStrokeWidthExtend)
 
-import Color
 import Domain.Domain exposing (Edge, Vertex, ViewRelationKey, getViewRelationKeyFromEdge, getViewRelationKeyFromViewRelationPointKey)
 import Html.Attributes
 import Html.Events.Extra.Mouse as Mouse
 import Navigation.ViewNavigation as ViewNavigation
+import Theme
 import Path exposing (Path)
 import Shape exposing (linearCurve)
 import SubPath exposing (arcLength, arcLengthParameterized)
@@ -262,13 +262,13 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent drawCornerCircle
             [ SubPath.element curve
                 [ id idValue
                 , strokeWidth <| Px strokeWidthValue
-                , stroke <| Paint <| Color.black
+                , stroke <| Paint <| Theme.toSvg Theme.darkWarm
                 , fill <| PaintNone
                 ]
             , TypedSvg.path
                 ([ d (curve |> SubPath.toString)
                  , strokeWidth <| Px (strokeWidthValue + edgeStrokeWidthExtend)
-                 , stroke <| Paint <| Color.black
+                 , stroke <| Paint <| Theme.toSvg Theme.darkWarm
                  , strokeOpacity <| Opacity 0
                  , fill <| PaintNone
                  ]
@@ -295,14 +295,14 @@ edgeBetweenContainers edge addPointEvent removeOrDragPointEvent drawCornerCircle
                             in
                             TypedSvg.path
                                 ([ d (circleDot |> Path.toString)
-                                 , fill (Paint Color.white)
+                                 , fill (Paint (Theme.toSvg Theme.ivory))
                                  , stroke
                                     (Paint <|
                                         if List.member i selectedIndexes then
-                                            Color.blue
+                                            Theme.toSvg Theme.brand
 
                                         else
-                                            Color.black
+                                            Theme.toSvg Theme.darkWarm
                                     )
                                  , transform [ Translate dx dy ]
                                  ]

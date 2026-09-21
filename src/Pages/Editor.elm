@@ -3,7 +3,6 @@ module Pages.Editor exposing (Model, Msg, changeSelectedView, init, subscription
 import Browser exposing (Document)
 import Browser.Dom as Dom
 import Browser.Navigation as Nav
-import Color
 import Dict exposing (Dict)
 import Domain.Domain exposing (ViewItemKey(..))
 import Domain.DomainDecoder exposing (rdbDecoder)
@@ -28,6 +27,7 @@ import SaveDomain.SaveDomain as SaveDomain
 import Session exposing (Session)
 import SplitPanel.SplitPane as SplitPane exposing (Orientation(..), State, ViewConfig, createViewConfig)
 import Task
+import Theme
 import TypedSvg exposing (line, path, svg)
 import TypedSvg.Attributes
     exposing
@@ -377,7 +377,7 @@ editorViewPart showFileButton showLoading =
                     , height <| Px 24
                     , viewBox 0 0 24 24
                     , strokeWidth <| Px 1
-                    , stroke (Paint Color.black)
+                    , stroke (Paint <| Theme.toSvg Theme.darkWarm)
                     , fill PaintNone
                     , strokeLinecap StrokeLinecapRound
                     , strokeLinejoin StrokeLinejoinRound

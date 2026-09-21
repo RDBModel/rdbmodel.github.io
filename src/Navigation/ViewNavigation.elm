@@ -22,6 +22,7 @@ import Html.Attributes exposing (style, title, type_)
 import Html.Events exposing (onClick)
 import Json.Decode as Decode
 import OutPorts exposing (zoomMsgReceived)
+import Theme
 import TypedSvg exposing (circle, line, path, svg)
 import TypedSvg.Attributes
     exposing
@@ -128,17 +129,17 @@ view model =
     let
         backgroundColorForStickyButton =
             if model.stickyPositioning then
-                "#cccccc"
+                Theme.toCss Theme.chipBg
 
             else
-                "white"
+                Theme.toCss Theme.warmSand
 
         backgroundColorForMoveButton =
             if model.ctrlIsDown then
-                "#cccccc"
+                Theme.toCss Theme.chipBg
 
             else
-                "white"
+                Theme.toCss Theme.warmSand
     in
     div
         [ style "position" "absolute"

@@ -1,6 +1,6 @@
 module FilePicker exposing (..)
 
-import Color
+import Theme
 import Html exposing (Html, button, div)
 import Html.Attributes exposing (style, title, type_)
 import Html.Events exposing (onClick)
@@ -65,7 +65,7 @@ view =
                 , height <| Px 24
                 , viewBox 0 0 24 24
                 , strokeWidth <| Px 1
-                , stroke (Paint Color.black)
+                , stroke (Paint (Theme.toSvg Theme.darkWarm))
                 , fill PaintNone
                 , strokeLinecap StrokeLinecapRound
                 , strokeLinejoin StrokeLinejoinRound
@@ -91,7 +91,7 @@ view =
                 , height <| Px 24
                 , viewBox 0 0 24 24
                 , strokeWidth <| Px 1
-                , stroke (Paint Color.black)
+                , stroke (Paint (Theme.toSvg Theme.darkWarm))
                 , fill PaintNone
                 , strokeLinecap StrokeLinecapRound
                 , strokeLinejoin StrokeLinejoinRound

@@ -8,6 +8,7 @@ import Html exposing (Html, text)
 import Html.Attributes
 import Html.Events.Extra.Mouse as Mouse
 import Navigation.ViewNavigation as ViewNavigation
+import Theme
 import TypedSvg exposing (circle, defs, g, marker, pattern, rect, svg)
 import TypedSvg.Attributes as Attrs
     exposing
@@ -133,8 +134,8 @@ markerDot =
             [ cx <| Px 5
             , cy <| Px 5
             , r <| Px 3
-            , Attrs.fill <| Paint <| Color.white
-            , Attrs.stroke <| Paint <| Color.black
+            , Attrs.fill <| Paint <| Theme.toSvg Theme.ivory
+            , Attrs.stroke <| Paint <| Theme.toSvg Theme.darkWarm
             , Attrs.strokeWidth <| Px 1
             ]
             []
@@ -173,10 +174,10 @@ rectToSelect : ( Float, Float ) -> ( Float, Float ) -> Svg msg
 rectToSelect ( xValue, yValue ) ( w, h ) =
     rect
         [ x <| Px <| xValue
-        , fill <| Paint <| Color.blue
-        , fillOpacity <| Opacity 0.3
+        , fill <| Paint <| Theme.toSvg Theme.brand
+        , fillOpacity <| Opacity 0.15
         , y <| Px <| yValue
-        , stroke <| Paint <| Color.white
+        , stroke <| Paint <| Theme.toSvg Theme.brand
         , width <| Px <| w
         , height <| Px <| h
         ]
@@ -208,9 +209,10 @@ floatRemainderBy divisor n =
 
 
 emptySvg : List (Svg Msg) -> Html Msg
-emptySvg =
+emptySvg = 
     svg
         [ id "main-graph"
+        , Html.Attributes.style "background-color" (Theme.toCss Theme.parchment)
         , Attrs.width <| Percent 100
         , Attrs.height <| Percent 100
         , Mouse.onContextMenu (\_ -> NoOp)
@@ -234,7 +236,7 @@ innerGrid size =
             [ Attrs.width <| Percent 100
             , Attrs.height <| Percent 100
             , Attrs.fill PaintNone
-            , Attrs.stroke <| Paint <| Color.rgb255 204 204 204
+            , Attrs.stroke <| Paint <| Theme.toSvg Theme.borderSoft
             , strokeWidth <| Px 0.5
             ]
             []
@@ -260,7 +262,8 @@ grid ( x, y ) size =
             [ Attrs.width <| Percent 100
             , Attrs.height <| Percent 100
             , Attrs.fill <| Reference innerGridId
-            , Attrs.stroke <| Paint <| Color.rgb255 204 204 204
+            , Attrs.stroke <| Paint <| Theme.toSvg Theme.stone
+            , Attrs.strokeOpacity <| Opacity 0.18
             , strokeWidth <| Px 1.5
             ]
             []
