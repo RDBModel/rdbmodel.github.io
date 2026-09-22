@@ -32,4 +32,4 @@
 
 ## 6. Post-deploy check
 
-- [ ] 6.1 After the GitHub Pages deploy, open the live landing page and an example editor and confirm the parchment palette, serif heading, primary/secondary buttons, and parchment canvas are all served from the published build.
+- [x] 6.1 After the GitHub Pages deploy, open the live landing page and an example editor and confirm the parchment palette, serif heading, primary/secondary buttons, and parchment canvas are all served from the published build.
